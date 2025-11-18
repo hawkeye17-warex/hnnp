@@ -3,7 +3,7 @@
 This directory contains the reference implementation of the HNNP Cloud backend.
 It implements all server-side responsibilities defined in the v2 protocol specification, including presence verification, linking, webhook delivery, and data storage.
 
-All backend logic MUST follow: hnnp/protocol/spec.md
+All backend logic MUST follow: protocol/spec.md
 
 ---
 
@@ -17,10 +17,9 @@ All backend logic MUST follow: hnnp/protocol/spec.md
 - Create presence events and presence sessions
 - Emit signed webhooks to external systems
 - Expose REST APIs for:
-  - POST /v1/presence
-  - GET /v1/presence/events
-  - POST /v1/link
-  - DELETE /v1/link
+  - POST /v2/presence
+  - POST /v2/link
+  - DELETE /v2/link/{link_id}
 
 ---
 

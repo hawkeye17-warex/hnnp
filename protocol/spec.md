@@ -1,4 +1,4 @@
-# HNNP Protocol Specification v2 (Option A – Symmetric, Fast, Privacy-Preserving)
+# HNNP Protocol Specification v3 (Option A – Symmetric, Fast, Privacy-Preserving)
 
 This is the canonical v2 specification for the Human Near-Network Protocol (HNNP) using a symmetric-key design optimized for:
 
@@ -289,6 +289,8 @@ Receiver continuously scans for:
 
 - Advertisements matching the HNNP service/Manufacturer signature.
 - Payload length exactly 30 bytes.
+- Receiver MUST accept that the **same token_prefix will repeat multiple times** within its 15-second window.
+- Receiver MUST NOT assume each advertisement contains a *new* token.
 
 For each candidate packet:
 
@@ -304,9 +306,14 @@ For each candidate packet:
 Receiver SHOULD:
 
 - Reject packets with:
+
   - version not equal to 0x02 (unless explicitly supporting multiple versions).
   - obviously invalid time_slot (e.g., far future like > 10 years).
   - zero token_prefix + zero mac (noise).
+  - time_slot must be validated using  **15-second windowing** :
+    - `time_slot = floor(timestamp / 15)`
+
+  * Receiver SHOULD allow ±1 window tolerance for clock drift (i.e., accept current or previous window only).
 
 Receiver CANNOT verify mac (only Cloud can), so it forwards all candidate packets that pass basic structural checks.
 
@@ -334,6 +341,12 @@ Presence report:
 - mac (e.g., hex or base64)
 - signature
 
+`time_slot` represents the  **15-second token window** , not BLE interval.
+
+Receiver may receive  **multiple packets with the same time_slot** —these should produce separate presence reports only if payload changes or timestamps differ significantly (e.g., >5 seconds).
+
+Receiver SHOULD ignore duplicates of identical `(token_prefix, time_slot)` received within a **5-second suppress window** to reduce load during rush hours.
+
 ### 7.5 Sending Presence Reports
 
 Receiver sends:
@@ -347,15 +360,24 @@ On network failure:
 - Queue events locally, with retry.
 - Drop events older than max_skew_seconds.
 
+### **7.6 Token vs BLE Timing Clarification**
+
+* Device rotates tokens every **15 seconds** using deterministic time-slots.
+* BLE advertising frequency (300–2000 ms) is **independent** of this rotation.
+* Device may broadcast the same token_prefix **30–50 times** per slot.
+* Receiver MUST treat these as  **multiple broadcasts of the same active token** , not multiple different tokens.
+* Receiver only needs to capture **one valid packet per 15-second window** to confirm presence.
+* During high-density periods (rush hours), receiver should rely on **continuous scanning** to ensure packet capture inside each token window.
+
 ---
 
-8. CLOUD VERIFICATION AND PRESENCE PROCESSING (v2)
+# 8. CLOUD VERIFICATION AND PRESENCE PROCESSING (v2)
 
 ---
 
 On POST /v2/presence:
 
-8.1 Input Validation
+### 8.1 Input Validation
 
 Check presence report has:
 
@@ -370,7 +392,7 @@ Check presence report has:
 
 If missing or malformed → reject (HTTP 400).
 
-8.2 Receiver Lookup and Signature Verification
+### 8.2 Receiver Lookup and Signature Verification
 
 Find receiver_secret for (org_id, receiver_id).
 
@@ -384,13 +406,13 @@ expected_signature = HMAC-SHA256(receiver_secret,
 
 If constant_time_compare(expected_signature, signature) fails → reject (401).
 
-8.3 Timestamp Skew Check
+### 8.3 Timestamp Skew Check
 
 Let server_time = current UTC Unix time.
 
 If abs(server_time − timestamp) > max_skew_seconds → reject (400).
 
-8.4 Derive Preliminary Device ID (Anonymous)
+### 8.4 Derive Preliminary Device ID (Anonymous)
 
 Compute an anonymous device fingerprint that does NOT rely on device_auth_key:
 
@@ -401,14 +423,14 @@ Use full 32 bytes or a consistent truncation (e.g., 16–32 bytes) as device_id_
 
 This identifies a “cryptographic device” without requiring onboarding.
 
-8.5 Link and Registration Status
+### 8.5 Link and Registration Status
 
 For (org_id, device_id_base), Cloud maintains state:
 
 - unregistered: device has never provided device_auth_key (no cryptographic proof of origin).
 - registered: device has provided device_auth_key via onboarding, and Cloud has stored device_auth_key for this device_id.
 
-8.6 MAC Verification for Registered Devices
+### 8.6 MAC Verification for Registered Devices
 
 If state is registered:
 
@@ -433,7 +455,7 @@ If state is unregistered:
   - treat events as low-trust anonymous presence.
 - Once device is linked and registration finishes, future events are fully verifiable.
 
-8.7 Anti-Replay Rules
+### 8.7 Anti-Replay Rules
 
 Cloud MUST enforce:
 
@@ -447,7 +469,7 @@ Cloud SHOULD also detect and flag:
 
 - Same (org_id, device_id_base) appearing at multiple receivers far apart within an impossible time window.
 
-8.8 Device ID for Business Logic
+### 8.8 Device ID for Business Logic
 
 To maintain stable identity across time_slots:
 
@@ -474,7 +496,7 @@ If there is no active link:
   - first_seen_at
   - last_seen_at
 
-8.10 Event Persistence
+### 8.10 Event Persistence
 
 For each accepted presence:
 
@@ -491,7 +513,7 @@ Store presence_event:
 - presence_session_id (nullable)
 - suspicious flags (if any)
 
-8.11 Response to Receiver
+### 8.11 Response to Receiver
 
 On success, Cloud returns HTTP 200 with:
 
@@ -512,11 +534,11 @@ If unknown:
 
 ---
 
-9. LINK MANAGEMENT (v2)
+# 9. LINK MANAGEMENT (v2)
 
 ---
 
-9.1 Creating a Link (POST /v2/link)
+### 9.1 Creating a Link (POST /v2/link)
 
 Request body:
 
@@ -548,7 +570,7 @@ Response:
 - user_ref
 - device_id
 
-9.2 Revoking a Link (DELETE /v2/link/{link_id})
+### 9.2 Revoking a Link (DELETE /v2/link/{link_id})
 
 Cloud behavior:
 
@@ -564,18 +586,18 @@ Response:
 
 ---
 
-10. WEBHOOKS (v2)
+# 10. WEBHOOKS (v2)
 
 ---
 
-10.1 Event Types
+### 10.1 Event Types
 
 - presence.check_in
 - presence.unknown
 - link.created
 - link.revoked
 
-10.2 Payload Examples
+### 10.2 Payload Examples
 
 presence.check_in:
 
@@ -599,7 +621,7 @@ presence.unknown:
 - receiver_id
 - timestamp
 
-10.3 Webhook Signing
+### 10.3 Webhook Signing
 
 Headers:
 
@@ -614,7 +636,7 @@ External system MUST:
 
 ---
 
-11. DATA MODEL (CONCEPTUAL)
+# 11. DATA MODEL (CONCEPTUAL)
 
 ---
 
@@ -675,11 +697,11 @@ presence_events:
 
 ---
 
-12. SECURITY REQUIREMENTS (v2)
+# 12. SECURITY REQUIREMENTS (v2)
 
 ---
 
-12.1 Secret Management
+### 12.1 Secret Management
 
 - device_secret: only on device, hardware-backed where possible.
 - device_auth_key (Cloud side): stored encrypted (e.g., KMS-managed).
@@ -687,7 +709,7 @@ presence_events:
 - device_id_salt: stored only in Cloud secret manager.
 - webhook_secret: per-org, secret-managed.
 
-12.2 Constant-Time Checks
+### 12.2 Constant-Time Checks
 
 All checks on:
 
@@ -697,7 +719,7 @@ All checks on:
 
 MUST use constant-time comparison.
 
-12.3 Logging Restrictions
+### 12.3 Logging Restrictions
 
 MUST NOT log:
 
@@ -716,33 +738,43 @@ MAY log:
 - high-level stats
 - suspicious flags
 
-12.4 Anti-Replay
+### 12.4 Anti-Replay
 
-- Enforce max_skew_seconds.
-- Reject or flag duplicates of (org_id, device_id, receiver_id, time_slot).
-- Detect impossible movement patterns for device_id across receivers.
+* time_slot MUST be derived using **15-second windows** (i.e., `floor(timestamp / 15)` on both device + Cloud).
+* Cloud SHOULD accept time_slot within **±1 window tolerance** to handle receiver/phone clock drift, but MUST reject windows beyond that.
+* Reject duplicate presence reports with the same `(org_id, device_id, receiver_id, time_slot)` **unless the packet timestamp differs by ≥5 seconds** (to allow congestion-based retries).
+* Accept that multiple BLE packets with identical `(token_prefix, time_slot)` may exist; anti-replay applies to  **Cloud presence reports** , not raw BLE packets.
 
-12.5 Wormhole Mitigation (Recommended)
+### 12.5 Wormhole Mitigation (Recommended)
 
 To reduce wormhole attacks (remote replay in real-time), HNNP v2 recommends:
 
-- Optional local_beacon_nonce broadcast by receiver (e.g., via another BLE service).
-- Device includes local_beacon_nonce in full_token derivation when available:
+* Optional local_beacon_nonce broadcast by receiver (e.g., via another BLE service).
+* Device includes local_beacon_nonce in full_token derivation when available:
+* full_token = HMAC-SHA256(device_auth_key, encode_uint32(time_slot) || local_beacon_nonce || "hnnp_v2_presence")
+* Cloud checks that reported receiver is consistent with the nonces that device could have seen.
+* This makes simple remote replay harder unless attacker relays nonces in real-time.
+* When local_beacon_nonce is used, device MUST bind nonce to the  **current 15-second time_slot** ; replays across time_slots MUST be rejected.
 
-  full_token = HMAC-SHA256(device_auth_key,
-  encode_uint32(time_slot) || local_beacon_nonce || "hnnp_v2_presence")
-- Cloud checks that reported receiver is consistent with the nonces that device could have seen.
-- This makes simple remote replay harder unless attacker relays nonces in real-time.
+### **12.6 Token vs BLE Timing Security Constraints**
+
+To prevent timing-based replay attacks:
+
+* BLE advertising frequency (300–2000 ms) is independent from token rotation and MUST NOT be used as a security parameter.
+* Token rotation is the only security boundary; tokens MUST remain valid strictly within their  **15-second time_slot window** .
+* Device must generate a new token **immediately** when entering a new time_slot, even if BLE is delayed.
+* Cloud MUST reject any presence report whose time_slot does not match the expected 15-second boundary, except within allowed drift (±1 window).
+* Cloud MUST NOT assume BLE broadcast frequency provides any replay protection — all replay resistance is tied to the 15-second token windowing.
 
 Exact local_beacon_nonce mechanism is non-normative but MUST maintain anonymity (no IDs in nonce).
 
 ---
 
-13. PRIVACY AND ANONYMITY
+# 13. PRIVACY AND ANONYMITY
 
 ---
 
-13.1 Broadcast Anonymity
+### 13.1 Broadcast Anonymity
 
 BLE packets in v2 contain:
 
@@ -759,7 +791,7 @@ Observers cannot:
 - Directly link packets over long time without access to Cloud keys.
 - Recover device_secret or device_auth_key.
 
-13.2 Cloud-Only Identity Mapping
+### 13.2 Cloud-Only Identity Mapping
 
 Only Cloud (with device_id_salt and device_auth_key) can:
 
@@ -767,7 +799,7 @@ Only Cloud (with device_id_salt and device_auth_key) can:
 - Confirm MAC correctness.
 - Map presence to a link (user_ref) via external system.
 
-13.3 Cross-Org Isolation
+### 13.3 Cross-Org Isolation
 
 If implemented per-org:
 
@@ -777,7 +809,7 @@ If implemented per-org:
 
 ---
 
-14. VERSIONING
+# 14. VERSIONING
 
 ---
 
@@ -791,26 +823,56 @@ Receivers MAY:
 
 ---
 
-15. COMPLIANCE AND TESTING
+# 15. COMPLIANCE AND TESTING
 
 ---
 
 v2-compliant implementations MUST pass:
 
-- Token generation vectors:
-  - Given device_auth_key, time_slot, expected token_prefix and mac.
-- Receiver signature vectors:
-  - Given receiver_secret and inputs, expected signature.
-- Webhook signature vectors:
-  - Given webhook_secret, timestamp, payload, expected header.
-- End-to-end scenarios:
-  - Unknown device → presence.unknown → link created with registration_blob → registered device → presence.check_in with verified MAC.
-  - Duplicate events rejected or flagged.
-  - Time skew and replay rules enforced.
+
+Token generation vectors:
+
+- Given device_auth_key, time_slot, expected token_prefix and mac.
+
+Receiver signature vectors:
+
+- Given receiver_secret and inputs, expected signature.
+
+Webhook signature vectors:
+
+- Given webhook_secret, timestamp, payload, expected header.
+
+End-to-end scenarios:
+
+* Unknown device → presence.unknown → link created with registration_blob → registered device → presence.check_in with verified MAC.
+* Duplicate events rejected or flagged.
+* Time skew and replay rules enforced.
+
+### 15.1 New Test Requirements (ADD)
+
+Token timing vectors:
+
+- Verify device generates correct time_slot = floor(timestamp / 15).
+- Verify token rotates exactly every 15 seconds, with no overlap.
+
+BLE timing independence tests:
+
+- Ensure token rotation correctness does not depend on BLE advertising interval.
+- Validate that packets broadcast at any BLE interval still map to the same 15s time_slot.
+
+Duplicate suppression tests:
+
+- Ensure receiver suppresses duplicate (token_prefix, time_slot) packets within a 5-second window.
+- Ensure Cloud anti-replay rejects duplicates per (org_id, device_id, receiver_id, time_slot) unless timestamp differs by ≥5s.
+
+±1 time-slot drift acceptance:
+
+- Test Cloud acceptance of time_slot within ±1 window for clock drift.
+- Reject events outside allowed drift.
 
 ---
 
-16. NON-NORMATIVE IMPLEMENTATION GUIDANCE
+# 16. NON-NORMATIVE IMPLEMENTATION GUIDANCE
 
 ---
 
@@ -821,7 +883,7 @@ v2-compliant implementations MUST pass:
 
 ---
 
-17. CONCLUSION
+# 17. CONCLUSION
 
 ---
 
@@ -833,5 +895,7 @@ HNNP v2 (Option A symmetric) maintains:
 - Cryptographically verifiable presence for linked devices via device_auth_key.
 - Strong anti-replay and anomaly detection.
 - Reasonable mitigation of wormhole and spoofing.
+- Token rotation operates on a strict 15-second window, fully independent from BLE advertising frequency.
+- Reliability and low battery usage are achieved through decoupling: BLE handles delivery frequency, while cryptographic security depends solely on the 15-second token window.
 
-This file is the canonical v2 specification. Any production implementation of HNNP MUST follow this specification exactly.
+This file is the canonical v3 specification. Any production implementation of HNNP MUST follow this specification exactly.

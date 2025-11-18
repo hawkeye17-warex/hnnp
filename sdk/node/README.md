@@ -3,7 +3,7 @@
 This directory contains the official Node.js SDK for interacting with the HNNP Cloud backend.
 It implements REST API wrappers and webhook verification logic exactly as defined in the protocol specification.
 
-All SDK behavior MUST follow: hnnp/protocol/spec.md
+All SDK behavior MUST follow: protocol/spec.md
 
 ---
 

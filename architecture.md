@@ -55,7 +55,7 @@ Receiver responsibilities:
   - packet metadata as required
 - Compute
   `signature = HMAC-SHA256(receiver_secret, org_id || receiver_id || encode_uint32(time_slot) || token_prefix || encode_uint32(timestamp))`.
-- Send `POST /v1/presence` to the Cloud over HTTPS.
+- Send `POST /v2/presence` to the Cloud over HTTPS.
 - Queue offline events when network unavailable.
 - Drop events older than allowable skew configured in Cloud.
 
@@ -81,10 +81,9 @@ Backend tasks:
 - Create `presence_event` or `presence_session` depending on link status.
 - Emit webhook to external system.
 - Expose APIs:
-  - `POST /v1/presence`
-  - `GET /v1/presence/events`
-  - `POST /v1/link`
-  - `DELETE /v1/link`
+  - `POST /v2/presence`
+  - `POST /v2/link`
+  - `DELETE /v2/link/{link_id}`
 
 Stores:
 
@@ -108,7 +107,7 @@ Receives webhook events:
 External system responsibilities:
 
 - Store presence updates and apply business logic.
-- Process unknown presence, identify user, and call `POST /v1/link`.
+- Process unknown presence, identify user, and call `POST /v2/link`.
 - Update internal logs, queues, security systems, time tracking, etc.
 
 Webhook signing MUST be validated using Section 10.3 rules:

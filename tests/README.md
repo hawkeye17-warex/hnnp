@@ -2,7 +2,7 @@
 
 This directory contains the complete test suite for validating all components of the HNNP ecosystem, including mobile token generators, BLE packet assembly, receiver signature logic, and backend verification flow.
 
-All tests MUST align with: hnnp/protocol/spec.md
+All tests MUST align with: protocol/spec.md
 
 ---
 

@@ -2,7 +2,7 @@
 
 The HNNP Receiver is a lightweight software agent that listens for BLE broadcasts, validates HNNP packets, signs presence reports, and sends them to the HNNP Cloud backend.
 
-It implements all receiver-side responsibilities defined in: hnnp/protocol/spec.md
+It implements all receiver-side responsibilities defined in: protocol/spec.md
 
 ---
 
@@ -12,9 +12,9 @@ It implements all receiver-side responsibilities defined in: hnnp/protocol/spec.
 - Parsing HNNP BLE packet structure
 - Extracting version, flags, time_slot, token_prefix, mac
 - Validating packet integrity
-- Creating a presence report payload
-- Signing it using receiver_secret via HMAC
-- Sending POST /v1/presence to the Cloud
+- Creating a presence report payload (fields per v2 spec)
+- Signing it using receiver_secret via HMAC-SHA256
+- Sending POST /v2/presence to the Cloud
 - Retrying offline using local queue
 - Enforcing timestamp skew limits
 

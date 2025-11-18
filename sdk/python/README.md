@@ -3,7 +3,7 @@
 This directory contains the official Python SDK for interacting with the HNNP Cloud backend.
 It provides a simple, clean API client plus webhook verification utilities.
 
-All behavior MUST strictly follow: hnnp/protocol/spec.md
+All behavior MUST strictly follow: protocol/spec.md
 
 ---
 

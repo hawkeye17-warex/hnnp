@@ -3,7 +3,7 @@
 Welcome to the HNNP engineering environment.
 This document explains exactly how new developers should set up, run, and understand the HNNP ecosystem.
 
-Every implementation MUST follow: hnnp/protocol/spec.md
+Every implementation MUST follow: protocol/spec.md
 
 ---
 
@@ -12,7 +12,7 @@ Every implementation MUST follow: hnnp/protocol/spec.md
 This is mandatory.
 
 Open and read:
-hnnp/protocol/spec.md
+protocol/spec.md
 
 You are not allowed to write code before fully understanding:
 
@@ -74,7 +74,7 @@ Ensure device_secret is created and stored securely.
 4. External system handles event.
 
 Use test vectors in:
-hnnp/tests/vectors
+tests/vectors
 
 ---
 
@@ -111,7 +111,7 @@ pytest
 ## Step 10 — When in Doubt
 
 Return to:
-hnnp/protocol/spec.md
+protocol/spec.md
 
 It is the ONE source of truth.
 
@@ -123,5 +123,5 @@ Always refer to the spec.
 
 ## Reference
 
-Canonical specification: hnnp/protocol/spec.md
+Canonical specification: protocol/spec.md
 Repository architecture: architecture.md

@@ -3,7 +3,7 @@
 This module implements the Android version of the HNNP v2 mobile broadcaster.
 It is responsible for generating rotating presence tokens and advertising them via BLE using Android BLE APIs.
 
-All logic MUST follow: hnnp/protocol/spec.md
+All logic MUST follow: protocol/spec.md
 
 ---
 
