@@ -83,7 +83,7 @@ WEBHOOK_SECRET=your_org_webhook_secret
 
 ## Notes
 
-- HMAC verification MUST use exact rules defined in Section 8.3 of spec.md
+- HMAC verification MUST use exact rules defined in Section 10.3 of spec.md (v2).
 - All network calls MUST use HTTPS
 - Must not alter any packet format or cryptographic behavior
 

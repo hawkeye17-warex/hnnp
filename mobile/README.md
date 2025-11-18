@@ -1,76 +1,39 @@
-# HNNP iOS (Swift)
+# HNNP Mobile Broadcaster (Overview)
 
-This module implements the iOS version of the HNNP mobile broadcaster.
-It is responsible for generating rotating tokens and advertising them via BLE using CoreBluetooth.
+This directory contains the mobile implementations of the HNNP v2 broadcaster (Android and iOS).
+They are responsible for generating rotating presence tokens and advertising them via BLE.
 
-All logic MUST strictly follow the canonical specification in:
-hnnp/protocol/spec.md
-
----
-
-## Responsibilities
-
-- Generate and securely store device_secret using iOS Keychain
-- Compute time_slot = floor(unix_time / T)
-- Generate full_token = HMAC(device_secret, time_slot || "presence")
-- Extract token_prefix (16 bytes)
-- Compute mac (4 bytes)
-- Construct BLE advertisement payload exactly as the spec defines
-- Broadcast BLE packets using CoreBluetooth CBPeripheralManager
-- Maintain broadcasting even in background (iOS-permitted modes)
+All logic MUST strictly follow the canonical v2 specification in:
+`../protocol/spec.md`
 
 ---
 
-## Setup
+## Responsibilities (v2)
 
-Open the Xcode project inside this directory.
+For each device (Android/iOS), implementations MUST:
 
-Add the following to Info.plist:
-
-NSBluetoothAlwaysUsageDescription = "HNNP requires Bluetooth to broadcast presence tokens"
-UIBackgroundModes = bluetooth-peripheral
-
----
-
-## File Structure
-
-TokenGenerator.swift
-BleAdvertiser.swift
-SecureStorage.swift
-HnnpBroadcaster.swift
-AppDelegate.swift
-
----
-
-## Notes
-
-- iOS requires "bluetooth-peripheral" background entitlement for BLE advertising.
-- Apple may throttle advertising when the app is killed; this is OS behavior.
-- BLE payload MUST match the exact byte structure defined in spec.md:
-  version (1 byte)
-  flags (1 byte)
-  time_slot (4 bytes, big endian)
-  token_prefix (16 bytes)
-  mac (4 bytes)
-- device_secret MUST be stored in Keychain and never logged.
-- All HMAC operations must use SHA256 and big-endian for encoding time_slot.
+- Generate and securely store `device_secret` using platform-secure storage (Keystore/Keychain).
+- Derive `device_auth_key = HMAC-SHA256(device_secret, "hnnp_device_auth_v2")`.
+- Compute `time_slot = floor(unix_time / T)` with `T` from the spec (recommended 15s).
+- Compute
+  `full_token = HMAC-SHA256(device_auth_key, encode_uint32(time_slot) || "hnnp_v2_presence")`.
+- Extract `token_prefix` as the first 16 bytes of `full_token`.
+- Compute
+  `mac_full = HMAC-SHA256(device_auth_key, version || flags || encode_uint32(time_slot) || token_prefix)`
+  and `mac = first 8 bytes` of `mac_full`.
+- Construct the v2 BLE advertisement payload exactly as defined in Sections 5 and 6 of `spec.md`:
+  - version: 1 byte (0x02)
+  - flags: 1 byte
+  - time_slot: 4 bytes (uint32, big-endian)
+  - token_prefix: 16 bytes
+  - mac: 8 bytes
+- Broadcast BLE packets using the platform BLE APIs, respecting privacy and power guidance in the spec.
 
 ---
 
-## Testing
+## Platform-Specific Docs
 
-Use vector files from:
-hnnp/tests/vectors
+- Android: `android/README.md`
+- iOS: `ios/README.md`
 
-Validate:
-
-- token_prefix generation
-- mac generation
-- byte ordering
-- packet assembly
-
----
-
-## Reference
-
-Full protocol spec: ../../protocol/spec.md
+Both platform READMEs and implementations MUST remain consistent with `protocol/spec.md` v2.

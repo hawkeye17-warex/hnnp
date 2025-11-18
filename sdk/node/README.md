@@ -85,7 +85,7 @@ WEBHOOK_SECRET=your_org_webhook_secret
 
 ## Notes
 
-- Webhook signing follows the HMAC rules in Section 8.3 of the spec.
+- Webhook signing follows the HMAC rules in Section 10.3 of the v2 spec.
 - All network calls use HTTPS.
 - SDK MUST NOT alter any packet formats or cryptographic logic.
 

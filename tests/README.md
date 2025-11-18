@@ -28,7 +28,7 @@ All tests MUST align with: hnnp/protocol/spec.md
 2. BLE Packet Assembly Tests
 
    - Check byte order (big-endian)
-   - Check lengths: version(1), flags(1), time_slot(4), prefix(16), mac(4)
+   - Check lengths (v2): version(1), flags(1), time_slot(4), prefix(16), mac(8)
    - Ensure mobile implementations match backend parser
 3. Signature Verification Tests
 

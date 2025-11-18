@@ -1,7 +1,7 @@
 # HNNP Backend
 
 This directory contains the reference implementation of the HNNP Cloud backend.
-It implements all server-side responsibilities defined in the protocol specification, including presence verification, linking, webhook delivery, and data storage.
+It implements all server-side responsibilities defined in the v2 protocol specification, including presence verification, linking, webhook delivery, and data storage.
 
 All backend logic MUST follow: hnnp/protocol/spec.md
 
@@ -10,8 +10,9 @@ All backend logic MUST follow: hnnp/protocol/spec.md
 ## Responsibilities
 
 - Accept presence reports from receivers
-- Verify receiver signatures
-- Derive device_id from token_prefix and time_slot
+- Verify receiver signatures (HMAC-SHA256, constant-time comparison)
+- Derive device_id_base and device_id using device_id_salt, time_slot, and token_prefix as defined in the v2 spec (Sections 8.4 and 8.8)
+- Enforce anti-replay and timestamp skew rules
 - Match presence events to existing links
 - Create presence events and presence sessions
 - Emit signed webhooks to external systems
