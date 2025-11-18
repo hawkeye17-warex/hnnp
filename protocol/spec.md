@@ -1,424 +1,837 @@
-# HNNP Protocol Specification (v0.1.0)
+# HNNP Protocol Specification v2 (Option A – Symmetric, Fast, Privacy-Preserving)
 
-Human Near-Node Protocol (HNNP) is a secure, privacy-preserving protocol for determining whether a device is physically near a receiver node. It uses rotating BLE-broadcast tokens and authenticated presence reports to create a verifiable "physical presence event."
+This is the canonical v2 specification for the Human Near-Network Protocol (HNNP) using a symmetric-key design optimized for:
 
-This document is the **master specification** for:
+- Very low battery usage on devices
+- No internet requirement on devices
+- Strong anonymity (no identity in BLE)
+- Cryptographic authenticity for linked devices
+- Strict anti-replay rules
+- Defense against naive spoofing and basic wormhole attacks
+- Reasonable resistance to reverse engineering
 
-- Device behavior (token generation, BLE advertising)
-- Receiver behavior (BLE scanning, report signing)
-- Cloud behavior (token verification, event classification)
-- Cryptography (HMAC-based tokens + device identification)
-- Linking model (device_id ↔ org_id ↔ user_ref)
-- APIs, webhooks, data models
-- Security constraints and threat model
-- Implementation guidance
-
-All HNNP-compatible components MUST conform to this specification.
+All implementations MUST strictly follow this specification. Any deviation (field sizes, crypto primitives, verification rules) is non-compliant.
 
 ---
 
-# 1. Goals and Non-Goals
-
-## 1.1 Goals
-
-- Provide cryptographically strong proof of **physical proximity** to a receiver.
-- Function even when the **device has no internet**.
-- Be **privacy-preserving**: no static MACs, no device identifiers in BLE packets.
-- Enable organizations to link devices to their internal identifiers (user_ref).
-- Support **software-only receivers** (PCs, tablets, Pi, access controllers).
-- Expose **simple, clean HTTP APIs** for external systems.
-- Provide a scalable presence protocol with future support for hardware receivers/OEMs.
-
-## 1.2 Non-Goals
-
-- Not intended to provide GPS-like global location.
-- Not a replacement for identity verification/KYC.
-- Not a biometric authentication system.
-- Does not define UI/UX; only protocol-level behavior.
+# 0. THREAT MODEL AND GOALS
 
 ---
 
-# 2. Core Concepts
+### 0.1 Threat Model (simplified)
 
-## 2.1 Entities
+We assume:
 
-### **Device**
+- Attackers can:
+  - Sniff all BLE traffic.
+  - Replay BLE packets.
+  - Run their own receivers.
+  - Decompile apps (reverse engineer code), but NOT trivially extract secrets from hardware-backed storage.
+- Stronger attackers:
+  - May root/jailbreak their own device and obtain that device’s secrets.
+  - CANNOT compromise the HNNP Cloud (device_id_salt, org secrets).
+  - CANNOT compromise all devices at once.
 
-- A phone or BLE-capable token generating rotating presence tokens.
-- Contains a secret `device_secret` (32 bytes).
-- Cloud assigns an internal `device_id` which is **never broadcast**.
+We design HNNP v2 to:
 
-### **Receiver**
+- Make it cryptographically hard to:
+  - Forge valid tokens for a linked device without its keys.
+  - Mass-spoof presence for many users.
+- Preserve privacy:
+  - No stable identifiers in air.
+  - No user identity in BLE.
+- Allow:
+  - Devices to remain fully offline.
+  - Zero interaction at check-in time (one-time onboarding allowed).
+- Mitigate (not fully eliminate) wormhole/teleport attacks:
+  - Make them detectable and operationally expensive.
 
-- Software agent scanning BLE advertisements.
-- Identified by `receiver_id`, authenticated by `receiver_secret`.
-- Reports presence to Cloud via signed POST requests.
+### 0.2 Goals
 
-### **HNNP Cloud**
+- Anonymous rotating tokens over BLE.
+- Cryptographically verifiable presence for linked devices.
+- Strong anti-replay rules.
+- Strong key management and secret separation.
+- Clear upgrade path for future versions.
 
-- Validates presence reports.
-- Derives `device_id` from tokens.
-- Manages link relationships.
-- Sends webhooks for presence events.
+### 0.3 Non-Goals
 
-### **Organization (org)**
-
-- Logical tenant (clinic, gym, school, office, etc.)
-- Identified by `org_id`.
-
-### **External System**
-
-- Any system consuming presence events (HR platform, gym software, EMR, etc.).
-
-## 2.2 Link Model
-
-A link is: (device_id, org_id) → user_ref
-
-- Created by external system using `POST /v1/link`.
-- Allows future presence events to be mapped to a specific user.
-
-A device may be linked to many orgs independently.
-
----
-
-# 3. Time & Token Model
-
-## 3.1 Time Slot
-
-Token rotation is based on discrete time windows:
-
-time_slot = floor(unix_time / T)
-
-Where:
-
-- `unix_time`: current UTC timestamp (seconds)
-- `T`: time window (10–30 seconds recommended)
-
-Both device and cloud MUST use the same `T`.
-
-## 3.2 Notation
-
-- `HMAC(key, msg)` = HMAC-SHA256
-- `||` = byte concatenation
-- `first_N_bytes()` = left-truncate
-- Endianness: **big-endian**
+- Perfect elimination of all wormhole attacks (no passive system can do this fully).
+- GPS-level location assurance.
+- Identity/KYC; external systems handle user identity.
 
 ---
 
-# 4. BLE Advertisement Packet
-
-HNNP uses non-connectable BLE advertising packets.
-
-## 4.1 Packet Structure
-
-| Version | Flags | Time Slot | Token Prefix | MAC (truncated) |
-| ------- | ----- | --------- | ------------ | --------------- |
-| 1 byte  | 1byte | 4 bytes   | 16 bytes     | 4 bytes         |
-
-### Version (1 byte)
-
-- Current = `0x01`.
-
-### Flags (1 byte)
-
-- Bitfield for optional features.
-- v0.1.0 = `0x00`.
-
-### Time Slot (4 bytes)
-
-- uint32 representation of `time_slot`.
-
-### Token Prefix (16 bytes)
-
-Generated as: 
-
-full_token = HMAC(device_secret, encode(time_slot) || "presence")
-
-token_prefix = first_16_bytes(full_token)
-
-### MAC (4 bytes)
-
-Integrity check:
-
-mac_full = HMAC(device_secret,Version || Flags || TimeSlot || TokenPrefix)
-
-mac = first_4_bytes(mac_full)
-
-## 4.2 Privacy Guarantees
-
-- No permanent identifier in BLE.
-- Tokens rotate every time slot.
-- Cloud salt prevents observers from mapping tokens to identities.
+# 1. TERMINOLOGY
 
 ---
 
-# 5. Cryptography
+- Device: Mobile app instance on a phone that broadcasts HNNP tokens.
+- Receiver: Node (software/hardware) that listens for BLE, signs reports, and forwards to Cloud.
+- HNNP Cloud: Backend that verifies presence, derives device_id, manages links, and emits webhooks.
+- Org: Tenant / customer using HNNP.
+- user_ref: External system user identifier (employee ID, customer ID, etc.).
+- device_id: Internal identifier for a device as seen by HNNP Cloud.
+- Link: Binding between (org_id, device_id) and user_ref.
+- Presence Event: Single processed presence detection.
+- Presence Session: A grouping of presence events for an unknown device before linking.
+- Webhook: HTTP POST from Cloud to an external system to notify of events.
 
-## 5.1 Device Secret
+---
 
-device_secret: 32 bytes random
+# 2. CRYPTOGRAPHIC PRIMITIVES
 
-Stored in secure OS storage.
+---
 
-## 5.2 Token Generation on Device
+All cryptography MUST use:
 
-time_slot = floor(unix_time / T)
+- HMAC-SHA256 for all MACs and signatures.
+- Big-endian for integer encodings.
+- UTF-8 for strings.
+- Constant-time comparisons for all signature and MAC checks.
 
-full_token = HMAC(device_secret,
+No other hash/MAC algorithms are allowed in v2.
 
-encode(time_slot) || context)
+---
 
-token_prefix = first_16_bytes(full_token)
+# 3. SECRETS AND KEYS
 
-mac_full = HMAC(device_secret,Version || Flags || encode(time_slot) || token_prefix)
+---
 
-mac = first_4_bytes(mac_full)
+### 3.1 Device Secret (device_secret)
 
-## 5.3 Deriving device_id (Cloud-side)
+Each device generates at install time:
 
-Cloud uses a server-side secret salt:
+- device_secret: 32 random bytes (cryptographically secure RNG).
 
-device_id_full = HMAC(device_id_salt,
+Rules:
 
-token_prefix || encode(time_slot))
+- Generated locally, stored only on device, in OS secure storage:
+  - Android: Keystore / EncryptedSharedPreferences.
+  - iOS: Keychain / Secure Enclave when available.
+- Never transmitted over network or stored in logs.
+- Never shared directly with Cloud.
 
-device_id = first_16_bytes(device_id_full)
+### 3.2 Device Auth Key (device_auth_key)
 
-Optional per-org derivation: 
+To allow Cloud to verify tokens for linked devices, we derive a verifiable key:
 
-HMAC(device_id_salt, org_id || token_prefix || time_slot)
+- device_auth_key = HMAC-SHA256(device_secret, "hnnp_device_auth_v2")
 
+This key:
 
-# 6. Receiver Behavior
+- Remains on device until onboarding/linking.
+- During one-time onboarding, the device can expose a derived public registration blob:
 
-## 6.1 Credentials
+  - registration_blob = HMAC-SHA256(device_auth_key, "hnnp_reg_v2") plus a random device_local_id.
+- External system sends registration_blob to Cloud when creating a link.
+- Cloud stores device_auth_key (or a derived variant) associated with device_id.
+- After this, Cloud can verify tokens for that device.
+
+Details of onboarding transport (QR, NFC, deep link, etc.) are non-normative but MUST be secure.
+
+### 3.3 Receiver Secret (receiver_secret)
 
 Each receiver has:
 
-receiver_id
+- receiver_secret: 32 random bytes.
 
-receiver_secret
+Rules:
 
-org_id
+- Stored securely on receiver (config, env, or secure module).
+- Distributed via secure provisioning from Cloud.
+- Used by receiver to sign presence reports.
 
-## 6.2 BLE Scanning
+### 3.4 Device ID Salt (device_id_salt)
 
-Receiver MUST:
+For each org, the Cloud stores:
 
-1. Scan BLE advertisements.
-2. Filter packets matching HNNP identifier.
-3. Parse fields (version, flags, time_slot, token_prefix, mac).
+- device_id_salt: 32 random bytes (Cloud-only).
 
-## 6.3 Presence Report
+Used to derive device_id from tokens.
+
+### 3.5 Webhook Secret (webhook_secret)
+
+Per org:
+
+- webhook_secret: secret used to sign outgoing webhooks.
+
+Stored in Cloud secret storage / KMS.
+
+---
+
+# 4. TIME MODEL
+
+---
+
+### 4.1 Time Slot
+
+Let:
+
+- T = token rotation window in seconds. Recommended: T = 15.
+
+For a device:
+
+- unix_time = current UTC timestamp in seconds.
+- time_slot = floor(unix_time / T).
+
+#### 4.2 Skew
+
+Cloud enforces:
+
+- max_skew_seconds = 120 (recommended).
+
+If |server_time − timestamp| > max_skew_seconds → event rejected.
+
+---
+
+# 5. TOKEN GENERATION (DEVICE SIDE, v2)
+
+---
+
+v2 ensures that Cloud can cryptographically verify tokens for linked devices using device_auth_key.
+
+For each time_slot:
+
+Inputs:
+
+- device_auth_key (derived from device_secret).
+- time_slot (uint32 big-endian).
+- context string "hnnp_v2_presence".
+
+### 5.1 Full Token
+
+full_token = HMAC-SHA256(device_auth_key, encode_uint32(time_slot) || "hnnp_v2_presence")
+
+### 5.2 Token Prefix
+
+token_prefix = first 16 bytes of full_token  (128 bits)
+
+### 5.3 Packet MAC (authenticator)
+
+To authenticate the packet structure per device:
+
+mac_full = HMAC-SHA256(device_auth_key,
+                       version || flags || encode_uint32(time_slot) || token_prefix)
+
+mac = first 8 bytes of mac_full  (64 bits)
+
+Note:
+
+- We now use 8 bytes (64 bits) instead of 4 bytes for mac to make forgery probability extremely small.
+- Cloud can recompute mac for linked devices using stored device_auth_key and reject invalid packets.
+
+---
+
+# 6. BLE PACKET STRUCTURE (v2)
+
+---
+
+BLE payload fields:
+
+- version: 1 byte
+- flags: 1 byte
+- time_slot: 4 bytes (uint32, big-endian)
+- token_prefix: 16 bytes
+- mac: 8 bytes
+
+Total length = 1 + 1 + 4 + 16 + 8 = 30 bytes.
+
+### 6.1 Version
+
+- version = 0x02 (HNNP v2 symmetric design).
+- v1 implementations used 0x01; these are now legacy.
+
+### 6.2 Flags
+
+- 1-byte bitfield for future options.
+- For v2 base spec: SHOULD be 0x00.
+- Bits MAY be used for future features (e.g., low-power hints, local beacon binding).
+
+### 6.3 Placement in BLE Advertise Payload
+
+Device MUST place this 30-byte payload in:
+
+- Manufacturer Data field, or
+- Service Data field with a pre-agreed service UUID.
+
+BLE packet MUST NOT include:
+
+- Any personal identifiers.
+- Static device names tied to users.
+- Debug strings that leak environment.
+
+Advertising characteristics:
+
+- Non-connectable advertisement recommended.
+- Interval around 200–500 ms (implementation dependent).
+
+---
+
+# 7. RECEIVER BEHAVIOR (v2)
+
+---
+
+### 7.1 Configuration
+
+Receiver is configured with:
+
+- org_id
+- receiver_id
+- receiver_secret
+- api_base_url (Cloud endpoint)
+
+All communication to Cloud MUST be over HTTPS.
+
+### 7.2 BLE Scanning
+
+Receiver continuously scans for:
+
+- Advertisements matching the HNNP service/Manufacturer signature.
+- Payload length exactly 30 bytes.
+
+For each candidate packet:
+
+- Parse:
+  - version (1 byte)
+  - flags (1 byte)
+  - time_slot (4 bytes)
+  - token_prefix (16 bytes)
+  - mac (8 bytes)
+
+### 7.3 Local Filtering
+
+Receiver SHOULD:
+
+- Reject packets with:
+  - version not equal to 0x02 (unless explicitly supporting multiple versions).
+  - obviously invalid time_slot (e.g., far future like > 10 years).
+  - zero token_prefix + zero mac (noise).
+
+Receiver CANNOT verify mac (only Cloud can), so it forwards all candidate packets that pass basic structural checks.
+
+### 7.4 Presence Report Construction
+
+For each valid packet:
+
+- timestamp = current UTC Unix time (seconds).
+
+Compute receiver signature:
+
+signature = HMAC-SHA256(receiver_secret,
+                        org_id || receiver_id || encode_uint32(time_slot) ||
+                        token_prefix || encode_uint32(timestamp))
+
+Presence report:
+
+- org_id
+- receiver_id
+- timestamp
+- time_slot
+- version
+- flags
+- token_prefix (e.g., hex or base64)
+- mac (e.g., hex or base64)
+- signature
+
+### 7.5 Sending Presence Reports
 
 Receiver sends:
 
-```json
-{
-  "org_id": "org_123",
-  "receiver_id": "rx_789",
-  "timestamp": 1731900000,
-  "ble_payload": "...",
-  "token_prefix": "...",
-  "time_slot": 17319000,
-  "signature": "..."
-}
-```
+- POST /v2/presence
 
-Signature: signature = HMAC(receiver_secret, org_id || receiver_id || time_slot || token_prefix || timestamp)
+Body is JSON containing the fields above.
 
+On network failure:
 
-## 6.4 Retry & Offline Behavior
+- Queue events locally, with retry.
+- Drop events older than max_skew_seconds.
 
-* Must queue events locally if offline.
-* Must drop events older than allowed skew (Cloud configurable).
+---
 
-<pre class="overflow-visible!" data-start="5444" data-end="5520"><div class="contain-inline-size rounded-2xl relative bg-token-sidebar-surface-primary"><div class="sticky top-9"><div class="absolute end-0 bottom-0 flex h-9 items-center pe-2"><div class="bg-token-bg-elevated-secondary text-token-text-secondary flex items-center gap-4 rounded-sm px-2 font-sans text-xs"></div></div></div><div class="overflow-y-auto p-4" dir="ltr"></div></div></pre>
+8. CLOUD VERIFICATION AND PRESENCE PROCESSING (v2)
 
+---
 
-# 7. Cloud API
+On POST /v2/presence:
 
-All requests use HTTPS + JSON.
+8.1 Input Validation
 
-## 7.1 POST /v1/presence
+Check presence report has:
 
-Submit presence report.
+- org_id
+- receiver_id
+- timestamp
+- time_slot
+- version
+- token_prefix
+- mac
+- signature
 
-### Request
+If missing or malformed → reject (HTTP 400).
 
-(above JSON)
+8.2 Receiver Lookup and Signature Verification
 
-### Cloud Behavior
+Find receiver_secret for (org_id, receiver_id).
 
-1. Validate signature.
-2. Validate timestamp skew.
-3. Derive `device_id`.
-4. Check for `(device_id, org_id)` link.
-5. Save presence event.
-6. Trigger webhook.
+If none → reject (HTTP 401/404).
 
-### Response (linked)
+Recompute:
 
-{
-  "status": "accepted",
-  "event_id": "evt_123",
-  "linked": true,
-  "link_id": "link_456",
-  "user_ref": "user_001"
-}
+expected_signature = HMAC-SHA256(receiver_secret,
+                                 org_id || receiver_id || encode_uint32(time_slot) ||
+                                 token_prefix || encode_uint32(timestamp))
 
-Response (unknown)
+If constant_time_compare(expected_signature, signature) fails → reject (401).
 
-{
-  "status": "accepted",
-  "linked": false,
-  "presence_session_id": "psess_789"
-}
+8.3 Timestamp Skew Check
 
+Let server_time = current UTC Unix time.
 
-## 7.2 GET /v1/presence/events
+If abs(server_time − timestamp) > max_skew_seconds → reject (400).
 
-List presence events.
+8.4 Derive Preliminary Device ID (Anonymous)
 
-Example response:
+Compute an anonymous device fingerprint that does NOT rely on device_auth_key:
 
-{
-  "events": [
-    {
-      "event_id": "evt_123",
-      "user_ref": "emp_45",
-      "timestamp": 1731900000
-    }
-  ],
-  "next_cursor": "abc"
-}
+device_id_base = HMAC-SHA256(device_id_salt,
+                             encode_uint32(time_slot) || token_prefix)
 
+Use full 32 bytes or a consistent truncation (e.g., 16–32 bytes) as device_id_base.
 
-## 7.3 POST /v1/link
+This identifies a “cryptographic device” without requiring onboarding.
 
-Link unknown presence to user_ref.
+8.5 Link and Registration Status
 
-{
-  "org_id": "org_123",
-  "presence_session_id": "psess_789",
-  "user_ref": "emp_45"
-}
+For (org_id, device_id_base), Cloud maintains state:
 
-Returns:
+- unregistered: device has never provided device_auth_key (no cryptographic proof of origin).
+- registered: device has provided device_auth_key via onboarding, and Cloud has stored device_auth_key for this device_id.
 
-{ "status": "linked", "link_id": "link_456" }
+8.6 MAC Verification for Registered Devices
 
+If state is registered:
 
-## 7.4 DELETE /v1/link
+- Fetch device_auth_key for device_id_base.
+- Recompute:
 
-<pre class="overflow-visible!" data-start="7322" data-end="7384"><div class="contain-inline-size rounded-2xl relative bg-token-sidebar-surface-primary"><div class="sticky top-9"><div class="absolute end-0 bottom-0 flex h-9 items-center pe-2"><div class="bg-token-bg-elevated-secondary text-token-text-secondary flex items-center gap-4 rounded-sm px-2 font-sans text-xs"></div></div></div><div class="overflow-y-auto p-4" dir="ltr"><code class="whitespace-pre! language-json"><span><span>{</span><span>
-  </span><span>"org_id"</span><span>:</span><span></span><span>"org_123"</span><span>,</span><span>
-  </span><span>"link_id"</span><span>:</span><span></span><span>"link_456"</span><span>
-</span><span>}</span><span>
-</span></span></code></div></div></pre>
+  mac_full = HMAC-SHA256(device_auth_key,
+  version || flags || encode_uint32(time_slot) || token_prefix)
 
-Returns:
+  expected_mac = first 8 bytes of mac_full.
+- If constant_time_compare(expected_mac, mac) fails:
 
-<pre class="overflow-visible!" data-start="7396" data-end="7481"><div class="contain-inline-size rounded-2xl relative bg-token-sidebar-surface-primary"><div class="sticky top-9"><div class="absolute end-0 bottom-0 flex h-9 items-center pe-2"><div class="bg-token-bg-elevated-secondary text-token-text-secondary flex items-center gap-4 rounded-sm px-2 font-sans text-xs"></div></div></div><div class="overflow-y-auto p-4" dir="ltr"><code class="whitespace-pre! language-json"><span><span>{</span><span>
-  </span><span>"status"</span><span>:</span><span></span><span>"revoked"</span><span>,</span><span>
-  </span><span>"link_id"</span><span>:</span><span></span><span>"link_456"</span><span>,</span><span>
-  </span><span>"revoked_at"</span><span>:</span><span></span><span>"..."</span><span>
-</span><span>}</span></span></code></div></div></pre>
+  - Mark event as suspicious and either:
+    - reject outright (recommended), or
+    - accept with a `suspicious: true` flag (for debugging).
+  - Recommended: reject for fully hardened mode.
 
+If state is unregistered:
 
-# 8. Webhooks
+- Cloud MAY:
+  - skip mac verification (no key yet).
+  - treat events as low-trust anonymous presence.
+- Once device is linked and registration finishes, future events are fully verifiable.
 
-## 8.1 Types
+8.7 Anti-Replay Rules
 
-* `presence.check_in`
-* `presence.unknown`
-* `link.created`
-* `link.revoked`
+Cloud MUST enforce:
 
-## 8.2 Structure
+- For each (org_id, device_id_base, receiver_id, time_slot):
+  - Only the first valid event is marked as normal.
+  - Subsequent events in the same time_slot from the same receiver may be:
+    - rejected, or
+    - stored but flagged as duplicates.
 
-Example:
+Cloud SHOULD also detect and flag:
 
-<pre class="overflow-visible!" data-start="7621" data-end="7742"><div class="contain-inline-size rounded-2xl relative bg-token-sidebar-surface-primary"><div class="sticky top-9"><div class="absolute end-0 bottom-0 flex h-9 items-center pe-2"><div class="bg-token-bg-elevated-secondary text-token-text-secondary flex items-center gap-4 rounded-sm px-2 font-sans text-xs"></div></div></div><div class="overflow-y-auto p-4" dir="ltr"><code class="whitespace-pre! language-json"><span><span>{</span><span>
-  </span><span>"type"</span><span>:</span><span></span><span>"presence.check_in"</span><span>,</span><span>
-  </span><span>"event_id"</span><span>:</span><span></span><span>"evt_123"</span><span>,</span><span>
-  </span><span>"timestamp"</span><span>:</span><span></span><span>1731900000</span><span>,</span><span>
-  </span><span>"user_ref"</span><span>:</span><span></span><span>"emp_45"</span><span>
-</span><span>}</span><span>
-</span></span></code></div></div></pre>
+- Same (org_id, device_id_base) appearing at multiple receivers far apart within an impossible time window.
 
-## 8.3 Signing
+8.8 Device ID for Business Logic
+
+To maintain stable identity across time_slots:
+
+device_id = HMAC-SHA256(device_id_salt, "hnnp_v2_id" || device_id_base)
+
+This internal device_id is used for all linking and presence history internally.
+
+8.9 Link Resolution
+
+If there is an active link:
+
+- (org_id, device_id) → (link_id, user_ref)
+
+Then:
+
+- Event classified as linked presence.check_in.
+- presence_session is not needed.
+
+If there is no active link:
+
+- Event classified as unknown presence.
+- Cloud creates or updates a presence_session for (org_id, device_id) with:
+  - presence_session_id
+  - first_seen_at
+  - last_seen_at
+
+8.10 Event Persistence
+
+For each accepted presence:
+
+Store presence_event:
+
+- event_id
+- org_id
+- receiver_id
+- device_id
+- timestamp
+- time_slot
+- version
+- link_id (nullable)
+- presence_session_id (nullable)
+- suspicious flags (if any)
+
+8.11 Response to Receiver
+
+On success, Cloud returns HTTP 200 with:
+
+If linked:
+
+- status: "accepted"
+- linked: true
+- event_id
+- link_id
+- user_ref
+
+If unknown:
+
+- status: "accepted"
+- linked: false
+- event_id
+- presence_session_id
+
+---
+
+9. LINK MANAGEMENT (v2)
+
+---
+
+9.1 Creating a Link (POST /v2/link)
+
+Request body:
+
+- org_id
+- presence_session_id
+- user_ref
+- registration_blob (optional but recommended for full security)
+
+Cloud behavior:
+
+1) Resolve presence_session_id → device_id.
+2) If registration_blob present:
+   - Validate registration_blob using device_auth_key derivation rules.
+   - Store device_auth_key for device_id.
+   - Mark device state as registered.
+3) Create link:
+   - link_id
+   - org_id
+   - device_id
+   - user_ref
+   - created_at
+   - active = true
+4) Emit webhook: link.created.
+
+Response:
+
+- status: "linked"
+- link_id
+- user_ref
+- device_id
+
+9.2 Revoking a Link (DELETE /v2/link/{link_id})
+
+Cloud behavior:
+
+- Mark link as revoked with revoked_at.
+- Future presence events will no longer resolve to that link.
+- Emit webhook: link.revoked.
+
+Response:
+
+- status: "revoked"
+- link_id
+- revoked_at
+
+---
+
+10. WEBHOOKS (v2)
+
+---
+
+10.1 Event Types
+
+- presence.check_in
+- presence.unknown
+- link.created
+- link.revoked
+
+10.2 Payload Examples
+
+presence.check_in:
+
+- type: "presence.check_in"
+- event_id
+- org_id
+- device_id
+- link_id
+- user_ref
+- receiver_id
+- timestamp
+- suspicious (optional boolean for anomalies)
+
+presence.unknown:
+
+- type: "presence.unknown"
+- event_id
+- org_id
+- device_id
+- presence_session_id
+- receiver_id
+- timestamp
+
+10.3 Webhook Signing
 
 Headers:
 
-X-HNNP-Timestamp: `<unix>`
-X-HNNP-Signature: HMAC(webhook_secret, timestamp || raw_body)
-External systems MUST verify both.
+- X-HNNP-Timestamp: unix timestamp (string).
+- X-HNNP-Signature: hex of HMAC-SHA256(webhook_secret, timestamp || raw_body).
 
+External system MUST:
 
-# 9. Data Model (Conceptual)
+- Recompute expected = HMAC-SHA256(webhook_secret, timestamp || raw_body).
+- Constant-time compare with X-HNNP-Signature.
+- Optionally reject if timestamp is too old.
 
-Tables Cloud must maintain:
+---
 
-* `devices(device_id, created_at)`
-* `links(link_id, device_id, org_id, user_ref, created_at, revoked_at?)`
-* `presence_events(event_id, device_id, org_id, receiver_id, timestamp, linked)`
-* `presence_sessions(presence_session_id, device_id, first_seen)`
-* `receivers(receiver_id, org_id, receiver_secret, created_at)`
+11. DATA MODEL (CONCEPTUAL)
 
-# 10. Security Requirements
+---
 
-## 10.1 Device
+Cloud SHOULD maintain:
 
-* `device_secret` MUST be stored securely.
-* Never exposed or logged.
+devices:
 
-## 10.2 Receiver
+- device_id
+- device_id_base
+- org_id (or global)
+- first_seen_at
+- registered (bool)
 
-* Must use TLS.
-* Must validate clock drift.
-* Must not store secrets in logs.
+device_keys (for registered devices):
 
-## 10.3 Cloud
+- org_id
+- device_id
+- device_auth_key (encrypted at rest)
+- registration_at
 
-* Must validate all signatures.
-* Must reject stale presence events.
-* Must preserve org isolation.
-* Must use constant-time signature comparisons.
+receivers:
 
-# 11. Sequence Diagrams
+- org_id
+- receiver_id
+- receiver_secret (encrypted)
+- created_at
+- last_seen_at
 
-## 11.1 Linked Presence
+links:
 
-<pre class="overflow-visible!" data-start="8720" data-end="8854"><div class="contain-inline-size rounded-2xl relative bg-token-sidebar-surface-primary"><div class="sticky top-9"><div class="absolute end-0 bottom-0 flex h-9 items-center pe-2"><div class="bg-token-bg-elevated-secondary text-token-text-secondary flex items-center gap-4 rounded-sm px-2 font-sans text-xs"></div></div></div><div class="overflow-y-auto p-4" dir="ltr"><code class="whitespace-pre!"><span><span>Device</span><span></span><span>→</span><span></span><span>Receiver :</span><span></span><span>BLE</span><span></span><span>packet</span><span>
-</span><span>Receiver</span><span></span><span>→</span><span></span><span>Cloud :</span><span></span><span>presence</span><span></span><span>report</span><span></span><span>(signed)</span><span>
-</span><span>Cloud</span><span></span><span>→</span><span></span><span>External System :</span><span></span><span>webhook</span><span></span><span>presence.check_in</span><span>
-</span></span></code></div></div></pre>
+- link_id
+- org_id
+- device_id
+- user_ref
+- created_at
+- revoked_at (nullable)
 
-## 11.2 Unknown → Link Flow
+presence_sessions:
 
-<pre class="overflow-visible!" data-start="8885" data-end="9096"><div class="contain-inline-size rounded-2xl relative bg-token-sidebar-surface-primary"><div class="sticky top-9"><div class="absolute end-0 bottom-0 flex h-9 items-center pe-2"><div class="bg-token-bg-elevated-secondary text-token-text-secondary flex items-center gap-4 rounded-sm px-2 font-sans text-xs"></div></div></div><div class="overflow-y-auto p-4" dir="ltr"><code class="whitespace-pre!"><span><span>Device → Receiver : BLE packet
-Receiver → Cloud : presence report
-Cloud → </span><span>External</span><span></span><span>System</span><span> : webhook presence.unknown
-</span><span>External</span><span></span><span>System</span><span> → Cloud : POST /v1/link
-Cloud → </span><span>External</span><span></span><span>System</span><span> : webhook link.created</span></span></code></div></div></pre>
+- presence_session_id
+- org_id
+- device_id
+- first_seen_at
+- last_seen_at
+- resolved_at (nullable)
 
+presence_events:
 
-# 12. Extensibility & Versioning
+- event_id
+- org_id
+- device_id
+- receiver_id
+- timestamp
+- time_slot
+- link_id (nullable)
+- presence_session_id (nullable)
+- suspicious_flags (bitmask or JSON)
 
-* Version is in BLE packet (`Version` byte).
-* Breaking changes require new version byte.
-* Flags byte can enable optional future features.
-* All changes MUST be documented in `spec.md` with a changelog.
+---
 
-# 13. Implementation Guidance (Non-Normative)
+12. SECURITY REQUIREMENTS (v2)
 
-* Use typed languages (Go, TS) for backend and SDKs.
-* Share test vectors across mobile and backend.
-* Do not spread cryptographic code across files—centralize it.
-* Ensure BLE advertising uses lowest practical TX power for privacy.
-* Cloud should run presence verification in O(1) or O(log n) time.
-* Receivers should use batched sending during high detection periods.
-* Implement rate-limiting per receiver to prevent spam/Evil twin attacks.
+---
 
-# ✅ Done.
+12.1 Secret Management
+
+- device_secret: only on device, hardware-backed where possible.
+- device_auth_key (Cloud side): stored encrypted (e.g., KMS-managed).
+- receiver_secret: stored as a secret; never logged.
+- device_id_salt: stored only in Cloud secret manager.
+- webhook_secret: per-org, secret-managed.
+
+12.2 Constant-Time Checks
+
+All checks on:
+
+- receiver signature
+- mac
+- webhook signatures
+
+MUST use constant-time comparison.
+
+12.3 Logging Restrictions
+
+MUST NOT log:
+
+- device_secret
+- device_auth_key
+- receiver_secret
+- device_id_salt
+- webhook_secret
+- mac values in full (for production; truncated logs for debugging only, and never with real traffic).
+
+MAY log:
+
+- event_id
+- org_id
+- receiver_id
+- high-level stats
+- suspicious flags
+
+12.4 Anti-Replay
+
+- Enforce max_skew_seconds.
+- Reject or flag duplicates of (org_id, device_id, receiver_id, time_slot).
+- Detect impossible movement patterns for device_id across receivers.
+
+12.5 Wormhole Mitigation (Recommended)
+
+To reduce wormhole attacks (remote replay in real-time), HNNP v2 recommends:
+
+- Optional local_beacon_nonce broadcast by receiver (e.g., via another BLE service).
+- Device includes local_beacon_nonce in full_token derivation when available:
+
+  full_token = HMAC-SHA256(device_auth_key,
+  encode_uint32(time_slot) || local_beacon_nonce || "hnnp_v2_presence")
+- Cloud checks that reported receiver is consistent with the nonces that device could have seen.
+- This makes simple remote replay harder unless attacker relays nonces in real-time.
+
+Exact local_beacon_nonce mechanism is non-normative but MUST maintain anonymity (no IDs in nonce).
+
+---
+
+13. PRIVACY AND ANONYMITY
+
+---
+
+13.1 Broadcast Anonymity
+
+BLE packets in v2 contain:
+
+- version
+- flags
+- time_slot
+- token_prefix (128-bit pseudorandom)
+- mac (64-bit pseudorandom from device_auth_key)
+
+No user identity, no static ID, no phone number, no patient ID.
+
+Observers cannot:
+
+- Directly link packets over long time without access to Cloud keys.
+- Recover device_secret or device_auth_key.
+
+13.2 Cloud-Only Identity Mapping
+
+Only Cloud (with device_id_salt and device_auth_key) can:
+
+- Derive internal device_id.
+- Confirm MAC correctness.
+- Map presence to a link (user_ref) via external system.
+
+13.3 Cross-Org Isolation
+
+If implemented per-org:
+
+- Each org has its own device_id_salt and device_auth_key namespace.
+- device_id is not globally shared across orgs.
+- No org can see another org’s links or presence, by design.
+
+---
+
+14. VERSIONING
+
+---
+
+- version byte = 0x02 for this spec.
+- v1 (0x01) is legacy and SHOULD be deprecated over time.
+- Any future breaking changes MUST increment version to 0x03 and define new rules.
+
+Receivers MAY:
+
+- Support both v1 and v2 in transition, but MUST clearly distinguish them.
+
+---
+
+15. COMPLIANCE AND TESTING
+
+---
+
+v2-compliant implementations MUST pass:
+
+- Token generation vectors:
+  - Given device_auth_key, time_slot, expected token_prefix and mac.
+- Receiver signature vectors:
+  - Given receiver_secret and inputs, expected signature.
+- Webhook signature vectors:
+  - Given webhook_secret, timestamp, payload, expected header.
+- End-to-end scenarios:
+  - Unknown device → presence.unknown → link created with registration_blob → registered device → presence.check_in with verified MAC.
+  - Duplicate events rejected or flagged.
+  - Time skew and replay rules enforced.
+
+---
+
+16. NON-NORMATIVE IMPLEMENTATION GUIDANCE
+
+---
+
+- T = 15 seconds is a good default rotation.
+- Advertising interval 200–500 ms is a good balance.
+- Backend in TypeScript/Node, Receiver in Python, Mobile in Kotlin/Swift are recommended stacks.
+- Use Docker + managed Postgres + KMS for Cloud deployment.
+
+---
+
+17. CONCLUSION
+
+---
+
+HNNP v2 (Option A symmetric) maintains:
+
+- Strong anonymity and privacy.
+- No device internet requirement.
+- Extremely low battery use on devices.
+- Cryptographically verifiable presence for linked devices via device_auth_key.
+- Strong anti-replay and anomaly detection.
+- Reasonable mitigation of wormhole and spoofing.
+
+This file is the canonical v2 specification. Any production implementation of HNNP MUST follow this specification exactly.
