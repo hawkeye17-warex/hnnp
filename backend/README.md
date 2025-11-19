@@ -42,6 +42,14 @@ npm run dev
 
 ---
 
+## Seeding (dev/test)
+
+- Ensure `DATABASE_URL` is set (or `.env.test` for test DBs).
+- Run: `npm run db:seed`
+- This creates `test_org`, receivers `R1`/`R2` with dev secrets, and a dev API key (raw key printed to the terminal; only shown once).
+
+---
+
 ## Environment Variables
 
 DATABASE_URL=

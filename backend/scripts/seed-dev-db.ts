@@ -1,7 +1,7 @@
 import "dotenv/config";
 import { prisma } from "../src/db/prisma";
-import * as crypto from "crypto";
 import argon2 from "argon2";
+import { createApiKeyForOrg } from "../src/security/apiKeys";
 
 async function main() {
   const org = await prisma.org.upsert({
@@ -37,30 +37,24 @@ async function main() {
     });
   }
 
-  const r1 = await upsertReceiver("R1", "dev-secret-R1");
-  const r2 = await upsertReceiver("R2", "dev-secret-R2");
+  await upsertReceiver("R1", "dev-secret-R1");
+  await upsertReceiver("R2", "dev-secret-R2");
 
-  const apiKeyRaw = crypto.randomBytes(32).toString("hex");
-  const apiKeyPrefix = apiKeyRaw.slice(0, 8);
-  const apiKeyHash = await argon2.hash(apiKeyRaw);
+  // Remove any existing dev keys for this org to avoid duplicate prefixes.
+  await prisma.apiKey.deleteMany({ where: { orgId: org.id } });
 
-  const apiKey = await prisma.apiKey.upsert({
-    where: { keyPrefix: apiKeyPrefix },
-    update: {},
-    create: {
-      orgId: org.id,
-      name: "Dev API key",
-      keyPrefix: apiKeyPrefix,
-      keyHash: apiKeyHash,
-      scopes: "admin",
-    },
+  const { rawKey, keyPrefix } = await createApiKeyForOrg({
+    orgId: org.id,
+    name: "Dev API key",
+    scopes: ["admin:read", "admin:write"].join(","),
+    env: "test",
   });
 
   console.log("Seeded test_org, receivers R1/R2, and API key:");
   console.log("org_id: test_org");
   console.log("receiver_ids: R1, R2");
-  console.log("API key (store securely for dev use):", apiKeyRaw);
-  console.log("API key prefix:", apiKey.keyPrefix);
+  console.log("API key (store securely for dev use):", rawKey);
+  console.log("API key prefix:", keyPrefix);
   console.log("Receiver dev secrets:");
   console.log("R1: dev-secret-R1");
   console.log("R2: dev-secret-R2");
@@ -74,4 +68,3 @@ main()
   .finally(async () => {
     await prisma.$disconnect();
   });
-
