@@ -2,8 +2,12 @@ import { Router, Request, Response } from "express";
 import argon2 from "argon2";
 import type { Org, Prisma, Receiver } from "@prisma/client";
 import { prisma } from "../db/prisma";
+import { apiKeyAuth } from "../middleware/apiKeyAuth";
 
 const router = Router();
+
+// Protect all org/receiver admin routes with API key auth.
+router.use(apiKeyAuth);
 
 function serializeOrg(org: Org) {
   return {

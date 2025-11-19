@@ -10,7 +10,7 @@ export interface GeneratedApiKey {
   hash: string;
 }
 
-function computeApiKeyHash(rawKey: string, secret: string): string {
+export function computeApiKeyHash(rawKey: string, secret: string): string {
   return crypto.createHmac("sha256", Buffer.from(secret, "utf8")).update(rawKey, "utf8").digest("hex");
 }
 
@@ -44,4 +44,3 @@ export async function createApiKeyForOrg(params: {
 
   return { rawKey: generated.rawKey, keyPrefix: generated.prefix };
 }
-
