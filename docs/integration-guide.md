@@ -2,17 +2,17 @@
 
 This guide explains how to build new HNNP v2 clients (devices) and receivers that interoperate with the Cloud backend defined in `protocol/spec.md`.
 
-It is **descriptive**, not normative – the canonical source of truth remains:
+It is **descriptive**, not normative � the canonical source of truth remains:
 
-- `protocol/spec.md` (HNNP Protocol Specification v3 – canonical v2 behavior)
+- `protocol/spec.md` (HNNP Protocol Specification v3 � canonical v2 behavior)
 
 Read this guide together with the spec; any conflicts MUST be resolved in favor of `spec.md`.
 
 ---
 
-## 1. Time model and 15‑second token window
+## 1. Time model and 15-second token window
 
-HNNP v2 is built around a fixed 15‑second token window:
+HNNP v2 is built around a fixed 15-second token window:
 
 - Let `T = 15` seconds.
 - Let `unix_time` be the current UTC time in seconds.
@@ -26,15 +26,15 @@ This rule is applied consistently:
 
 - **Device**: uses `time_slot` to derive tokens and BLE packet MACs.
 - **Receiver**: validates that decoded packets use a reasonable `time_slot` close to its own clock.
-- **Cloud**: recomputes `server_slot = floor(server_time / 15)` and enforces drift and anti‑replay.
+- **Cloud**: recomputes `server_slot = floor(server_time / 15)` and enforces drift and anti-replay.
 
 Skew and drift:
 
 - Cloud enforces `max_skew_seconds` ?ecommended 120s):  
-  `|server_time - timestamp| > max_skew_seconds` ?� reject.
-- Cloud and receiver both treat `time_slot` in **15‑second windows** and allow a small drift window (±1 slot) to tolerate clock differences.
+  `|server_time - timestamp| > max_skew_seconds` ?? reject.
+- Cloud and receiver both treat `time_slot` in **15-second windows** and allow a small drift window (�1 slot) to tolerate clock differences.
 
-**Key point:** all security decisions are made in terms of the 15‑second `time_slot`, not BLE packet timing.
+**Key point:** all security decisions are made in terms of the 15-second `time_slot`, not BLE packet timing.
 
 ---
 
@@ -49,18 +49,18 @@ Two time scales are intentionally independent:
    - Tokens MUST be updated immediately when the device crosses into a new `time_slot`.
 
 2. **BLE advertising interval**
-   - The 30‑byte HNNP v2 payload is broadcast as a BLE advertisement:
-     - Recommended interval: roughly 300–500 ms in active mode.
-     - Background or low‑power modes can use 1000–2000 ms or pause advertising.
-   - During one `time_slot` (15 seconds), the device may emit the **same token_prefix** tens of times (e.g., 30–50 packets).
+   - The 30-byte HNNP v2 payload is broadcast as a BLE advertisement:
+     - Recommended interval: roughly 300�500 ms in active mode.
+     - Background or low-power modes can use 1000�2000 ms or pause advertising.
+   - During one `time_slot` (15 seconds), the device may emit the **same token_prefix** tens of times (e.g., 30�50 packets).
 
 Why they are independent:
 
 - BLE advertising cadence is for **visibility and reliability**, not security.
-- All replay and anti‑replay guarantees come from:
-  - The 15‑second `time_slot` window.
+- All replay and anti-replay guarantees come from:
+  - The 15-second `time_slot` window.
   - Cryptographic MACs and signatures.
-  - Cloud’s anti‑replay rules.
+  - Cloud�s anti-replay rules.
 - Cloud MUST NOT treat BLE advertising frequency as a security parameter.
 
 Practical implementation rules:
@@ -69,7 +69,7 @@ Practical implementation rules:
   - Maintain a scheduler that:
     - Tracks current `time_slot` based on `unix_time`.
     - Regenerates tokens immediately on `time_slot` change.
-    - Keeps a separate repeating timer for BLE broadcasts (e.g., every 300–500 ms).
+    - Keeps a separate repeating timer for BLE broadcasts (e.g., every 300�500 ms).
 - Receiver:
   - Treat multiple packets with the same `(time_slot, token_prefix)` as repeated broadcasts of the **same** token, not new tokens.
 
@@ -81,7 +81,7 @@ Practical implementation rules:
 
 From `spec.md` (Sections 3 and 5):
 
-- Generate a 32‑byte **device_secret** at install time using a CSPRNG.
+- Generate a 32-byte **device_secret** at install time using a CSPRNG.
   - Store only in OS secure storage:
     - Android: Keystore / EncryptedSharedPreferences.
     - iOS: Keychain / Secure Enclave when available.
@@ -128,16 +128,16 @@ mac = first 8 bytes of mac_full   (64 bits)
 Where:
 
 - `version` is `0x02` (1 byte).
-- `flags` is a 1‑byte bitfield; for v2 base spec it SHOULD be `0x00`.
-- `encode_uint32` uses big‑endian encoding.
+- `flags` is a 1-byte bitfield; for v2 base spec it SHOULD be `0x00`.
+- `encode_uint32` uses big-endian encoding.
 
 ### 3.4 BLE packet layout (30 bytes)
 
-The 30‑byte HNNP v2 payload is:
+The 30-byte HNNP v2 payload is:
 
 - `version`: 1 byte (`0x02`).
 - `flags`: 1 byte.
-- `time_slot`: 4 bytes (uint32, big‑endian).
+- `time_slot`: 4 bytes (uint32, big-endian).
 - `token_prefix`: 16 bytes.
 - `mac`: 8 bytes.
 
@@ -147,7 +147,7 @@ Placement:
 
 - Put this payload in:
   - Manufacturer Data, or
-  - Service Data with a pre‑agreed service UUID.
+  - Service Data with a pre-agreed service UUID.
 
 Privacy:
 
@@ -164,12 +164,12 @@ registration_blob = HMAC-SHA256(device_auth_key, "hnnp_reg_v2")
 
 Notes:
 
-- `device_local_id` is a random per‑device value used only for onboarding flow.
+- `device_local_id` is a random per-device value used only for onboarding flow.
 - The blob is typically transported via:
   - QR code.
   - Deep link.
   - Other secure OOB channel.
-- The exact transport format is non‑normative as long as:
+- The exact transport format is non-normative as long as:
   - The blob remains confidential.
   - It cannot be trivially forged or guessed.
 
@@ -239,13 +239,13 @@ Receiver continuously scans for BLE advertisements:
 2. Parse:
    - `version` (1 byte)
    - `flags` (1 byte)
-   - `time_slot` (4 bytes, big‑endian)
+   - `time_slot` (4 bytes, big-endian)
    - `token_prefix` (16 bytes)
    - `mac` (8 bytes)
 3. Apply **local filters**:
    - `version == 0x02` (unless explicitly supporting multiple versions).
    - `time_slot` not unreasonably far in the future:
-     - E.g., interpret as seconds ≈ `time_slot * 15` and reject values more than 10 years ahead.
+     - E.g., interpret as seconds � `time_slot * 15` and reject values more than 10 years ahead.
    - Reject packets where both:
      - `token_prefix` is all zeros, and
      - `mac` is all zeros.
@@ -274,18 +274,18 @@ Packets outside this tolerance are treated as invalid and dropped.
 
 Receivers see many BLE packets with the same `(token_prefix, time_slot)` in a window. To reduce Cloud load:
 
-- Maintain an in‑memory cache keyed by `(token_prefix, time_slot)`.
-- Store the last‑seen timestamp for each key.
+- Maintain an in-memory cache keyed by `(token_prefix, time_slot)`.
+- Store the last-seen timestamp for each key.
 - When a new packet arrives:
   - If the same key was seen within the last `duplicate_suppress_seconds` (default 5s), **ignore** it.
   - Otherwise:
-    - Update the last‑seen timestamp.
+    - Update the last-seen timestamp.
     - Treat it as a new presence candidate.
 
 This ensures:
 
 - At most one presence report per device per `time_slot` per receiver in typical conditions.
-- Rush‑hour bursts are smoothed out before hitting Cloud.
+- Rush-hour bursts are smoothed out before hitting Cloud.
 
 ### 4.5 Presence report construction
 
@@ -341,11 +341,11 @@ Secrets:
 - Do **not** log:
   - `receiver_secret`
   - Full MACs for production traffic
-  - Any other long‑term secrets
+  - Any other long-term secrets
 
 ---
 
-## 5. Cloud verification and anti‑replay
+## 5. Cloud verification and anti-replay
 
 Cloud receives `POST /v2/presence` and processes as follows.
 
@@ -363,7 +363,7 @@ Reject malformed or missing fields with HTTP 400.
 ### 5.2 Receiver lookup and signature verification
 
 1. Lookup `receiver_secret` for `(org_id, receiver_id)`.
-   - If none found ⇒ HTTP 401/404.
+   - If none found ? HTTP 401/404.
 2. Recompute:
 
    ```text
@@ -372,19 +372,19 @@ Reject malformed or missing fields with HTTP 400.
                                     token_prefix || encode_uint32(timestamp))
    ```
 
-3. Use constant‑time comparison; if mismatch ⇒ HTTP 401.
+3. Use constant-time comparison; if mismatch ? HTTP 401.
 
 ### 5.3 Timestamp skew and time_slot drift
 
 1. Let `server_time = now()`.
-   - If `|server_time - timestamp| > max_skew_seconds` ?� HTTP 400.
+   - If `|server_time - timestamp| > max_skew_seconds` ?? HTTP 400.
 2. Compute:
 
    ```text
    server_slot = floor(server_time / 15)
    ```
 
-   - If `|time_slot - server_slot| > max_drift_slots` ⇒ HTTP 400.
+   - If `|time_slot - server_slot| > max_drift_slots` ? HTTP 400.
 
 ### 5.4 Anonymous device fingerprint
 
@@ -397,9 +397,9 @@ device_id_base = HMAC-SHA256(device_id_salt,
 
 Where:
 
-- `device_id_salt` is a per‑org secret stored only in Cloud.
+- `device_id_salt` is a per-org secret stored only in Cloud.
 
-This `device_id_base` identifies a “cryptographic device” without requiring onboarding.
+This `device_id_base` identifies a �cryptographic device� without requiring onboarding.
 
 ### 5.5 Registered vs unregistered devices
 
@@ -408,7 +408,7 @@ For each `(org_id, device_id_base)` Cloud tracks:
 - **unregistered**:
   - No `device_auth_key` registered yet.
   - Cloud cannot verify packet MAC.
-  - Events are treated as low‑trust, anonymous presence.
+  - Events are treated as low-trust, anonymous presence.
 - **registered**:
   - Device has provided `device_auth_key` via onboarding.
   - Cloud can fully verify BLE packet MAC.
@@ -434,7 +434,7 @@ If device is registered:
    expected_mac = first 8 bytes of mac_full
    ```
 
-3. Constant‑time compare `expected_mac` with reported `mac`:
+3. Constant-time compare `expected_mac` with reported `mac`:
    - On mismatch, mark as suspicious and either:
      - Reject outright (hardened mode), or
      - Accept with `suspicious` flag for investigation.
@@ -460,7 +460,7 @@ Cloud deployments MAY configure an anonymous device policy via the `ANON_MODE` e
 
 Linked devices (with an active `(org_id, device_id)` link) are not affected by `ANON_MODE` and are always processed according to the normal verification rules.
 
-### 5.7 Anti‑replay rules (Cloud)
+### 5.7 Anti-replay rules (Cloud)
 
 Cloud enforces:
 
@@ -477,7 +477,7 @@ A sane default:
 
 Cloud should also detect:
 
-- Same `(org_id, device_id_base)` appearing at multiple receivers in an “impossible” time window (impossible movement / wormhole).
+- Same `(org_id, device_id_base)` appearing at multiple receivers in an �impossible� time window (impossible movement / wormhole).
 
 ### 5.8 Presence sessions and responses
 
@@ -588,7 +588,7 @@ When an unknown presence is observed:
    ```
 
 4. Cloud behavior:
-   - Resolve `presence_session_id` ⇒ `(org_id, device_id)`.
+   - Resolve `presence_session_id` ? `(org_id, device_id)`.
    - If `registration_blob` is provided:
      - Validate it using `device_auth_key` derivation rules.
      - Store `device_auth_key` for this `device_id` (registration).
@@ -611,14 +611,14 @@ When an unknown presence is observed:
 
 Once linked:
 
-1. Device continues broadcasting tokens with the same rules (15‑second windows, 30‑byte packets).
+1. Device continues broadcasting tokens with the same rules (15-second windows, 30-byte packets).
 2. Receiver continues scanning and sending `/v2/presence` reports.
 3. Cloud:
    - Derives `device_id_base` and `device_id` for each report.
    - Finds:
      - Stored `device_auth_key` for MAC verification.
      - Active `link` for `(org_id, device_id)`.
-   - Verifies MAC; applies anti‑replay and anomaly detection.
+   - Verifies MAC; applies anti-replay and anomaly detection.
    - Stores a `presence_event` and emits:
      - `presence.check_in` webhook for linked events.
      - `presence.unknown` webhook for unknown events.
@@ -633,7 +633,7 @@ External systems:
 
 - For each webhook:
   - Recompute `expected = HMAC-SHA256(webhook_secret, timestamp || raw_body)`.
-  - Constant‑time compare with the header.
+  - Constant-time compare with the header.
   - Optionally reject if timestamp is too old.
 
 ---
@@ -646,16 +646,16 @@ If you are implementing a new client or receiver using only this guide and `spec
   - Implement:
     - Secure `device_secret` storage.
     - `device_auth_key` derivation.
-    - 15‑second `time_slot` calculation.
+    - 15-second `time_slot` calculation.
     - Token and MAC derivation exactly as specified.
-    - 30‑byte BLE payload with the correct layout and version.
+    - 30-byte BLE payload with the correct layout and version.
     - Optional registration_blob for onboarding.
 
 - **Receiver:**
   - Implement:
-    - BLE scan for HNNP packets with 30‑byte payloads.
+    - BLE scan for HNNP packets with 30-byte payloads.
     - Structural validation and time_slot drift checks.
-    - Duplicate suppression by `(token_prefix, time_slot)` with a ≥5s window.
+    - Duplicate suppression by `(token_prefix, time_slot)` with a =5s window.
     - Presence report construction and receiver signature.
     - HTTPS POST `/v2/presence` with retry and local queue.
 
@@ -663,10 +663,10 @@ If you are implementing a new client or receiver using only this guide and `spec
   - Implement:
     - `/v2/presence`, `/v2/link`, `/v2/link/{link_id}` as in `spec.md`.
     - Receiver signature verification, timestamp skew, and time_slot drift checks.
-    - Device fingerprinting, registration, MAC verification, anti‑replay, and presence sessions.
-    - Webhook sending with HMAC signing and replay‑safe timestamp checks.
+    - Device fingerprinting, registration, MAC verification, anti-replay, and presence sessions.
+    - Webhook sending with HMAC signing and replay-safe timestamp checks.
 
-Always cross‑check field names, encodings, and HMAC formulas against `protocol/spec.md` to ensure your implementation is fully compliant with HNNP v2.
+Always cross-check field names, encodings, and HMAC formulas against `protocol/spec.md` to ensure your implementation is fully compliant with HNNP v2.
 ---
 
 ## 8. Linking & revocation (practical guide)
@@ -683,7 +683,7 @@ This section makes the linking and revocation flows concrete for engineers integ
   - Created by Cloud when presence events arrive for a device with no active link.
   - Returned in `/v2/presence` responses when `linked: false`.
 - `user_ref`
-  - External system’s user identifier (employee ID, account ID, etc.).
+  - External system�s user identifier (employee ID, account ID, etc.).
   - Cloud treats `user_ref` as an opaque string; it is not parsed or validated beyond presence.
 - `registration_blob`
   - One-time onboarding blob emitted by the device:
@@ -733,7 +733,7 @@ Content-Type: application/json
 3. Create a `link`:
    - `link_id`, `org_id`, `device_id`, `user_ref`, `created_at`.
 4. Mark the `presence_session` as resolved (`resolved_at` set).
-5. Emit a `link.created` webhook to the org’s webhook endpoint.
+5. Emit a `link.created` webhook to the org�s webhook endpoint.
 
 **Response**
 
@@ -747,7 +747,7 @@ Content-Type: application/json
 ```
 
 - `device_id`:
-  - Cloud’s stable internal identifier derived from `device_id_base` and `device_id_salt`.
+  - Cloud�s stable internal identifier derived from `device_id_base` and `device_id_salt`.
 
 ### 8.3 Revoking a link (DELETE /v2/link/{link_id})
 
@@ -796,7 +796,7 @@ Because `device_id` is derived from per-device cryptographic material, each phys
   - The second phone runs the same device flow:
     - Generates its own `device_secret` and `device_auth_key`.
     - Produces a new `registration_blob`.
-  - The external system calls `/v2/link` for the new device’s `presence_session_id` and the same `user_ref`.
+  - The external system calls `/v2/link` for the new device�s `presence_session_id` and the same `user_ref`.
   - Cloud creates a **second link** for the same `user_ref` but a different `device_id`.
   - Both devices now produce `presence.check_in` events for that user (distinguishable by `device_id`).
 
@@ -811,7 +811,7 @@ Because `device_id` is derived from per-device cryptographic material, each phys
   - The new physical device follows the normal onboarding path:
     - New `device_secret`, new `device_auth_key`, new `registration_blob`.
   - External system calls `/v2/link` with:
-    - The new device’s `presence_session_id`.
+    - The new device�s `presence_session_id`.
     - The same `user_ref`.
     - The new `registration_blob`.
   - Cloud creates a new link for the new `device_id`. The old (revoked) link remains revoked; it is not reused.
@@ -826,16 +826,16 @@ These flows ensure:
 
 ## 9. Clock & drift considerations
 
-HNNP’s security model assumes that devices, receivers, and Cloud all use reasonably accurate clocks, with limited drift.
+HNNP�s security model assumes that devices, receivers, and Cloud all use reasonably accurate clocks, with limited drift.
 
 - **Devices**
   - Should rely on the OS clock (UTC) and avoid maintaining their own custom time sources.
   - Compute `time_slot = floor(unix_time / 15)` based on that clock.
-  - If a device’s clock drifts significantly, its tokens may fall outside the Cloud’s allowed drift window and be rejected.
+  - If a device�s clock drifts significantly, its tokens may fall outside the Cloud�s allowed drift window and be rejected.
 
 - **Receivers**
   - Use their OS clock to validate BLE `time_slot` locally and to set `timestamp` in presence reports.
-  - Should be NTP-synchronized in production; modest drift (±1 time_slot) is tolerated.
+  - Should be NTP-synchronized in production; modest drift (�1 time_slot) is tolerated.
   - The sender queue (`receiver/src/sender.py`) drops reports whose age exceeds `max_skew_seconds` ?efault 120s) before sending to Cloud.
 
 - **Cloud**
@@ -922,7 +922,7 @@ Response:
 }
 ```
 
-### 10.4 Sequence: anonymous → linked
+### 10.4 Sequence: anonymous -> linked
 
 Text-based sequence diagram showing the normal flow from anonymous presence to linked presence events:
 
@@ -956,3 +956,98 @@ Device          Receiver            Cloud                  External System
   |               |                  | presence.check_in webhook    |
   |               |                  |--------------------------->  |
 ```
+
+---
+
+## 11. Webhook verification example (Node + TypeScript)
+
+This section shows a concrete Node.js + TypeScript example for verifying HNNP webhooks according to the spec:
+
+- Headers:
+  - `X-HNNP-Timestamp`
+  - `X-HNNP-Signature = HMAC-SHA256(webhook_secret, timestamp || raw_body)` (hex)
+
+The key requirements are:
+
+- Use the exact raw request body used by Cloud to compute the signature.
+- Use constant-time comparison for the HMAC.
+- Optionally enforce a maximum age for the timestamp.
+
+```ts
+import crypto from "crypto";
+import express, { Request, Response } from "express";
+
+const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET ?? "";
+
+function timingSafeEqual(a: string, b: string): boolean {
+  const bufA = Buffer.from(a, "hex");
+  const bufB = Buffer.from(b, "hex");
+  if (bufA.length !== bufB.length) {
+    return false;
+  }
+  return crypto.timingSafeEqual(bufA, bufB);
+}
+
+function computeSignature(secret: string, timestamp: string, rawBody: Buffer): string {
+  const msg = Buffer.concat([Buffer.from(timestamp, "utf8"), rawBody]);
+  const hmac = crypto.createHmac("sha256", Buffer.from(secret, "utf8"));
+  hmac.update(msg);
+  return hmac.digest("hex");
+}
+
+const app = express();
+
+// Capture raw body for verification while still parsing JSON.
+app.use(
+  express.json({
+    verify: (req: Request & { rawBody?: Buffer }, _res, buf) => {
+      (req as any).rawBody = Buffer.from(buf);
+    },
+  }),
+);
+
+function verifyHnnpWebhook(
+  req: Request & { rawBody?: Buffer },
+): { ok: boolean; error?: string } {
+  if (!WEBHOOK_SECRET) {
+    return { ok: false, error: "WEBHOOK_SECRET not configured" };
+  }
+
+  const timestamp = req.header("X-HNNP-Timestamp") ?? "";
+  const signature = req.header("X-HNNP-Signature") ?? "";
+  const rawBody = req.rawBody ?? Buffer.from("");
+
+  if (!timestamp || !signature) {
+    return { ok: false, error: "Missing webhook headers" };
+  }
+
+  // Optional: reject very old timestamps (e.g., >5 minutes).
+  const now = Math.floor(Date.now() / 1000);
+  const tsNum = Number(timestamp);
+  if (!Number.isFinite(tsNum) || Math.abs(now - tsNum) > 300) {
+    return { ok: false, error: "Stale or invalid timestamp" };
+  }
+
+  const expected = computeSignature(WEBHOOK_SECRET, timestamp, rawBody);
+  const valid = timingSafeEqual(expected, signature);
+
+  if (!valid) {
+    return { ok: false, error: "Invalid webhook signature" };
+  }
+
+  return { ok: true };
+}
+
+app.post("/hnnp/webhook", (req: Request & { rawBody?: Buffer }, res: Response) => {
+  const result = verifyHnnpWebhook(req);
+  if (!result.ok) {
+    return res.status(400).json({ error: result.error });
+  }
+
+  // At this point, req.body is a trusted HNNP webhook payload.
+  // Handle presence.check_in, presence.unknown, link.created, link.revoked, etc.
+  return res.status(200).json({ status: "ok" });
+});
+```
+
+This example aligns with `protocol/spec.md` Section 10.3 and can be adapted for other runtimes that support HMAC-SHA256 and constant-time comparisons.
