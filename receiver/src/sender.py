@@ -26,6 +26,7 @@ class QueuedReport:
 
 # Global queue to allow health/status reporting.
 QUEUE: List[QueuedReport] = []
+_LAST_SCAN_AT: Optional[int] = None
 
 
 def _get_max_skew_seconds() -> int:
@@ -41,6 +42,14 @@ def _get_max_skew_seconds() -> int:
 
 def get_queue_size() -> int:
     return len(QUEUE)
+
+
+def get_last_scan_at() -> Optional[int]:
+    """
+    Return the unix timestamp (seconds) of the last presence report
+    observed by this receiver, or None if no report has been seen yet.
+    """
+    return _LAST_SCAN_AT
 
 
 async def _post_presence(
@@ -81,6 +90,8 @@ async def run_sender() -> None:
     async with aiohttp.ClientSession() as session:  # type: ignore[arg-type]
         async def handle_report(report: PresenceReport) -> None:
             now = int(time.time())
+            global _LAST_SCAN_AT
+            _LAST_SCAN_AT = now
 
             # Drop events older than allowed skew.
             if now - report.timestamp > max_skew_seconds:

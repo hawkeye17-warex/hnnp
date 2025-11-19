@@ -3,7 +3,7 @@ import logging
 
 from config_loader import load_receiver_config
 from sender import run_sender
-from health import run_health_server
+from health_server import run_health_server
 
 
 async def _run_all() -> None:
