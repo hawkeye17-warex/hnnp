@@ -5,6 +5,7 @@ import { getReceiverSecret } from "../services/receivers";
 import { getOrCreateDevice, getDeviceKey } from "../services/devices";
 import { emitWebhook } from "../services/webhooks";
 import { computeLocalBeaconNonceHex } from "../services/localBeacon";
+import { evaluatePresenceFusion, PresenceFusionEvent } from "../services/presenceFusion";
 
 interface PresenceRequestBody {
   org_id: string;
@@ -18,20 +19,11 @@ interface PresenceRequestBody {
   signature: string;
 }
 
-interface PresenceEvent {
+interface PresenceEvent extends PresenceFusionEvent {
   event_id: string;
-  org_id: string;
-  device_id: string;
   device_id_base: string;
-  receiver_id: string;
-  timestamp: number;
-  time_slot: number;
   version: number;
   flags: number;
-  token_prefix: string;
-  mac: string;
-  suspicious_duplicate?: boolean;
-  suspicious_flags?: string[];
 }
 
 // In-memory presence store for now; will be replaced with a real database later.
@@ -150,7 +142,7 @@ router.post("/v2/presence", async (req: Request, res: Response) => {
 
   // Anti-replay / anomaly flags are tracked below.
   let suspiciousDuplicate = false;
-  const suspiciousFlags: string[] = [];
+  let suspiciousFlags: string[] = [];
 
   if (deviceKey) {
     const macValid = verifyPacketMac({
@@ -187,67 +179,42 @@ router.post("/v2/presence", async (req: Request, res: Response) => {
     }
   }
 
-  // Anti-replay enforcement for (org_id, device_id, receiver_id, time_slot).
-  // First valid event is accepted as normal. Subsequent events with the same tuple
-  // in the same time_slot are either rejected or accepted but flagged as duplicates.
-  // We allow a second attempt if timestamp >= previous_timestamp + MIN_DUP_RETRY_SECONDS
-  // (default 5 seconds).
   const duplicateSuppressSeconds = Number.isFinite(
     Number(process.env.DUPLICATE_SUPPRESS_SECONDS ?? process.env.MIN_DUP_RETRY_SECONDS),
   )
     ? Number(process.env.DUPLICATE_SUPPRESS_SECONDS ?? process.env.MIN_DUP_RETRY_SECONDS)
     : 5;
 
-  const matchingEvents = presenceEvents.filter(
-    (evt) =>
-      evt.org_id === org_id &&
-      evt.device_id === deviceRecord.deviceId &&
-      evt.receiver_id === receiver_id &&
-      evt.time_slot === time_slot,
-  );
-
-  if (matchingEvents.length > 0) {
-    const latest = matchingEvents.reduce((a, b) => (b.timestamp > a.timestamp ? b : a));
-    const deltaSeconds = timestamp - latest.timestamp;
-
-    if (deltaSeconds < duplicateSuppressSeconds) {
-      return res.status(409).json({ error: "Duplicate presence event in same time_slot" });
-    }
-
-    suspiciousDuplicate = true;
-    suspiciousFlags.push("duplicate_same_slot");
-  }
-
-  // Impossible movement heuristic:
-  // Track last known receiver + timestamp per (org_id, device_id). If a new event
-  // arrives from a different receiver within an "impossible travel" window, mark
-  // it as suspicious (wormhole candidate).
   const impossibleTravelSeconds = Number.isFinite(Number(process.env.IMPOSSIBLE_TRAVEL_SECONDS))
     ? Number(process.env.IMPOSSIBLE_TRAVEL_SECONDS)
     : 60;
 
-  const lastDeviceEvent = presenceEvents
-    .filter((evt) => evt.org_id === org_id && evt.device_id === deviceRecord.deviceId)
-    .reduce<PresenceEvent | null>((latest, evt) => {
-      if (!latest || evt.timestamp > latest.timestamp) {
-        return evt;
-      }
-      return latest;
-    }, null);
-
-  if (lastDeviceEvent && lastDeviceEvent.receiver_id !== receiver_id) {
-    const deltaSeconds = timestamp - lastDeviceEvent.timestamp;
-    if (deltaSeconds >= 0 && deltaSeconds < impossibleTravelSeconds) {
-      suspiciousFlags.push("impossible_movement");
-    }
-  }
-
   const hardenedMode =
     process.env.HARDENED_MODE === "true" || process.env.HARDENED_MODE === "1";
 
-  if (hardenedMode && (suspiciousDuplicate || suspiciousFlags.length > 0)) {
-    return res.status(409).json({ error: "Suspicious presence event" });
+  const fusionResult = evaluatePresenceFusion(
+    presenceEvents,
+    {
+      orgId: org_id,
+      deviceId: deviceRecord.deviceId,
+      receiverId: receiver_id,
+      timestamp,
+      timeSlot: time_slot,
+    },
+    {
+      duplicateSuppressSeconds,
+      impossibleTravelSeconds,
+      hardenedMode,
+    },
+    suspiciousFlags,
+  );
+
+  if (fusionResult.shouldReject && fusionResult.rejectStatus && fusionResult.rejectError) {
+    return res.status(fusionResult.rejectStatus).json({ error: fusionResult.rejectError });
   }
+
+  suspiciousDuplicate = fusionResult.suspiciousDuplicate;
+  suspiciousFlags = fusionResult.suspiciousFlags;
 
   const eventId = `evt_${presenceEvents.length + 1}`;
 

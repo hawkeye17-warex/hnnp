@@ -623,6 +623,14 @@ If unknown:
 - event_id
 - presence_session_id
 
+### 8.12 Presence Fusion and Multi-Receiver Logic
+
+Cloud implementations MAY apply additional "presence fusion" logic on top of the core rules above to reconcile events from many receivers:
+
+- Enforce per-slot anti-replay by rejecting duplicate reports for the same `(org_id, device_id, receiver_id, time_slot)` within a short deduplication window (Section 12.4.1).
+- Track the last known `(receiver_id, timestamp)` for each `(org_id, device_id)` and mark events as suspicious when the same device appears at a different receiver within an "impossible travel" window (potential wormhole).
+- Use these fusion signals (duplicate flags, impossible movement flags, hardened-mode policies) to decide whether to accept, reject, or escalate anomalous presence events, without changing the on-the-wire fields defined in this specification.
+
 ---
 
 # 9. LINK MANAGEMENT (v2)
