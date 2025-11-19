@@ -4,7 +4,7 @@ import { app } from "../index";
 import { encodeUint32BE } from "../services/uint";
 import { deriveDeviceIds } from "../services/crypto";
 import { registerDeviceKey } from "../services/devices";
-import { presenceEvents, presenceSessions } from "../routes/presence";
+import { presenceEvents } from "../routes/presence";
 import { getWebhookQueuePayloadsForTest } from "../services/webhooks";
 
 const ORG_ID = "org_test";
@@ -109,7 +109,6 @@ describe("device + receiver + cloud integration", () => {
 
   beforeEach(() => {
     presenceEvents.length = 0;
-    presenceSessions.length = 0;
   });
 
   it("accepts unregistered device reports across multiple time_slots", async () => {
@@ -129,7 +128,7 @@ describe("device + receiver + cloud integration", () => {
     }
 
     expect(presenceEvents.length).toBe(slots.length);
-    expect(presenceSessions.length).toBe(slots.length);
+    // Sessions now persisted in DB; presenceSessions is no longer tracked in memory.
   });
 
   it("accepts registered device report with valid MAC", async () => {
@@ -158,7 +157,7 @@ describe("device + receiver + cloud integration", () => {
     expect(res.status).toBe(400);
     expect(res.body.error).toMatch(/Timestamp skew too large/);
     expect(presenceEvents.length).toBe(0);
-    expect(presenceSessions.length).toBe(0);
+    // Sessions now persisted in DB; presenceSessions is no longer tracked in memory.
   });
 
   it("rejects duplicate presence reports in the same 15-second window", async () => {
@@ -175,7 +174,7 @@ describe("device + receiver + cloud integration", () => {
     expect(second.body.error).toMatch(/Duplicate presence event in same time_slot/);
 
     expect(presenceEvents.length).toBe(1);
-    expect(presenceSessions.length).toBe(1);
+    // Sessions now persisted in DB; presenceSessions is no longer tracked in memory.
   });
 
   it("handles full E2E flow: unknown -> link -> linked presence with presence.check_in webhook", async () => {
@@ -224,4 +223,3 @@ describe("device + receiver + cloud integration", () => {
     expect(types).toContain("presence.check_in");
   });
 });
-

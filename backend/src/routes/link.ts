@@ -1,8 +1,8 @@
 import { Router, Request, Response } from "express";
-import { presenceSessions } from "./presence";
 import { createLink, revokeLink } from "../services/links";
 import { registerDeviceKey, getOrCreateDevice } from "../services/devices";
 import { emitWebhook } from "../services/webhooks";
+import { endPresenceSession, getPresenceSessionById } from "../db/sessions";
 
 interface CreateLinkBody {
   org_id: string;
@@ -30,12 +30,15 @@ router.post("/v2/link", async (req: Request, res: Response) => {
     return res.status(400).json({ error: "Invalid or missing fields in link request" });
   }
 
-  const session = presenceSessions.find(
-    (s) => s.presence_session_id === presence_session_id && s.org_id === org_id,
-  );
+  const session = await getPresenceSessionById(presence_session_id);
 
-  if (!session) {
+  if (!session || session.orgId !== org_id || session.endedAt) {
     return res.status(404).json({ error: "presence_session_id not found" });
+  }
+  const deviceId = session.deviceIdHash;
+
+  if (!deviceId) {
+    return res.status(400).json({ error: "presence_session missing device context" });
   }
 
   // Optional registration_blob handling.
@@ -46,7 +49,7 @@ router.post("/v2/link", async (req: Request, res: Response) => {
   if (registration_blob && deviceAuthKeyHex) {
     registerDeviceKey({
       orgId: org_id,
-      deviceId: session.device_id,
+      deviceId: deviceId ?? "",
       deviceAuthKeyHex,
     });
 
@@ -54,18 +57,21 @@ router.post("/v2/link", async (req: Request, res: Response) => {
     getOrCreateDevice({
       orgId: org_id,
       deviceIdBase: "", // not needed here; placeholder for future DB-backed implementation
-      deviceId: session.device_id,
+      deviceId: deviceId ?? "",
     });
   }
 
   const link = createLink({
     orgId: org_id,
-    deviceId: session.device_id,
+    deviceId: deviceId ?? "",
     userRef: user_ref,
   });
 
-  // Mark session as resolved.
-  session.resolved_at = session.resolved_at ?? Date.now();
+  // Mark session as ended/resolved in DB.
+  await endPresenceSession({
+    id: session.id,
+    endedAt: new Date(),
+  });
 
   await emitWebhook(org_id, {
     type: "link.created",
@@ -108,4 +114,3 @@ router.delete("/v2/link/:linkId", async (req: Request, res: Response) => {
 });
 
 export { router as linkRouter };
-

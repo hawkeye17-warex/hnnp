@@ -1,7 +1,7 @@
 import request from "supertest";
 import crypto from "crypto";
 import { app } from "../index";
-import { presenceEvents, presenceSessions } from "../routes/presence";
+import { presenceEvents } from "../routes/presence";
 
 function encodeUint32BE(value: number): Buffer {
   const buf = Buffer.allocUnsafe(4);
@@ -143,7 +143,6 @@ describe("POST /v2/presence", () => {
   it("honors ANON_MODE=allow for unknown devices", async () => {
     process.env.ANON_MODE = "allow";
     presenceEvents.length = 0;
-    presenceSessions.length = 0;
 
     const orgId = "org_123";
     const receiverId = "rcv_001";
@@ -185,7 +184,6 @@ describe("POST /v2/presence", () => {
   it("honors ANON_MODE=warn by marking anonymous events", async () => {
     process.env.ANON_MODE = "warn";
     presenceEvents.length = 0;
-    presenceSessions.length = 0;
 
     const orgId = "org_123";
     const receiverId = "rcv_001";
@@ -227,7 +225,6 @@ describe("POST /v2/presence", () => {
   it("honors ANON_MODE=block by rejecting unknown devices", async () => {
     process.env.ANON_MODE = "block";
     presenceEvents.length = 0;
-    presenceSessions.length = 0;
 
     const orgId = "org_123";
     const receiverId = "rcv_001";
@@ -262,6 +259,5 @@ describe("POST /v2/presence", () => {
     expect(res.status).toBe(403);
     expect(res.body.error).toMatch(/anonymous devices are blocked/i);
     expect(presenceEvents.length).toBe(0);
-    expect(presenceSessions.length).toBe(0);
   });
 });

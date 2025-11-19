@@ -2,7 +2,7 @@ import request from "supertest";
 import crypto from "crypto";
 import { app } from "../index";
 import { encodeUint32BE } from "../services/uint";
-import { presenceEvents, presenceSessions } from "../routes/presence";
+import { presenceEvents } from "../routes/presence";
 
 const ORG_ID = "org_rush_hour";
 const RECEIVER_ID = "receiver_rush_hour";
@@ -43,7 +43,6 @@ function deriveMacHex(deviceIndex: number, timeSlot: number): string {
 
 async function runScenario(numDevices: number) {
   presenceEvents.length = 0;
-  presenceSessions.length = 0;
 
   const serverTime = Math.floor(Date.now() / 1000);
   const timeSlot = Math.floor(serverTime / 15);
@@ -98,13 +97,11 @@ async function runScenario(numDevices: number) {
 
   const uniqueDevices = new Set(presenceEvents.map((e) => e.device_id)).size;
   const eventsStored = presenceEvents.length;
-  const sessionsStored = presenceSessions.length;
 
   // Basic correctness checks: all requests accepted and one event per device.
   expect(non200).toHaveLength(0);
   expect(eventsStored).toBeLessThanOrEqual(numDevices * 50);
   expect(uniqueDevices).toBe(numDevices);
-  expect(sessionsStored).toBe(numDevices);
 
   // Log metrics for human inspection of stability/throughput.
   // These logs are informational; tests only assert correctness, not performance thresholds.

@@ -72,20 +72,58 @@ export async function endPresenceSession(
 export interface FindOpenSessionsParams {
   orgId: string;
   receiverId?: string;
+  deviceIdHash?: string;
 }
 
 export async function findOpenSessionsForOrg(
   params: FindOpenSessionsParams,
 ): Promise<PresenceSession[]> {
-  const { orgId, receiverId } = params;
+  const { orgId, receiverId, deviceIdHash } = params;
 
   return prisma.presenceSession.findMany({
     where: {
       orgId,
       receiverId: receiverId ?? undefined,
+      deviceIdHash: deviceIdHash ?? undefined,
       endedAt: null,
     },
     orderBy: { startedAt: "desc" },
   });
 }
 
+export async function getPresenceSessionById(id: string): Promise<PresenceSession | null> {
+  return prisma.presenceSession.findUnique({ where: { id } });
+}
+
+export interface TouchPresenceSessionInput {
+  id: string;
+  receiverId?: string;
+  userRef?: string | null;
+  flags?: number;
+  meta?: Prisma.JsonValue;
+  lastSeenAt?: Date;
+}
+
+export async function touchPresenceSession(
+  input: TouchPresenceSessionInput,
+): Promise<PresenceSession | null> {
+  const { id, receiverId, userRef, flags, meta } = input;
+  const metaValue = meta ?? undefined;
+  try {
+    return await prisma.presenceSession.update({
+      where: { id },
+      data: {
+        receiverId: receiverId ?? undefined,
+        userRef: userRef ?? undefined,
+        flags: typeof flags === "number" ? flags : undefined,
+        meta: metaValue,
+      },
+    });
+  } catch {
+    return null;
+  }
+}
+
+export async function countOpenSessions(): Promise<number> {
+  return prisma.presenceSession.count({ where: { endedAt: null } });
+}

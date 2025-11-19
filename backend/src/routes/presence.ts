@@ -7,6 +7,12 @@ import { getOrCreateDevice, getDeviceKey } from "../services/devices";
 import { emitWebhook } from "../services/webhooks";
 import { computeLocalBeaconNonceHex } from "../services/localBeacon";
 import { evaluatePresenceFusion, PresenceFusionEvent } from "../services/presenceFusion";
+import {
+  createPresenceSession,
+  endPresenceSession,
+  findOpenSessionsForOrg,
+  touchPresenceSession,
+} from "../db/sessions";
 import { prisma } from "../db/prisma";
 import { computeTokenHash } from "../security/tokenHash";
 
@@ -34,22 +40,15 @@ interface PresenceEvent extends PresenceFusionEvent {
 // In-memory presence store for now; will be replaced with a real database later.
 const presenceEvents: PresenceEvent[] = [];
 
-export interface PresenceSession {
-  presence_session_id: string;
-  org_id: string;
-  device_id: string;
-  first_seen_at: number;
-  last_seen_at: number;
-  resolved_at?: number | null;
-}
-
-// In-memory presence session store for now; will be replaced with a real database later.
-const presenceSessions: PresenceSession[] = [];
-
 // Retention cap for in-memory presenceEvents per device_id.
 // This is a reference-implementation safeguard to prevent unbounded growth
 // when running without a real database.
 const MAX_EVENTS_PER_DEVICE = 50;
+
+const SESSION_TIMEOUT_MS =
+  Number.isFinite(Number(process.env.PRESENCE_SESSION_TIMEOUT_MS))
+    ? Number(process.env.PRESENCE_SESSION_TIMEOUT_MS)
+    : 5 * 60 * 1000;
 
 const router = Router();
 
@@ -94,6 +93,69 @@ async function logPresenceEvent(params: {
       meta: params.meta ?? undefined,
     },
   });
+}
+
+function getLastSeenMsFromMeta(meta: unknown, startedAt: Date): number {
+  if (meta && typeof meta === "object" && meta !== null && "lastSeenAt" in meta) {
+    const value = (meta as Record<string, unknown>).lastSeenAt;
+    if (typeof value === "string") {
+      const d = new Date(value);
+      const t = d.getTime();
+      if (Number.isFinite(t)) {
+        return t;
+      }
+    }
+  }
+  return startedAt.getTime();
+}
+
+async function upsertPresenceSessionForEvent(params: {
+  orgId: string;
+  receiverId: string;
+  deviceIdHash: string;
+  userRef?: string | null;
+  eventTimestampMs: number;
+}): Promise<string> {
+  const { orgId, receiverId, deviceIdHash, userRef, eventTimestampMs } = params;
+  const openSessions = await findOpenSessionsForOrg({ orgId, deviceIdHash });
+  const nowMs = eventTimestampMs;
+
+  for (const sess of openSessions) {
+    const lastSeenMs = getLastSeenMsFromMeta(sess.meta, sess.startedAt);
+    if (nowMs - lastSeenMs > SESSION_TIMEOUT_MS) {
+      await endPresenceSession({
+        id: sess.id,
+        endedAt: new Date(lastSeenMs + SESSION_TIMEOUT_MS),
+      });
+      continue;
+    }
+
+    const updatedMeta = {
+      ...(typeof sess.meta === "object" && sess.meta !== null ? sess.meta : {}),
+      lastSeenAt: new Date(nowMs).toISOString(),
+    };
+
+    await touchPresenceSession({
+      id: sess.id,
+      receiverId,
+      userRef: userRef ?? sess.userRef ?? null,
+      meta: updatedMeta,
+    });
+
+    return sess.id;
+  }
+
+  const created = await createPresenceSession({
+    orgId,
+    receiverId,
+    userRef: userRef ?? null,
+    deviceIdHash,
+    startedAt: new Date(nowMs),
+    flags: 0,
+    meta: { lastSeenAt: new Date(nowMs).toISOString() },
+  });
+
+  return created.id;
 }
 
 router.post("/v2/presence", async (req: Request, res: Response) => {
@@ -463,25 +525,14 @@ router.post("/v2/presence", async (req: Request, res: Response) => {
     }
   }
 
-  // Create or update presence_session for this (org_id, device_id) if not already resolved.
-  let session = presenceSessions.find(
-    (s) => s.org_id === org_id && s.device_id === deviceRecord.deviceId && !s.resolved_at,
-  );
-
-  if (!session) {
-    const presenceSessionId = `psess_${presenceSessions.length + 1}`;
-    session = {
-      presence_session_id: presenceSessionId,
-      org_id,
-      device_id: deviceRecord.deviceId,
-      first_seen_at: timestamp,
-      last_seen_at: timestamp,
-      resolved_at: null,
-    };
-    presenceSessions.push(session);
-  } else {
-    session.last_seen_at = timestamp;
-  }
+  // Persist presence session in DB (open/extend/timeout handling).
+  const presenceSessionId = await upsertPresenceSessionForEvent({
+    orgId: org_id,
+    receiverId: receiver_id,
+    deviceIdHash: deviceRecord.deviceId,
+    userRef: linkResult.userRef ?? null,
+    eventTimestampMs: timestamp * 1000,
+  });
 
   if (linkResult.linked) {
     await emitWebhook(org_id, {
@@ -513,6 +564,7 @@ router.post("/v2/presence", async (req: Request, res: Response) => {
       meta: {
         linked: true,
         link_id: linkResult.linkId,
+        presence_session_id: presenceSessionId,
         suspicious_duplicate: suspiciousDuplicate,
         suspicious_flags: suspiciousFlags,
       },
@@ -532,7 +584,7 @@ router.post("/v2/presence", async (req: Request, res: Response) => {
     event_id: eventId,
     org_id,
     device_id: deviceRecord.deviceId,
-    presence_session_id: session.presence_session_id,
+    presence_session_id: presenceSessionId,
     receiver_id,
     timestamp,
   });
@@ -553,7 +605,7 @@ router.post("/v2/presence", async (req: Request, res: Response) => {
     authResult: "accepted",
     meta: {
       linked: false,
-      presence_session_id: session.presence_session_id,
+      presence_session_id: presenceSessionId,
       suspicious_duplicate: suspiciousDuplicate,
       suspicious_flags: suspiciousFlags,
     },
@@ -563,8 +615,8 @@ router.post("/v2/presence", async (req: Request, res: Response) => {
     status: "accepted",
     linked: false,
     event_id: eventId,
-    presence_session_id: session.presence_session_id,
+    presence_session_id: presenceSessionId,
   });
 });
 
-export { router as presenceRouter, presenceEvents, presenceSessions };
+export { router as presenceRouter, presenceEvents };

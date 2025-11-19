@@ -1,16 +1,17 @@
 import { Router, Request, Response } from "express";
-import { presenceEvents, presenceSessions } from "./presence";
+import { presenceEvents } from "./presence";
 import { getWebhookQueueSize, getWebhookDeadLetterSize } from "../services/webhooks";
+import { countOpenSessions } from "../db/sessions";
 
 const router = Router();
 const startedAt = Date.now();
 
-router.get("/v2/debug/status", (_req: Request, res: Response) => {
+router.get("/v2/debug/status", async (_req: Request, res: Response) => {
   const now = Date.now();
   const uptimeSeconds = Math.floor((now - startedAt) / 1000);
 
   const presenceEventCount = presenceEvents.length;
-  const activePresenceSessionCount = presenceSessions.filter((s) => !s.resolved_at).length;
+  const activePresenceSessionCount = await countOpenSessions();
   const webhookQueueSize = getWebhookQueueSize();
   const webhookDeadLetterSize = getWebhookDeadLetterSize();
 
@@ -24,4 +25,3 @@ router.get("/v2/debug/status", (_req: Request, res: Response) => {
 });
 
 export { router as debugRouter };
-
