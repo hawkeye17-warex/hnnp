@@ -191,6 +191,44 @@ These are typically loaded from:
 - Environment variables, or
 - A configuration file protected on disk.
 
+#### 4.1.1 Receiver setup and authentication
+
+At a minimum, each receiver process must be provisioned with:
+
+- `HNNP_ORG_ID` (or `ORG_ID`)
+  - The org_id this receiver belongs to.
+- `HNNP_RECEIVER_ID` (or `RECEIVER_ID`)
+  - A stable identifier for this specific receiver.
+  - Multiple receivers for the same org share the same `org_id` but have distinct `receiver_id` values.
+- `HNNP_RECEIVER_SECRET` (or `RECEIVER_SECRET`)
+  - 32-byte random secret, unique per receiver_id.
+  - Used only on receivers and Cloud; MUST NOT be present on mobile devices.
+- `HNNP_API_BASE_URL` (or `API_BASE_URL` / `HNNP_BACKEND_URL`)
+  - Base URL of the Cloud backend (HTTPS).
+
+Authentication model:
+
+- Each `(org_id, receiver_id)` pair has an associated `receiver_secret` stored securely on the receiver and in Cloud.
+- Receiver signatures are computed per spec:
+
+  ```text
+  signature = HMAC-SHA256(receiver_secret,
+               org_id || receiver_id || encode_uint32(time_slot) ||
+               token_prefix || encode_uint32(timestamp))
+  ```
+
+- Cloud recomputes `expected_signature` using its copy of `receiver_secret` and rejects any report where the constant-time comparison fails.
+
+Multi-receiver deployments:
+
+- An org may deploy many receivers:
+  - All share the same `org_id`.
+  - Each has its own `receiver_id` and `receiver_secret`.
+- Cloud stores a `receivers` data model keyed by `(org_id, receiver_id)` so it can:
+  - Validate signatures per receiver.
+  - Track per-receiver health and presence patterns (for impossible-movement and wormhole heuristics).
+
+
 ### 4.2 BLE scanning and structural validation
 
 Receiver continuously scans for BLE advertisements:
