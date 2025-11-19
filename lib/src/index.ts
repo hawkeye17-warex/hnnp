@@ -17,3 +17,4 @@ export interface PresenceEventCore {
 
 export * from "./crypto";
 export * from "./time";
+export * from "./types";
