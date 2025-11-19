@@ -1,13 +1,18 @@
 import http from "http";
 import express, { Request, Response } from "express";
 import { loadConfig } from "./config";
+import { presenceRouter } from "./routes/presence";
 
 const config = loadConfig();
 const app = express();
 
+app.use(express.json());
+
 app.get("/health", (_req: Request, res: Response) => {
   res.status(200).json({ status: "ok" });
 });
+
+app.use(presenceRouter);
 
 const server = http.createServer(app);
 
