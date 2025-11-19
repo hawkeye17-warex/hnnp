@@ -1,6 +1,5 @@
 import asyncio
 import logging
-import os
 import time
 from dataclasses import dataclass
 from typing import List, Optional
@@ -10,6 +9,7 @@ try:
 except ImportError:  # pragma: no cover - aiohttp may not be installed everywhere
     aiohttp = None  # type: ignore
 
+from .config_loader import load_receiver_config
 from .presence_report import PresenceReport, scan_presence_reports
 
 
@@ -24,25 +24,23 @@ class QueuedReport:
     next_retry_at: float
 
 
-def _get_base_url() -> str:
-    base_url = (
-        os.environ.get("HNNP_API_BASE_URL")
-        or os.environ.get("API_BASE_URL")
-        or os.environ.get("HNNP_BACKEND_URL")
-        or ""
-    )
-    if not base_url:
-        raise RuntimeError("HNNP_API_BASE_URL (or API_BASE_URL/HNNP_BACKEND_URL) must be set")
-    return base_url.rstrip("/")
+# Global queue to allow health/status reporting.
+QUEUE: List[QueuedReport] = []
 
 
 def _get_max_skew_seconds() -> int:
+    import os
+
     raw = os.environ.get("MAX_SKEW_SECONDS", "120")
     try:
         value = int(raw)
     except ValueError:
         value = 120
     return max(value, 0)
+
+
+def get_queue_size() -> int:
+    return len(QUEUE)
 
 
 async def _post_presence(
@@ -74,10 +72,11 @@ async def run_sender() -> None:
     if aiohttp is None:
         raise RuntimeError("aiohttp is not installed; HTTP sending is unavailable")
 
-    base_url = _get_base_url()
+    cfg = load_receiver_config()
+    base_url = cfg.api_base_url
     max_skew_seconds = _get_max_skew_seconds()
 
-    queue: List[QueuedReport] = []
+    queue = QUEUE
 
     async with aiohttp.ClientSession() as session:  # type: ignore[arg-type]
         async def handle_report(report: PresenceReport) -> None:
@@ -213,4 +212,3 @@ def _schedule_next_retry(item: QueuedReport) -> None:
     # Exponential backoff capped at 60 seconds.
     delay = min(60, 2 ** min(item.attempts, 6))
     item.next_retry_at = time.time() + delay
-

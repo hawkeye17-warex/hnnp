@@ -1,11 +1,11 @@
 import hmac
 import hashlib
-import os
 import time
 from dataclasses import dataclass, asdict
 from typing import Any, AsyncIterator, Dict
 
 from .ble_scanner import BlePacketV2, scan_hnnp_packets
+from .config_loader import load_receiver_config
 
 
 @dataclass
@@ -77,24 +77,15 @@ async def scan_presence_reports() -> AsyncIterator[PresenceReport]:
     - Scans BLE for HNNP v2 packets (structurally valid, de-duplicated).
     - Builds a signed presence report for each accepted packet.
 
-    Configuration:
-      - HNNP_ORG_ID
-      - HNNP_RECEIVER_ID
-      - HNNP_RECEIVER_SECRET
+    Configuration is loaded via load_receiver_config() from environment and optional config file.
     """
-    org_id = os.environ.get("HNNP_ORG_ID")
-    receiver_id = os.environ.get("HNNP_RECEIVER_ID")
-    receiver_secret = os.environ.get("HNNP_RECEIVER_SECRET")
-
-    if not org_id or not receiver_id or not receiver_secret:
-        raise RuntimeError("HNNP_ORG_ID, HNNP_RECEIVER_ID, and HNNP_RECEIVER_SECRET must be set")
+    cfg = load_receiver_config()
 
     async for packet in scan_hnnp_packets():
         report = build_presence_report(
             packet=packet,
-            org_id=org_id,
-            receiver_id=receiver_id,
-            receiver_secret=receiver_secret,
+            org_id=cfg.org_id,
+            receiver_id=cfg.receiver_id,
+            receiver_secret=cfg.receiver_secret,
         )
         yield report
-
