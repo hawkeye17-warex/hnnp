@@ -1,4 +1,5 @@
 import crypto from "crypto";
+import { logger } from "./logger";
 
 interface WebhookPayload {
   type: string;
@@ -107,13 +108,11 @@ async function processQueue(): Promise<void> {
 
       if (res.ok) {
         removeJob(job);
-        // eslint-disable-next-line no-console
-        console.log(
-          "[webhook] delivered org_id=%s type=%s status=%s",
-          job.orgId,
-          job.payload.type,
-          res.status,
-        );
+        logger.info("webhook delivered", {
+          org_id: job.orgId,
+          type: job.payload.type,
+          status: res.status,
+        });
         continue;
       }
 
@@ -126,14 +125,12 @@ async function processQueue(): Promise<void> {
     } catch (err) {
       // Network error: retry with backoff.
       scheduleRetry(job);
-      // eslint-disable-next-line no-console
-      console.warn(
-        "[webhook] network error org_id=%s type=%s attempt=%s error=%s",
-        job.orgId,
-        job.payload.type,
-        job.attempt,
-        err instanceof Error ? err.message : String(err),
-      );
+      logger.warn("webhook network error", {
+        org_id: job.orgId,
+        type: job.payload.type,
+        attempt: job.attempt,
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
 
     if (job.attempt >= maxAttempts) {
@@ -158,13 +155,11 @@ function scheduleRetry(job: WebhookJob): void {
 function moveToDeadLetter(job: WebhookJob): void {
   removeJob(job);
   deadLetter.push(job);
-  // eslint-disable-next-line no-console
-  console.warn(
-    "[webhook] moved to dead-letter org_id=%s type=%s attempts=%s",
-    job.orgId,
-    job.payload.type,
-    job.attempt,
-  );
+  logger.warn("webhook moved to dead-letter", {
+    org_id: job.orgId,
+    type: job.payload.type,
+    attempts: job.attempt,
+  });
 }
 
 export function getWebhookQueueSize(): number {
@@ -185,4 +180,3 @@ export function getWebhookDeadLetterSize(): number {
 export async function emitWebhook(orgId: string, payload: WebhookPayload): Promise<void> {
   enqueueWebhook(orgId, payload);
 }
-
