@@ -1075,6 +1075,7 @@ Duplicate suppression tests:
 - Advertising interval 200–500 ms is a good balance.
 - Backend in TypeScript/Node, Receiver in Python, Mobile in Kotlin/Swift are recommended stacks.
 - Use Docker + managed Postgres + KMS for Cloud deployment.
+- Reference in-memory implementations (without a real database) SHOULD cap the number of retained presence_events per `(org_id, device_id)` to a small fixed window (for example, the last 50 events) to avoid unbounded memory growth; production deployments are expected to store presence_events in a database with appropriate indexing and retention policies.
 
 ---
 

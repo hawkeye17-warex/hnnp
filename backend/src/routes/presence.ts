@@ -43,6 +43,11 @@ export interface PresenceSession {
 // In-memory presence session store for now; will be replaced with a real database later.
 const presenceSessions: PresenceSession[] = [];
 
+// Retention cap for in-memory presenceEvents per device_id.
+// This is a reference-implementation safeguard to prevent unbounded growth
+// when running without a real database.
+const MAX_EVENTS_PER_DEVICE = 50;
+
 const router = Router();
 
 router.post("/v2/presence", async (req: Request, res: Response) => {
@@ -251,6 +256,25 @@ router.post("/v2/presence", async (req: Request, res: Response) => {
   };
 
   presenceEvents.push(event);
+
+  // Enforce per-device retention cap to prevent unbounded memory growth
+  // in the reference in-memory implementation.
+  const perDeviceEvents = presenceEvents
+    .filter((e) => e.device_id === deviceRecord.deviceId)
+    .sort((a, b) => a.timestamp - b.timestamp);
+
+  if (perDeviceEvents.length > MAX_EVENTS_PER_DEVICE) {
+    const surplus = perDeviceEvents.length - MAX_EVENTS_PER_DEVICE;
+    const toRemove = new Set(
+      perDeviceEvents.slice(0, surplus).map((e) => e.event_id),
+    );
+    for (let i = presenceEvents.length - 1; i >= 0; i -= 1) {
+      const e = presenceEvents[i];
+      if (e.device_id === deviceRecord.deviceId && toRemove.has(e.event_id)) {
+        presenceEvents.splice(i, 1);
+      }
+    }
+  }
 
   // Create or update presence_session for this (org_id, device_id) if not already resolved.
   let session = presenceSessions.find(
