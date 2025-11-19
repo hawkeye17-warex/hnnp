@@ -53,8 +53,38 @@ export async function createLink(params: {
   };
 }
 
-export async function revokeLink(params: { orgId: string; linkId: string }): Promise<LinkRecord | null> {
+export async function activateLink(id: string, activatedAt: Date = new Date()): Promise<LinkRecord | null> {
   try {
+    const link = await prisma.link.update({
+      where: { id },
+      data: { status: "active", activatedAt, revokedAt: null },
+    });
+
+    return {
+      id: link.id,
+      orgId: link.orgId,
+      deviceId: link.deviceId,
+      userRef: link.userRef,
+      status: link.status,
+      createdAt: link.createdAt.getTime(),
+      activatedAt: link.activatedAt?.getTime() ?? null,
+      revokedAt: link.revokedAt?.getTime() ?? null,
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function revokeLink(params: { orgId?: string; linkId: string }): Promise<LinkRecord | null> {
+  try {
+    const existing = await prisma.link.findUnique({ where: { id: params.linkId } });
+    if (!existing) {
+      return null;
+    }
+    if (params.orgId && existing.orgId !== params.orgId) {
+      return null;
+    }
+
     const link = await prisma.link.update({
       where: { id: params.linkId },
       data: { status: "revoked", revokedAt: new Date() },
@@ -103,8 +133,16 @@ export async function resolveLink(params: ResolveLinkParams): Promise<ResolveLin
   };
 }
 
-export async function listLinks(): Promise<LinkRecord[]> {
-  const links = await prisma.link.findMany({ orderBy: { createdAt: "desc" } });
+export async function listLinks(params?: { orgId?: string; userRef?: string }): Promise<LinkRecord[]> {
+  const where: Record<string, unknown> = {};
+  if (params?.orgId) where.orgId = params.orgId;
+  if (params?.userRef) where.userRef = params.userRef;
+
+  const links = await prisma.link.findMany({
+    where,
+    orderBy: { createdAt: "desc" },
+  });
+
   return links.map((l) => ({
     id: l.id,
     orgId: l.orgId,

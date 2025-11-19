@@ -5,6 +5,7 @@ import { presenceRouter } from "./routes/presence";
 import { linkRouter } from "./routes/link";
 import { debugRouter } from "./routes/debug";
 import { orgsRouter } from "./routes/orgs";
+import { linksRouter } from "./routes/links";
 import { prisma } from "./db/prisma";
 
 const config = loadConfig();
@@ -20,6 +21,7 @@ app.use(presenceRouter);
 app.use(linkRouter);
 app.use(debugRouter);
 app.use(orgsRouter);
+app.use(linksRouter);
 
 const server = http.createServer(app);
 
