@@ -7,3 +7,95 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model Org {
+  /// org_id used in protocol, e.g. "test_org"
+  id        String   @id
+  name      String
+  slug      String   @unique
+
+  /// Logical status; enforced in code (e.g. "active", "suspended").
+  status    String   @default("active")
+
+  /// Org-level configuration blob (allowed protocol versions, clock skew, etc.).
+  config    Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  receivers Receiver[]
+  apiKeys   ApiKey[]
+  events    PresenceEvent[]
+}
+
+model Receiver {
+  /// receiver_id from spec, e.g. "R1"
+  id    String @id
+  orgId String
+  org   Org    @relation(fields: [orgId], references: [id])
+
+  displayName   String
+  locationLabel String?
+  latitude      Float?
+  longitude     Float?
+
+  /// "hmac_shared_secret" | "public_key" | "none_low_trust"
+  authMode         String
+  /// Argon2/bcrypt hash, required when authMode = hmac_shared_secret.
+  sharedSecretHash String?
+  /// PEM when using signature-based auth.
+  publicKeyPem     String?
+
+  firmwareVersion String?
+  /// Logical status; enforced in code (e.g. "active", "disabled").
+  status          String   @default("active")
+  lastSeenAt      DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  events PresenceEvent[]
+
+  @@index([orgId])
+}
+
+model ApiKey {
+  id    String @id @default(cuid())
+  orgId String
+  org   Org    @relation(fields: [orgId], references: [id])
+
+  name      String
+  /// First 6–8 chars for identification.
+  keyPrefix String @unique
+  /// Argon2/bcrypt hash of full key.
+  keyHash   String
+  /// Simple comma-separated string or JSON; interpreted in code.
+  scopes    String
+
+  createdAt  DateTime @default(now())
+  lastUsedAt DateTime?
+  revokedAt  DateTime?
+
+  @@index([orgId])
+  @@index([keyPrefix])
+}
+
+model PresenceEvent {
+  /// event_id from spec.
+  id String @id
+
+  orgId      String
+  deviceId   String
+  receiverId String
+  timestamp  Int
+  timeSlot   Int
+
+  /// Optional structured flags / annotations.
+  suspiciousFlags Json?
+
+  org      Org      @relation(fields: [orgId], references: [id])
+  receiver Receiver @relation(fields: [receiverId], references: [id])
+
+  @@index([orgId])
+  @@index([deviceId, orgId])
+  @@index([receiverId, orgId])
+}
