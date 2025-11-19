@@ -10,6 +10,12 @@ export interface VerifyReceiverSignatureParams {
   signature: string;
 }
 
+export interface DeriveDeviceIdsParams {
+  deviceIdSalt: string;
+  timeSlot: number;
+  tokenPrefixHex: string;
+}
+
 function encodeUint32BE(value: number): Buffer {
   if (!Number.isInteger(value) || value < 0) {
     throw new Error(`encodeUint32BE: invalid value ${value}`);
@@ -58,5 +64,36 @@ export function verifyReceiverSignature(params: VerifyReceiverSignatureParams): 
   } catch {
     return false;
   }
+}
+
+// deriveDeviceIds implements the device_id_base and device_id derivation from protocol/spec.md:
+//
+// device_id_base = HMAC-SHA256(device_id_salt,
+//                   encode_uint32(time_slot) || token_prefix)
+//
+// device_id = HMAC-SHA256(device_id_salt,
+//               "hnnp_v2_id" || device_id_base)
+//
+// device_id_salt is provided as a string (e.g., env var) and interpreted as UTF-8 bytes.
+// token_prefix is provided as a hex string.
+export function deriveDeviceIds(params: DeriveDeviceIdsParams): {
+  deviceIdBaseHex: string;
+  deviceIdHex: string;
+} {
+  const { deviceIdSalt, timeSlot, tokenPrefixHex } = params;
+
+  const key = Buffer.from(deviceIdSalt, "utf8");
+
+  const hmacBase = crypto.createHmac("sha256", key);
+  hmacBase.update(encodeUint32BE(timeSlot));
+  hmacBase.update(Buffer.from(tokenPrefixHex, "hex"));
+  const deviceIdBaseHex = hmacBase.digest("hex");
+
+  const hmacId = crypto.createHmac("sha256", key);
+  hmacId.update(Buffer.from("hnnp_v2_id", "utf8"));
+  hmacId.update(Buffer.from(deviceIdBaseHex, "hex"));
+  const deviceIdHex = hmacId.digest("hex");
+
+  return { deviceIdBaseHex, deviceIdHex };
 }
 

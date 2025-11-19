@@ -1,7 +1,8 @@
 import { Router, Request, Response } from "express";
-import { verifyReceiverSignature } from "../services/crypto";
+import { verifyReceiverSignature, deriveDeviceIds } from "../services/crypto";
 import { resolveLink } from "../services/links";
 import { getReceiverSecret } from "../services/receivers";
+import { getOrCreateDevice } from "../services/devices";
 
 interface PresenceRequestBody {
   org_id: string;
@@ -18,6 +19,8 @@ interface PresenceRequestBody {
 interface PresenceEvent {
   event_id: string;
   org_id: string;
+  device_id: string;
+  device_id_base: string;
   receiver_id: string;
   timestamp: number;
   time_slot: number;
@@ -105,11 +108,30 @@ router.post("/v2/presence", (req: Request, res: Response) => {
     return res.status(400).json({ error: "time_slot outside allowed drift window" });
   }
 
+  const deviceIdSalt = process.env.DEVICE_ID_SALT;
+  if (!deviceIdSalt) {
+    return res.status(500).json({ error: "device_id_salt not configured" });
+  }
+
+  const { deviceIdBaseHex, deviceIdHex } = deriveDeviceIds({
+    deviceIdSalt,
+    timeSlot: time_slot,
+    tokenPrefixHex: token_prefix,
+  });
+
+  const deviceRecord = getOrCreateDevice({
+    orgId: org_id,
+    deviceIdBase: deviceIdBaseHex,
+    deviceId: deviceIdHex,
+  });
+
   const eventId = `evt_${presenceEvents.length + 1}`;
 
   const event: PresenceEvent = {
     event_id: eventId,
     org_id,
+    device_id: deviceRecord.deviceId,
+    device_id_base: deviceRecord.deviceIdBase,
     receiver_id,
     timestamp,
     time_slot,
