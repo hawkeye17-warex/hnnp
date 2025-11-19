@@ -4,6 +4,7 @@ import { loadConfig } from "./config";
 import { presenceRouter } from "./routes/presence";
 import { linkRouter } from "./routes/link";
 import { debugRouter } from "./routes/debug";
+import { orgsRouter } from "./routes/orgs";
 import { prisma } from "./db/prisma";
 
 const config = loadConfig();
@@ -18,6 +19,7 @@ app.get("/health", (_req: Request, res: Response) => {
 app.use(presenceRouter);
 app.use(linkRouter);
 app.use(debugRouter);
+app.use(orgsRouter);
 
 const server = http.createServer(app);
 
