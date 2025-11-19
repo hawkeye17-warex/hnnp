@@ -5,6 +5,7 @@ import { encodeUint32BE } from "../services/uint";
 import { deriveDeviceIds } from "../services/crypto";
 import { registerDeviceKey } from "../services/devices";
 import { presenceEvents, presenceSessions } from "../routes/presence";
+import { getWebhookQueuePayloadsForTest } from "../services/webhooks";
 
 const ORG_ID = "org_test";
 const RECEIVER_ID = "receiver_test";
@@ -94,7 +95,7 @@ function registerDeviceForSlot(timeSlot: number): string {
   return deviceIdHex;
 }
 
-describe("device → receiver → cloud integration", () => {
+describe("device + receiver + cloud integration", () => {
   beforeAll(() => {
     process.env.RECEIVER_ORG_ID = ORG_ID;
     process.env.RECEIVER_ID = RECEIVER_ID;
@@ -175,6 +176,52 @@ describe("device → receiver → cloud integration", () => {
 
     expect(presenceEvents.length).toBe(1);
     expect(presenceSessions.length).toBe(1);
+  });
+
+  it("handles full E2E flow: unknown -> link -> linked presence with presence.check_in webhook", async () => {
+    process.env.WEBHOOK_SECRET = "test_webhook_secret";
+    process.env.WEBHOOK_URL = "http://localhost:9999/fake-webhook";
+
+    const serverTime = Math.floor(Date.now() / 1000);
+    const timeSlot = Math.floor(serverTime / 15);
+
+    // Step 1: Receiver sends an unknown presence report (unlinked device).
+    const report1 = buildPresenceReport(timeSlot, serverTime);
+    const res1 = await request(app).post("/v2/presence").send(report1);
+
+    expect(res1.status).toBe(200);
+    expect(res1.body.status).toBe("accepted");
+    expect(res1.body.linked).toBe(false);
+    const presenceSessionId = res1.body.presence_session_id;
+    expect(typeof presenceSessionId).toBe("string");
+
+    // Step 2: External system links the presence_session to a user via /v2/link.
+    const userRef = "user_123";
+    const resLink = await request(app)
+      .post("/v2/link")
+      .send({
+        org_id: ORG_ID,
+        presence_session_id: presenceSessionId,
+        user_ref: userRef,
+      });
+
+    expect(resLink.status).toBe(200);
+    expect(resLink.body.status).toBe("linked");
+    expect(resLink.body.user_ref).toBe(userRef);
+
+    // Step 3: Receiver sends another presence in the same time_slot but with a later timestamp.
+    // This should resolve to a linked device and enqueue a presence.check_in webhook.
+    const laterTimestamp = serverTime + 6; // >= duplicate window so it is not rejected outright.
+    const report2 = buildPresenceReport(timeSlot, laterTimestamp);
+    const res2 = await request(app).post("/v2/presence").send(report2);
+
+    expect(res2.status).toBe(200);
+    expect(res2.body.status).toBe("accepted");
+    expect(res2.body.linked).toBe(true);
+
+    const payloads = getWebhookQueuePayloadsForTest();
+    const types = payloads.map((p) => p.type);
+    expect(types).toContain("presence.check_in");
   });
 });
 

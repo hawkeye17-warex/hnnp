@@ -170,6 +170,12 @@ export function getWebhookDeadLetterSize(): number {
   return deadLetter.length;
 }
 
+// Test-only helper to inspect queued webhook payloads without exposing secrets.
+// This does not mutate the queue and is intended for integration tests.
+export function getWebhookQueuePayloadsForTest(): WebhookPayload[] {
+  return queue.map((job) => job.payload);
+}
+
 /**
  * Queue a webhook for asynchronous dispatch with signing and retry.
  *
