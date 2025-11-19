@@ -214,3 +214,29 @@ function isRetryable(err: unknown): boolean {
  * const events = await client.listPresenceEvents({ orgId: "test_org" });
  */
 
+// ---- Webhook verification ----
+import crypto from "crypto";
+
+export function verifyWebhookSignature(params: {
+  secret: string;
+  timestamp: string | number;
+  rawBody: string | Buffer;
+  signature: string;
+}): boolean {
+  const { secret, timestamp, rawBody, signature } = params;
+  const key = Buffer.isBuffer(secret) ? secret : Buffer.from(secret, "utf8");
+  const ts = String(timestamp);
+  const bodyBuf = Buffer.isBuffer(rawBody) ? rawBody : Buffer.from(rawBody, "utf8");
+  const msg = Buffer.concat([Buffer.from(ts, "utf8"), bodyBuf]);
+  const expected = crypto.createHmac("sha256", key).update(msg).digest("hex");
+  return safeTimingCompare(expected, signature);
+}
+
+function safeTimingCompare(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  try {
+    return crypto.timingSafeEqual(Buffer.from(a, "utf8"), Buffer.from(b, "utf8"));
+  } catch {
+    return false;
+  }
+}
