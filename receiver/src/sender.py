@@ -84,6 +84,8 @@ async def run_sender() -> None:
     cfg = load_receiver_config()
     base_url = cfg.api_base_url
     max_skew_seconds = _get_max_skew_seconds()
+    max_retry_attempts = cfg.max_retry_attempts
+    max_queue_size = cfg.max_queue_size
 
     queue = QUEUE
 
@@ -114,7 +116,7 @@ async def run_sender() -> None:
                     report.time_slot,
                     exc,
                 )
-                _enqueue_report(queue, report, now)
+                _enqueue_report(queue, report, now, max_queue_size)
                 return
 
             if 200 <= status < 300:
@@ -133,7 +135,7 @@ async def run_sender() -> None:
                     status,
                     report.time_slot,
                 )
-                _enqueue_report(queue, report, now)
+                _enqueue_report(queue, report, now, max_queue_size)
                 return
 
             # 4xx and other non-retriable errors: drop.
@@ -172,7 +174,16 @@ async def run_sender() -> None:
                             item.report.time_slot,
                             exc,
                         )
-                        _schedule_next_retry(item)
+                        if not _schedule_next_retry(item, max_retry_attempts):
+                            logger.warning(
+                                "Dropping queued presence after max_retry_attempts "
+                                "(org_id=%s, receiver_id=%s, attempts=%s, time_slot=%s)",
+                                item.report.org_id,
+                                cfg.receiver_id,
+                                item.attempts,
+                                item.report.time_slot,
+                            )
+                            queue.remove(item)
                         continue
 
                     if 200 <= status < 300:
@@ -191,7 +202,16 @@ async def run_sender() -> None:
                             item.attempts,
                             item.report.time_slot,
                         )
-                        _schedule_next_retry(item)
+                        if not _schedule_next_retry(item, max_retry_attempts):
+                            logger.warning(
+                                "Dropping queued presence after max_retry_attempts "
+                                "(org_id=%s, receiver_id=%s, attempts=%s, time_slot=%s)",
+                                item.report.org_id,
+                                cfg.receiver_id,
+                                item.attempts,
+                                item.report.time_slot,
+                            )
+                            queue.remove(item)
                         continue
 
                     # Non-retriable error.
@@ -211,7 +231,20 @@ async def run_sender() -> None:
         await asyncio.gather(consume_reports(), retry_loop())
 
 
-def _enqueue_report(queue: List[QueuedReport], report: PresenceReport, now: int) -> None:
+def _enqueue_report(
+    queue: List[QueuedReport],
+    report: PresenceReport,
+    now: int,
+    max_queue_size: int,
+) -> None:
+    if max_queue_size > 0 and len(queue) >= max_queue_size:
+        oldest = queue.pop(0)
+        logger.warning(
+            "Queue full (max_queue_size=%s); dropping oldest report (org_id=%s, time_slot=%s)",
+            max_queue_size,
+            oldest.report.org_id,
+            oldest.report.time_slot,
+        )
     queue.append(
         QueuedReport(
             report=report,
@@ -222,8 +255,16 @@ def _enqueue_report(queue: List[QueuedReport], report: PresenceReport, now: int)
     )
 
 
-def _schedule_next_retry(item: QueuedReport) -> None:
+def _schedule_next_retry(item: QueuedReport, max_retry_attempts: int) -> bool:
+    """
+    Increment attempt counter and schedule next retry.
+
+    Returns False if the item exceeded max_retry_attempts and should be dropped.
+    """
     item.attempts += 1
+    if item.attempts > max_retry_attempts:
+        return False
     # Exponential backoff capped at 60 seconds.
     delay = min(60, 2 ** min(item.attempts, 6))
     item.next_retry_at = time.time() + delay
+    return True
