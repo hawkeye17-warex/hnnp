@@ -29,6 +29,7 @@ interface PresenceEvent {
   token_prefix: string;
   mac: string;
   suspicious_duplicate?: boolean;
+  suspicious_flags?: string[];
 }
 
 // In-memory presence store for now; will be replaced with a real database later.
@@ -163,6 +164,7 @@ router.post("/v2/presence", (req: Request, res: Response) => {
   );
 
   let suspiciousDuplicate = false;
+  const suspiciousFlags: string[] = [];
 
   if (matchingEvents.length > 0) {
     const latest = matchingEvents.reduce((a, b) => (b.timestamp > a.timestamp ? b : a));
@@ -173,6 +175,31 @@ router.post("/v2/presence", (req: Request, res: Response) => {
     }
 
     suspiciousDuplicate = true;
+    suspiciousFlags.push("duplicate_same_slot");
+  }
+
+  // Impossible movement heuristic:
+  // Track last known receiver + timestamp per (org_id, device_id). If a new event
+  // arrives from a different receiver within an "impossible travel" window, mark
+  // it as suspicious (wormhole candidate).
+  const impossibleTravelSeconds = Number.isFinite(Number(process.env.IMPOSSIBLE_TRAVEL_SECONDS))
+    ? Number(process.env.IMPOSSIBLE_TRAVEL_SECONDS)
+    : 60;
+
+  const lastDeviceEvent = presenceEvents
+    .filter((evt) => evt.org_id === org_id && evt.device_id === deviceRecord.deviceId)
+    .reduce<PresenceEvent | null>((latest, evt) => {
+      if (!latest || evt.timestamp > latest.timestamp) {
+        return evt;
+      }
+      return latest;
+    }, null);
+
+  if (lastDeviceEvent && lastDeviceEvent.receiver_id !== receiver_id) {
+    const deltaSeconds = timestamp - lastDeviceEvent.timestamp;
+    if (deltaSeconds >= 0 && deltaSeconds < impossibleTravelSeconds) {
+      suspiciousFlags.push("impossible_movement");
+    }
   }
 
   const eventId = `evt_${presenceEvents.length + 1}`;
@@ -190,6 +217,7 @@ router.post("/v2/presence", (req: Request, res: Response) => {
     token_prefix,
     mac,
     suspicious_duplicate: suspiciousDuplicate || undefined,
+    suspicious_flags: suspiciousFlags.length > 0 ? suspiciousFlags : undefined,
   };
 
   presenceEvents.push(event);
