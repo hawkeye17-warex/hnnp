@@ -1,8 +1,8 @@
 import { Router, Request, Response } from "express";
-import { verifyReceiverSignature, deriveDeviceIds } from "../services/crypto";
+import { verifyReceiverSignature, deriveDeviceIds, verifyPacketMac } from "../services/crypto";
 import { resolveLink } from "../services/links";
 import { getReceiverSecret } from "../services/receivers";
-import { getOrCreateDevice } from "../services/devices";
+import { getOrCreateDevice, getDeviceKey } from "../services/devices";
 
 interface PresenceRequestBody {
   org_id: string;
@@ -124,6 +124,25 @@ router.post("/v2/presence", (req: Request, res: Response) => {
     deviceIdBase: deviceIdBaseHex,
     deviceId: deviceIdHex,
   });
+
+  // For registered devices (device_keys present), verify packet MAC using device_auth_key.
+  // For unregistered devices, skip MAC verification and treat presence as low-trust anonymous.
+  const deviceKey = getDeviceKey({ orgId: org_id, deviceId: deviceRecord.deviceId });
+
+  if (deviceKey) {
+    const macValid = verifyPacketMac({
+      deviceAuthKeyHex: deviceKey.deviceAuthKeyHex,
+      version,
+      flags,
+      timeSlot: time_slot,
+      tokenPrefixHex: token_prefix,
+      macHex: mac,
+    });
+
+    if (!macValid) {
+      return res.status(401).json({ error: "Invalid MAC for registered device" });
+    }
+  }
 
   const eventId = `evt_${presenceEvents.length + 1}`;
 

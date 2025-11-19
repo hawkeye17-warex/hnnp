@@ -16,6 +16,15 @@ export interface DeriveDeviceIdsParams {
   tokenPrefixHex: string;
 }
 
+export interface VerifyPacketMacParams {
+  deviceAuthKeyHex: string;
+  version: number;
+  flags: number;
+  timeSlot: number;
+  tokenPrefixHex: string;
+  macHex: string;
+}
+
 function encodeUint32BE(value: number): Buffer {
   if (!Number.isInteger(value) || value < 0) {
     throw new Error(`encodeUint32BE: invalid value ${value}`);
@@ -97,3 +106,30 @@ export function deriveDeviceIds(params: DeriveDeviceIdsParams): {
   return { deviceIdBaseHex, deviceIdHex };
 }
 
+// verifyPacketMac implements the packet MAC verification for registered devices:
+//
+// mac_full = HMAC-SHA256(device_auth_key,
+//              version || flags || encode_uint32(time_slot) || token_prefix)
+// mac = first 8 bytes of mac_full
+//
+// device_auth_key is provided as hex; version and flags are numeric bytes.
+export function verifyPacketMac(params: VerifyPacketMacParams): boolean {
+  const { deviceAuthKeyHex, version, flags, timeSlot, tokenPrefixHex, macHex } = params;
+
+  try {
+    const key = Buffer.from(deviceAuthKeyHex, "hex");
+    const hmac = crypto.createHmac("sha256", key);
+
+    const header = Buffer.from([version & 0xff, flags & 0xff]);
+    hmac.update(header);
+    hmac.update(encodeUint32BE(timeSlot));
+    hmac.update(Buffer.from(tokenPrefixHex, "hex"));
+
+    const fullMac = hmac.digest();
+    const expectedMacHex = fullMac.subarray(0, 8).toString("hex");
+
+    return timingSafeEqualHex(expectedMacHex, macHex);
+  } catch {
+    return false;
+  }
+}
