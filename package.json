@@ -1,0 +1,12 @@
+{
+  "name": "hnnp-monorepo",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "device-app",
+    "receiver",
+    "cloud-api",
+    "lib"
+  ]
+}
+

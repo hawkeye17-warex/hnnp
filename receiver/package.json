@@ -1,0 +1,8 @@
+{
+  "name": "@hnnp/receiver",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Workspace for HNNP receiver implementations (Go/Python/other).",
+  "main": "index.js"
+}
+
