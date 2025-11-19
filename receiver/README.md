@@ -51,6 +51,9 @@ ORG_ID=
 RECEIVER_ID=
 RECEIVER_SECRET=
 API_BASE_URL=
+MAX_SKEW_SECONDS=120         # max allowed |server_time - timestamp| in seconds (sender-side dropping)
+MAX_DRIFT_SLOTS=1            # receiver-side |time_slot - current_slot| tolerance (15s windows)
+DUPLICATE_SUPPRESS_SECONDS=5 # receiver-side duplicate suppression window for same token_prefix+time_slot
 
 ---
 

@@ -1,4 +1,5 @@
 import asyncio
+import os
 import time
 from dataclasses import dataclass
 from typing import AsyncIterator, Optional
@@ -12,7 +13,7 @@ except ImportError:  # pragma: no cover - bleak not installed in all environment
 HNNP_SERVICE_UUID = "0000f0e0-0000-1000-8000-00805f9b34fb"
 PAYLOAD_LENGTH_BYTES = 30
 TEN_YEARS_SECONDS = 10 * 365 * 24 * 60 * 60
-DUPLICATE_WINDOW_SECONDS = 5
+DEFAULT_DUPLICATE_WINDOW_SECONDS = 5
 
 
 @dataclass
@@ -50,11 +51,12 @@ def _parse_hnnp_payload(payload: bytes) -> Optional[BlePacketV2]:
 
     now = int(time.time())
 
-    # time_slot window validation using 15-second slots with ±1 window tolerance.
+    # time_slot window validation using 15-second slots with configurable drift.
     # current_slot = floor(now / 15)
-    # Accept if |time_slot - current_slot| <= 1, otherwise drop.
+    # Accept if |time_slot - current_slot| <= MAX_DRIFT_SLOTS (default 1), otherwise drop.
     current_slot = now // 15
-    if abs(time_slot - current_slot) > 1:
+    max_drift_slots = int(os.environ.get("MAX_DRIFT_SLOTS", "1"))
+    if abs(time_slot - current_slot) > max_drift_slots:
         return None
 
     # Reject obviously invalid future time_slot (sanity bound): interpret as seconds = time_slot * 15.
@@ -97,7 +99,10 @@ async def scan_hnnp_packets() -> AsyncIterator[BlePacketV2]:
         now = time.time()
 
         # Clean up old entries to keep the cache bounded.
-        expired_before = now - DUPLICATE_WINDOW_SECONDS
+        duplicate_window = float(
+            os.environ.get("DUPLICATE_SUPPRESS_SECONDS", DEFAULT_DUPLICATE_WINDOW_SECONDS)
+        )
+        expired_before = now - duplicate_window
         for key, last_seen in list(seen.items()):
             if last_seen < expired_before:
                 del seen[key]
@@ -122,7 +127,7 @@ async def scan_hnnp_packets() -> AsyncIterator[BlePacketV2]:
             key = (packet.token_prefix, packet.time_slot)
             last_seen = seen.get(key)
 
-            if last_seen is not None and now - last_seen <= DUPLICATE_WINDOW_SECONDS:
+            if last_seen is not None and now - last_seen <= duplicate_window:
                 # Duplicate within the suppression window; drop to reduce spam.
                 continue
 
@@ -130,3 +135,4 @@ async def scan_hnnp_packets() -> AsyncIterator[BlePacketV2]:
             yield packet
 
         await asyncio.sleep(1.0)
+

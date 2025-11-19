@@ -49,6 +49,11 @@ DEVICE_ID_SALT=
 WEBHOOK_SECRET=
 API_KEY_SECRET=
 API_BASE_URL=
+MAX_SKEW_SECONDS=120        # max allowed |server_time - timestamp| in seconds
+MAX_DRIFT_SLOTS=1           # max allowed |server_slot - time_slot| (15s windows)
+DUPLICATE_SUPPRESS_SECONDS=5 # min seconds before accepting a second event in same slot
+IMPOSSIBLE_TRAVEL_SECONDS=60 # window for impossible movement detection across receivers
+HARDENED_MODE=false         # when true, reject suspicious events instead of just flagging
 
 ---
 

@@ -116,10 +116,13 @@ router.post("/v2/presence", async (req: Request, res: Response) => {
   }
 
   // Validate that reported time_slot is consistent with server-side time using 15-second windows.
-  // server_slot = floor(server_time / 15); accept if |time_slot - server_slot| <= 1.
+  // server_slot = floor(server_time / 15); accept if |time_slot - server_slot| <= max_drift_slots.
   const rotationWindowSeconds = 15;
   const serverSlot = Math.floor(serverTime / rotationWindowSeconds);
-  if (Math.abs(serverSlot - time_slot) > 1) {
+  const maxDriftSlots = Number.isFinite(Number(process.env.MAX_DRIFT_SLOTS))
+    ? Number(process.env.MAX_DRIFT_SLOTS)
+    : 1;
+  if (Math.abs(serverSlot - time_slot) > maxDriftSlots) {
     return res.status(400).json({ error: "time_slot outside allowed drift window" });
   }
 
@@ -164,8 +167,10 @@ router.post("/v2/presence", async (req: Request, res: Response) => {
   // in the same time_slot are either rejected or accepted but flagged as duplicates.
   // We allow a second attempt if timestamp >= previous_timestamp + MIN_DUP_RETRY_SECONDS
   // (default 5 seconds).
-  const minDupRetrySeconds = Number.isFinite(Number(process.env.MIN_DUP_RETRY_SECONDS))
-    ? Number(process.env.MIN_DUP_RETRY_SECONDS)
+  const duplicateSuppressSeconds = Number.isFinite(
+    Number(process.env.DUPLICATE_SUPPRESS_SECONDS ?? process.env.MIN_DUP_RETRY_SECONDS),
+  )
+    ? Number(process.env.DUPLICATE_SUPPRESS_SECONDS ?? process.env.MIN_DUP_RETRY_SECONDS)
     : 5;
 
   const matchingEvents = presenceEvents.filter(
@@ -183,7 +188,7 @@ router.post("/v2/presence", async (req: Request, res: Response) => {
     const latest = matchingEvents.reduce((a, b) => (b.timestamp > a.timestamp ? b : a));
     const deltaSeconds = timestamp - latest.timestamp;
 
-    if (deltaSeconds < minDupRetrySeconds) {
+    if (deltaSeconds < duplicateSuppressSeconds) {
       return res.status(409).json({ error: "Duplicate presence event in same time_slot" });
     }
 
@@ -213,6 +218,13 @@ router.post("/v2/presence", async (req: Request, res: Response) => {
     if (deltaSeconds >= 0 && deltaSeconds < impossibleTravelSeconds) {
       suspiciousFlags.push("impossible_movement");
     }
+  }
+
+  const hardenedMode =
+    process.env.HARDENED_MODE === "true" || process.env.HARDENED_MODE === "1";
+
+  if (hardenedMode && (suspiciousDuplicate || suspiciousFlags.length > 0)) {
+    return res.status(409).json({ error: "Suspicious presence event" });
   }
 
   const eventId = `evt_${presenceEvents.length + 1}`;
