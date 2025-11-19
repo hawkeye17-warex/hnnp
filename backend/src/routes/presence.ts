@@ -97,6 +97,14 @@ router.post("/v2/presence", (req: Request, res: Response) => {
     return res.status(400).json({ error: "Timestamp skew too large" });
   }
 
+  // Validate that reported time_slot is consistent with server-side time using 15-second windows.
+  // server_slot = floor(server_time / 15); accept if |time_slot - server_slot| <= 1.
+  const rotationWindowSeconds = 15;
+  const serverSlot = Math.floor(serverTime / rotationWindowSeconds);
+  if (Math.abs(serverSlot - time_slot) > 1) {
+    return res.status(400).json({ error: "time_slot outside allowed drift window" });
+  }
+
   const eventId = `evt_${presenceEvents.length + 1}`;
 
   const event: PresenceEvent = {

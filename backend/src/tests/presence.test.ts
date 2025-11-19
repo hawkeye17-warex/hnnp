@@ -99,4 +99,42 @@ describe("POST /v2/presence", () => {
     expect(res.status).toBe(401);
     expect(res.body.error).toMatch(/invalid receiver signature/i);
   });
+
+  it("returns 400 when time_slot is outside drift window", async () => {
+    const orgId = "org_123";
+    const receiverId = "rcv_001";
+    const now = Math.floor(Date.now() / 1000);
+    // Choose a time_slot far in the future so that |report_slot - server_slot| >> 1,
+    // while keeping timestamp skew small.
+    const timeSlotFarFuture = Math.floor((now + 300) / 15);
+
+    const tokenPrefixHex = "00112233445566778899aabbccddeeff";
+    const macHex = "aabbccddeeff0011";
+
+    const signature = computeSignature({
+      receiverSecret,
+      orgId,
+      receiverId,
+      timeSlot: timeSlotFarFuture,
+      tokenPrefixHex,
+      timestamp: now,
+    });
+
+    const res = await request(app)
+      .post("/v2/presence")
+      .send({
+        org_id: orgId,
+        receiver_id: receiverId,
+        timestamp: now,
+        time_slot: timeSlotFarFuture,
+        version: 0x02,
+        flags: 0,
+        token_prefix: tokenPrefixHex,
+        mac: macHex,
+        signature,
+      });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/time_slot/i);
+  });
 });
