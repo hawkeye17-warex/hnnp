@@ -25,6 +25,9 @@ model Org {
   receivers Receiver[]
   apiKeys   ApiKey[]
   events    PresenceEvent[]
+  devices   Device[]
+  links     Link[]
+  sessions  PresenceSession[]
 }
 
 model Receiver {
@@ -54,6 +57,7 @@ model Receiver {
   updatedAt DateTime @updatedAt
 
   events PresenceEvent[]
+  sessions PresenceSession[]
 
   @@index([orgId])
 }
@@ -135,4 +139,69 @@ model PresenceEvent {
   @@index([orgId, receiverId, serverTimestamp])
   @@index([orgId, deviceIdHash])
   @@index([orgId, tokenHash])
+}
+
+model Device {
+  id          String   @id @default(cuid())
+  orgId       String
+  org         Org      @relation(fields: [orgId], references: [id])
+  displayName String?
+  status      String   @default("active")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  keys  DeviceKey[]
+  links Link[]
+
+  @@index([orgId])
+}
+
+model DeviceKey {
+  id        String   @id
+  deviceId  String
+  device    Device   @relation(fields: [deviceId], references: [id])
+  keyHash   String
+  algorithm String
+  createdAt DateTime @default(now())
+  lastUsedAt DateTime?
+
+  @@index([deviceId])
+}
+
+model Link {
+  id         String   @id
+  orgId      String
+  deviceId   String?
+  userRef    String?
+  status     String
+  createdAt  DateTime @default(now())
+  activatedAt DateTime?
+  revokedAt  DateTime?
+
+  org    Org     @relation(fields: [orgId], references: [id])
+  device Device? @relation(fields: [deviceId], references: [id])
+
+  @@index([orgId])
+  @@index([orgId, userRef])
+  @@index([orgId, deviceId])
+}
+
+model PresenceSession {
+  id           String   @id
+  orgId        String
+  receiverId   String
+  userRef      String?
+  deviceIdHash String?
+  startedAt    DateTime
+  endedAt      DateTime?
+  flags        Int
+  meta         Json?
+
+  org      Org      @relation(fields: [orgId], references: [id])
+  receiver Receiver @relation(fields: [receiverId], references: [id])
+
+  @@index([orgId])
+  @@index([orgId, userRef])
+  @@index([orgId, deviceIdHash])
+  @@index([orgId, startedAt])
 }
