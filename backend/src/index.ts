@@ -4,6 +4,7 @@ import { loadConfig } from "./config";
 import { presenceRouter } from "./routes/presence";
 import { linkRouter } from "./routes/link";
 import { debugRouter } from "./routes/debug";
+import { prisma } from "./db/prisma";
 
 const config = loadConfig();
 const app = express();
@@ -29,5 +30,15 @@ if (process.env.NODE_ENV !== "test") {
     console.log(`HNNP backend listening on port ${config.port}`);
   });
 }
+
+process.on("SIGINT", async () => {
+  await prisma.$disconnect();
+  process.exit(0);
+});
+
+process.on("SIGTERM", async () => {
+  await prisma.$disconnect();
+  process.exit(0);
+});
 
 export { app, server };
