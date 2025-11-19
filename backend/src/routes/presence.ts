@@ -2,7 +2,6 @@ import { Router, Request, Response } from "express";
 import type { Prisma } from "@prisma/client";
 import { verifyReceiverSignature, deriveDeviceIds, verifyPacketMac, deriveTokenPrefixWithNonce } from "../services/crypto";
 import { resolveLink } from "../services/links";
-import { getReceiverSecret } from "../services/receivers";
 import { getOrCreateDevice, getDeviceKey } from "../services/devices";
 import { emitWebhook } from "../services/webhooks";
 import { computeLocalBeaconNonceHex } from "../services/localBeacon";
@@ -204,7 +203,11 @@ router.post("/v2/presence", async (req: Request, res: Response) => {
     return res.status(404).json({ error: "Unknown org or receiver" });
   }
 
-  const receiverSecret = getReceiverSecret(org.id, receiverRecord.id);
+  if (receiverRecord.authMode !== "hmac_shared_secret") {
+    return res.status(400).json({ error: "Unsupported receiver auth mode" });
+  }
+
+  const receiverSecret = receiverRecord.sharedSecretHash;
   if (!receiverSecret) {
     await logPresenceEvent({
       orgId: org.id,
@@ -218,7 +221,7 @@ router.post("/v2/presence", async (req: Request, res: Response) => {
       signatureHex: signature,
       isAnonymous: true,
       authResult: "rejected_receiver_secret",
-      reason: "Unknown receiver or secret not configured",
+      reason: "Receiver secret missing",
       meta: { error: "receiver_secret_not_configured" },
     });
     return res.status(401).json({ error: "Unknown receiver or secret not configured" });

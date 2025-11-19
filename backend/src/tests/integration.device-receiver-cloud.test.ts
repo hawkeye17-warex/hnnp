@@ -6,6 +6,7 @@ import { deriveDeviceIds } from "../services/crypto";
 import { registerDeviceKey } from "../services/devices";
 import { presenceEvents } from "../routes/presence";
 import { getWebhookQueuePayloadsForTest } from "../services/webhooks";
+import { prisma } from "../db/prisma";
 
 const ORG_ID = "org_test";
 const RECEIVER_ID = "receiver_test";
@@ -96,15 +97,36 @@ async function registerDeviceForSlot(timeSlot: number): Promise<string> {
 }
 
 describe("device + receiver + cloud integration", () => {
-  beforeAll(() => {
-    process.env.RECEIVER_ORG_ID = ORG_ID;
-    process.env.RECEIVER_ID = RECEIVER_ID;
-    process.env.RECEIVER_SECRET = RECEIVER_SECRET;
+  beforeAll(async () => {
     process.env.DEVICE_ID_SALT = DEVICE_ID_SALT;
     process.env.MAX_SKEW_SECONDS = "120";
     process.env.MAX_DRIFT_SLOTS = "1";
     process.env.DUPLICATE_SUPPRESS_SECONDS = "5";
     process.env.IMPOSSIBLE_TRAVEL_SECONDS = "60";
+
+    await prisma.presenceEvent.deleteMany({ where: { orgId: ORG_ID } });
+    await prisma.receiver.deleteMany({ where: { orgId: ORG_ID } });
+    await prisma.org.deleteMany({ where: { id: ORG_ID } });
+
+    await prisma.org.create({
+      data: {
+        id: ORG_ID,
+        name: "Integration Org",
+        slug: "integration-org",
+        status: "active",
+      },
+    });
+
+    await prisma.receiver.create({
+      data: {
+        id: RECEIVER_ID,
+        orgId: ORG_ID,
+        displayName: "Integration Receiver",
+        authMode: "hmac_shared_secret",
+        sharedSecretHash: RECEIVER_SECRET,
+        status: "active",
+      },
+    });
   });
 
   beforeEach(() => {

@@ -2,6 +2,7 @@ import request from "supertest";
 import crypto from "crypto";
 import { app } from "../index";
 import { presenceEvents } from "../routes/presence";
+import { prisma } from "../db/prisma";
 
 function encodeUint32BE(value: number): Buffer {
   const buf = Buffer.allocUnsafe(4);
@@ -32,12 +33,33 @@ function computeSignature(params: {
 describe("POST /v2/presence", () => {
   const receiverSecret = "test_receiver_secret_32_bytes_long!";
 
-  beforeAll(() => {
-    process.env.RECEIVER_SECRET = receiverSecret;
-    process.env.RECEIVER_ORG_ID = "org_123";
-    process.env.RECEIVER_ID = "rcv_001";
+  beforeAll(async () => {
     process.env.MAX_SKEW_SECONDS = "300";
     process.env.DEVICE_ID_SALT = "test_device_id_salt";
+
+    await prisma.presenceEvent.deleteMany({ where: { orgId: "org_123" } });
+    await prisma.receiver.deleteMany({ where: { orgId: "org_123" } });
+    await prisma.org.deleteMany({ where: { id: "org_123" } });
+
+    await prisma.org.create({
+      data: {
+        id: "org_123",
+        name: "Test Org 123",
+        slug: "org-123",
+        status: "active",
+      },
+    });
+
+    await prisma.receiver.create({
+      data: {
+        id: "rcv_001",
+        orgId: "org_123",
+        displayName: "Receiver 001",
+        authMode: "hmac_shared_secret",
+        sharedSecretHash: receiverSecret,
+        status: "active",
+      },
+    });
   });
 
   it("returns 200 and status accepted for valid signature", async () => {
