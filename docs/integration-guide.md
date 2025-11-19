@@ -826,3 +826,116 @@ HNNP’s security model assumes that devices, receivers, and Cloud all use reaso
     - Rejects if `|server_time - timestamp| > max_skew_seconds`.
     - Computes `server_slot = floor(server_time / 15)` and rejects if `|time_slot - server_slot| > MAX_DRIFT_SLOTS` (default 1).
   - This ensures that even if network delivery is slightly delayed or clocks are slightly skewed, events within a small time window still verify, while stale or badly skewed events are rejected.
+
+---
+
+## 10. Linking & revocation examples
+
+This section gives concrete JSON examples and an end-to-end sequence, complementing the normative behavior described earlier.
+
+### 10.1 Device registration (non-normative example)
+
+Device registration uses the `registration_blob` defined in the spec. Transport is non-normative, but a typical QR or deep-link payload might look like:
+
+```json
+{
+  "type": "hnnp_registration_v2",
+  "org_id": "acme-corp",
+  "registration_blob": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "issued_at": 1732046400
+}
+```
+
+Notes:
+
+- Only the `registration_blob` content is defined by the spec:
+  - `registration_blob = HMAC-SHA256(device_auth_key, "hnnp_reg_v2") || device_local_id`.
+- Fields like `type`, `org_id`, `issued_at` are implementation details for the external system.
+- The external system reads this payload, extracts `registration_blob`, and later sends it to Cloud via `/v2/link`.
+
+### 10.2 Linking a device (POST /v2/link)
+
+This is the canonical Cloud API call that both **links** and effectively **registers** a device with the Cloud.
+
+```http
+POST /v2/link
+Content-Type: application/json
+```
+
+```json
+{
+  "org_id": "acme-corp",
+  "presence_session_id": "psess_12345",
+  "user_ref": "user_98765",
+  "registration_blob": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+}
+```
+
+Response:
+
+```json
+{
+  "status": "linked",
+  "link_id": "link_abc123",
+  "user_ref": "user_98765",
+  "device_id": "dev_4f9c..."
+}
+```
+
+### 10.3 Revoking a device (DELETE /v2/link/{link_id})
+
+```http
+DELETE /v2/link/link_abc123
+Content-Type: application/json
+```
+
+```json
+{
+  "org_id": "acme-corp"
+}
+```
+
+Response:
+
+```json
+{
+  "status": "revoked",
+  "link_id": "link_abc123",
+  "revoked_at": 1732046400000
+}
+```
+
+### 10.4 Sequence: anonymous → linked
+
+Text-based sequence diagram showing the normal flow from anonymous presence to linked presence events:
+
+```text
+Device          Receiver            Cloud                  External System
+  |               |                  |                              |
+  | BLE packets   |                  |                              |
+  |-------------->|                  |                              |
+  |               | POST /v2/presence (unknown)                     |
+  |               |-----------------------------------------------> |
+  |               |                  | presence.unknown webhook     |
+  |               |                  |--------------------------->  |
+  |               |                  |  (includes presence_session_id)
+  |               |                  |                              |
+  |  registration_blob (QR / link)   |                              |
+  |-------------------------------------------------------------->  |
+  |               |                  |                              |
+  |               |                  | POST /v2/link                |
+  |               |                  | (org_id, presence_session_id,|
+  |               |                  |  user_ref, registration_blob)|
+  |               |                  |<----------------------------- |
+  |               |                  | 200 linked (link_id, device_id)
+  |               |                  |                              |
+  |               |                  | link.created webhook         |
+  |               |                  |--------------------------->  |
+  |               |                  |                              |
+  | BLE packets   |                  |                              |
+  |-------------->|                  |                              |
+  |               | POST /v2/presence (linked)                      |
+  |               |-----------------------------------------------> |
+  |               |                  | presence.check_in webhook    |
+  |               |                  |--------------------------->  |
+```

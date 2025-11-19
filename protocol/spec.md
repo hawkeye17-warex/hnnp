@@ -584,6 +584,81 @@ Response:
 - link_id
 - revoked_at
 
+### 9.3 Device Registration & Revocation
+
+This subsection summarizes the lifecycle of device registration, linking, and revocation using the primitives defined in Sections 3 and 9.
+
+**Device key material**
+
+- On install, each device generates a fresh `device_secret` (32 random bytes) and stores it only in OS secure storage (Section 3.1).
+- The device derives `device_auth_key` from this secret:
+
+  - `device_auth_key = HMAC-SHA256(device_secret, "hnnp_device_auth_v2")` (Section 3.2).
+
+- `device_secret` is never sent to Cloud. `device_auth_key` is only revealed during onboarding, via a registration blob.
+
+**Registration blob contents**
+
+- To allow Cloud to verify future tokens from this device, the device computes a `registration_blob`:
+
+  - `registration_blob = HMAC-SHA256(device_auth_key, "hnnp_reg_v2") || device_local_id`
+
+- `device_local_id` is a random per-device identifier used only within the onboarding flow.
+- The exact transport format (QR, deep link, etc.) is non-normative, but the blob itself MUST be treated as confidential and unforgeable.
+
+**Linking with /v2/link**
+
+- When Cloud has observed presence for an unknown device, it creates a `presence_session` and returns `presence_session_id` to the receiver.
+- An external system (e.g., access control backend) calls `POST /v2/link` with:
+
+  - `org_id`
+  - `presence_session_id` (identifies the unknown device)
+  - `user_ref` (external user identifier)
+  - `registration_blob` (optional but recommended, as above)
+
+- As described in Section 9.1, Cloud:
+
+  - Resolves `presence_session_id` → `device_id`.
+  - Validates `registration_blob` using the device-side derivation rules.
+  - Stores `device_auth_key` for that `device_id` and marks the device as registered.
+  - Creates a `link` between `(org_id, device_id)` and `user_ref`.
+
+After this, presence events for that `device_id` are treated as *linked* and MACs can be fully verified using the stored `device_auth_key`.
+
+**App reinstall and new devices**
+
+- If the app is reinstalled on a phone, it generates a new `device_secret` and therefore a new `device_auth_key` and `registration_blob`.
+- Cloud will derive a new `device_id` for tokens from this fresh key material.
+- Implementations SHOULD treat each reinstall as a new device:
+
+  - The new install MUST follow the normal onboarding flow (new `registration_blob`, new `/v2/link` call).
+  - Any existing links for the old `device_id` MAY be revoked via `DELETE /v2/link/{link_id}` if the old installation is no longer trusted.
+
+**Lost or compromised devices**
+
+- When a device is lost or compromised, the external system SHOULD revoke its link:
+
+  - Identify the relevant `link_id` for `(org_id, device_id, user_ref)`.
+  - Call `DELETE /v2/link/{link_id}` as described in Section 9.2.
+
+- Revocation semantics:
+
+  - The link is marked as revoked (`revoked_at` set).
+  - Future presence events from that `device_id` no longer resolve to the revoked link.
+  - Cloud MAY continue to accept and classify such events as anonymous presence (unknown device), depending on policy.
+
+**Multiple devices per user**
+
+- The protocol allows a single `user_ref` to be linked to multiple devices:
+
+  - Each physical device has its own `device_secret`, `device_auth_key`, and resulting `device_id`.
+  - `POST /v2/link` can be invoked multiple times with the same `user_ref` but different `presence_session_id` values (corresponding to different devices).
+
+- Cloud maintains separate links for each `(org_id, device_id, user_ref)` tuple:
+
+  - Presence events from any linked device produce `presence.check_in` webhooks that include both `device_id` and `user_ref`.
+  - Revoking one link does not affect other devices linked to the same `user_ref`; they remain valid until explicitly revoked.
+
 ---
 
 # 10. WEBHOOKS (v2)
