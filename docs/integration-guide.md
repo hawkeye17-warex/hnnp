@@ -804,3 +804,25 @@ These flows ensure:
 - Device-level secrets (`device_secret`, `device_auth_key`) never move between devices.
 - A compromised or lost device can be removed from the trust graph without affecting other devices for the same user.
 - Users can safely migrate to new devices while preserving history per `device_id` and `user_ref`.
+
+---
+
+## 9. Clock & drift considerations
+
+HNNP’s security model assumes that devices, receivers, and Cloud all use reasonably accurate clocks, with limited drift.
+
+- **Devices**
+  - Should rely on the OS clock (UTC) and avoid maintaining their own custom time sources.
+  - Compute `time_slot = floor(unix_time / 15)` based on that clock.
+  - If a device’s clock drifts significantly, its tokens may fall outside the Cloud’s allowed drift window and be rejected.
+
+- **Receivers**
+  - Use their OS clock to validate BLE `time_slot` locally and to set `timestamp` in presence reports.
+  - Should be NTP-synchronized in production; modest drift (±1 time_slot) is tolerated.
+  - The sender queue (`receiver/src/sender.py`) drops reports whose age exceeds `MAX_SKEW_SECONDS` (default 120s) before sending to Cloud.
+
+- **Cloud**
+  - Uses its own `server_time` to enforce both `max_skew_seconds` and the slot drift window:
+    - Rejects if `|server_time - timestamp| > max_skew_seconds`.
+    - Computes `server_slot = floor(server_time / 15)` and rejects if `|time_slot - server_slot| > MAX_DRIFT_SLOTS` (default 1).
+  - This ensures that even if network delivery is slightly delayed or clocks are slightly skewed, events within a small time window still verify, while stale or badly skewed events are rejected.
