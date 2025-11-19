@@ -12,6 +12,7 @@ except ImportError:  # pragma: no cover - bleak not installed in all environment
 HNNP_SERVICE_UUID = "0000f0e0-0000-1000-8000-00805f9b34fb"
 PAYLOAD_LENGTH_BYTES = 30
 TEN_YEARS_SECONDS = 10 * 365 * 24 * 60 * 60
+DUPLICATE_WINDOW_SECONDS = 5
 
 
 @dataclass
@@ -88,7 +89,19 @@ async def scan_hnnp_packets() -> AsyncIterator[BlePacketV2]:
     if BleakScanner is None:
         raise RuntimeError("bleak is not installed; BLE scanning is unavailable")
 
+    # In-memory cache for duplicate suppression keyed by (token_prefix, time_slot).
+    # Maps key -> last_seen_unix_time.
+    seen: dict[tuple[bytes, int], float] = {}
+
     while True:
+        now = time.time()
+
+        # Clean up old entries to keep the cache bounded.
+        expired_before = now - DUPLICATE_WINDOW_SECONDS
+        for key, last_seen in list(seen.items()):
+            if last_seen < expired_before:
+                del seen[key]
+
         devices = await BleakScanner.discover()
         for d in devices:
             # manufacturer_data and service_data layouts are library dependent.
@@ -103,7 +116,17 @@ async def scan_hnnp_packets() -> AsyncIterator[BlePacketV2]:
                 continue
 
             packet = _parse_hnnp_payload(payload)
-            if packet is not None:
-                yield packet
+            if packet is None:
+                continue
+
+            key = (packet.token_prefix, packet.time_slot)
+            last_seen = seen.get(key)
+
+            if last_seen is not None and now - last_seen <= DUPLICATE_WINDOW_SECONDS:
+                # Duplicate within the suppression window; drop to reduce spam.
+                continue
+
+            seen[key] = now
+            yield packet
 
         await asyncio.sleep(1.0)
