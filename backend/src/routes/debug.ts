@@ -1,0 +1,27 @@
+import { Router, Request, Response } from "express";
+import { presenceEvents, presenceSessions } from "./presence";
+import { getWebhookQueueSize, getWebhookDeadLetterSize } from "../services/webhooks";
+
+const router = Router();
+const startedAt = Date.now();
+
+router.get("/v2/debug/status", (_req: Request, res: Response) => {
+  const now = Date.now();
+  const uptimeSeconds = Math.floor((now - startedAt) / 1000);
+
+  const presenceEventCount = presenceEvents.length;
+  const activePresenceSessionCount = presenceSessions.filter((s) => !s.resolved_at).length;
+  const webhookQueueSize = getWebhookQueueSize();
+  const webhookDeadLetterSize = getWebhookDeadLetterSize();
+
+  res.status(200).json({
+    uptime_seconds: uptimeSeconds,
+    presence_event_count: presenceEventCount,
+    active_presence_session_count: activePresenceSessionCount,
+    webhook_queue_size: webhookQueueSize,
+    webhook_dead_letter_size: webhookDeadLetterSize,
+  });
+});
+
+export { router as debugRouter };
+
