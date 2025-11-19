@@ -82,8 +82,19 @@ class HnnpBleBroadcaster(
         val unixTimeSeconds = System.currentTimeMillis() / 1000.0
         val slot = TimeSlot.compute(unixTimeSeconds)
 
-        if (currentTimeSlot == null || currentTimeSlot != slot) {
+        val previous = currentTimeSlot
+        if (previous == null || previous != slot) {
             currentTimeSlot = slot
+
+            // Debug-only logging for time_slot transitions; no secrets logged.
+            if (android.os.BuildConfig.DEBUG) {
+                Log.d(
+                    "HnnpBleBroadcaster",
+                    "time_slot changed from ${previous ?: "none"} to $slot (unixTime=$unixTimeSeconds)"
+                )
+            }
+
+            // Immediately recompute token + MAC and restart advertising for the new slot.
             updateAdvertisingForSlot(slot)
         }
     }
@@ -161,4 +172,3 @@ class HnnpBleBroadcaster(
         return builder.build()
     }
 }
-

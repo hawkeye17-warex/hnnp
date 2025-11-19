@@ -66,8 +66,16 @@ final class HnnpBleBroadcaster: NSObject, CBPeripheralManagerDelegate {
         let now = Date().timeIntervalSince1970
         let slot = TimeSlotHelper.compute(unixTime: now)
 
-        if currentTimeSlot == nil || currentTimeSlot != slot {
+        let previous = currentTimeSlot
+        if previous == nil || previous != slot {
             currentTimeSlot = slot
+
+            #if DEBUG
+            // Debug-only logging for time_slot transitions; no secrets logged.
+            NSLog("HnnpBleBroadcaster: time_slot changed from \(previous.map(String.init) ?? \"none\") to \(slot) (unixTime=\(now))")
+            #endif
+
+            // Immediately recompute token + MAC and restart advertising for the new slot.
             updateAdvertising(for: slot)
         }
     }
@@ -134,4 +142,3 @@ final class HnnpBleBroadcaster: NSObject, CBPeripheralManagerDelegate {
         }
     }
 }
-
