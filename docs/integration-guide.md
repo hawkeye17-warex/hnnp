@@ -1,4 +1,4 @@
-# HNNP v2 Integration Guide
+﻿# HNNP v2 Integration Guide
 
 This guide explains how to build new HNNP v2 clients (devices) and receivers that interoperate with the Cloud backend defined in `protocol/spec.md`.
 
@@ -31,7 +31,7 @@ This rule is applied consistently:
 Skew and drift:
 
 - Cloud enforces `max_skew_seconds` ?ecommended 120s):  
-  `|server_time - timestamp| > max_skew_seconds` ?� reject.
+  `|server_time - timestamp| > max_skew_seconds` ?� reject.
 - Cloud and receiver both treat `time_slot` in **15‑second windows** and allow a small drift window (±1 slot) to tolerate clock differences.
 
 **Key point:** all security decisions are made in terms of the 15‑second `time_slot`, not BLE packet timing.
@@ -377,7 +377,7 @@ Reject malformed or missing fields with HTTP 400.
 ### 5.3 Timestamp skew and time_slot drift
 
 1. Let `server_time = now()`.
-   - If `|server_time - timestamp| > max_skew_seconds` ?� HTTP 400.
+   - If `|server_time - timestamp| > max_skew_seconds` ?� HTTP 400.
 2. Compute:
 
    ```text
@@ -439,9 +439,26 @@ If device is registered:
      - Reject outright (hardened mode), or
      - Accept with `suspicious` flag for investigation.
 
-If device is unregistered:
+  If device is unregistered:
+  
+  - Cloud MAY skip MAC verification (no key yet) and accept events as anonymous presence.
 
-- Cloud MAY skip MAC verification (no key yet) and accept events as anonymous presence.
+### 5.7 Anonymous mode policy
+
+Cloud deployments MAY configure an anonymous device policy via the `ANON_MODE` environment variable:
+
+- `ANON_MODE=allow` (default)
+  - Unlinked devices are accepted as anonymous presence, as described above.
+- `ANON_MODE=warn`
+  - Unlinked devices are accepted, but presence_events are annotated internally, for example with:
+    - `anonymous = true`
+    - `policy = "warn"`
+  - This allows operators to monitor anonymous usage without blocking it.
+- `ANON_MODE=block`
+  - Unlinked devices are rejected with HTTP 403 on `/v2/presence`.
+  - No presence_event or presence_session is created, and no webhook is emitted for that report.
+
+Linked devices (with an active `(org_id, device_id)` link) are not affected by `ANON_MODE` and are always processed according to the normal verification rules.
 
 ### 5.7 Anti‑replay rules (Cloud)
 

@@ -24,6 +24,8 @@ interface PresenceEvent extends PresenceFusionEvent {
   device_id_base: string;
   version: number;
   flags: number;
+  anonymous?: boolean;
+  policy?: string;
 }
 
 // In-memory presence store for now; will be replaced with a real database later.
@@ -216,6 +218,18 @@ router.post("/v2/presence", async (req: Request, res: Response) => {
   suspiciousDuplicate = fusionResult.suspiciousDuplicate;
   suspiciousFlags = fusionResult.suspiciousFlags;
 
+  const linkResult = resolveLink({
+    orgId: org_id,
+    deviceId: deviceRecord.deviceId,
+  });
+
+  const anonModeRaw = process.env.ANON_MODE ?? "allow";
+  const anonMode = anonModeRaw.toLowerCase();
+
+  if (!linkResult.linked && anonMode === "block") {
+    return res.status(403).json({ error: "Anonymous devices are blocked by policy" });
+  }
+
   const eventId = `evt_${presenceEvents.length + 1}`;
 
   const event: PresenceEvent = {
@@ -230,6 +244,8 @@ router.post("/v2/presence", async (req: Request, res: Response) => {
     flags,
     token_prefix,
     mac,
+    anonymous: !linkResult.linked && anonMode === "warn" ? true : undefined,
+    policy: !linkResult.linked && anonMode === "warn" ? "warn" : undefined,
     suspicious_duplicate: suspiciousDuplicate || undefined,
     suspicious_flags: suspiciousFlags.length > 0 ? suspiciousFlags : undefined,
   };
@@ -255,11 +271,6 @@ router.post("/v2/presence", async (req: Request, res: Response) => {
   } else {
     session.last_seen_at = timestamp;
   }
-
-  const linkResult = resolveLink({
-    orgId: org_id,
-    deviceId: deviceRecord.deviceId,
-  });
 
   if (linkResult.linked) {
     await emitWebhook(org_id, {

@@ -1,6 +1,7 @@
 import request from "supertest";
 import crypto from "crypto";
 import { app } from "../index";
+import { presenceEvents, presenceSessions } from "../routes/presence";
 
 function encodeUint32BE(value: number): Buffer {
   const buf = Buffer.allocUnsafe(4);
@@ -137,5 +138,130 @@ describe("POST /v2/presence", () => {
 
     expect(res.status).toBe(400);
     expect(res.body.error).toMatch(/time_slot/i);
+  });
+
+  it("honors ANON_MODE=allow for unknown devices", async () => {
+    process.env.ANON_MODE = "allow";
+    presenceEvents.length = 0;
+    presenceSessions.length = 0;
+
+    const orgId = "org_123";
+    const receiverId = "rcv_001";
+    const now = Math.floor(Date.now() / 1000);
+    const timeSlot = Math.floor(now / 15);
+    const tokenPrefixHex = "00112233445566778899aabbccddeeff";
+    const macHex = "aabbccddeeff0011";
+
+    const signature = computeSignature({
+      receiverSecret,
+      orgId,
+      receiverId,
+      timeSlot,
+      tokenPrefixHex,
+      timestamp: now,
+    });
+
+    const res = await request(app)
+      .post("/v2/presence")
+      .send({
+        org_id: orgId,
+        receiver_id: receiverId,
+        timestamp: now,
+        time_slot: timeSlot,
+        version: 0x02,
+        flags: 0,
+        token_prefix: tokenPrefixHex,
+        mac: macHex,
+        signature,
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body.linked).toBe(false);
+    expect(presenceEvents.length).toBe(1);
+    expect(presenceEvents[0].anonymous).toBeUndefined();
+    expect(presenceEvents[0].policy).toBeUndefined();
+  });
+
+  it("honors ANON_MODE=warn by marking anonymous events", async () => {
+    process.env.ANON_MODE = "warn";
+    presenceEvents.length = 0;
+    presenceSessions.length = 0;
+
+    const orgId = "org_123";
+    const receiverId = "rcv_001";
+    const now = Math.floor(Date.now() / 1000);
+    const timeSlot = Math.floor(now / 15);
+    const tokenPrefixHex = "00112233445566778899aabbccddeeff";
+    const macHex = "aabbccddeeff0011";
+
+    const signature = computeSignature({
+      receiverSecret,
+      orgId,
+      receiverId,
+      timeSlot,
+      tokenPrefixHex,
+      timestamp: now,
+    });
+
+    const res = await request(app)
+      .post("/v2/presence")
+      .send({
+        org_id: orgId,
+        receiver_id: receiverId,
+        timestamp: now,
+        time_slot: timeSlot,
+        version: 0x02,
+        flags: 0,
+        token_prefix: tokenPrefixHex,
+        mac: macHex,
+        signature,
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body.linked).toBe(false);
+    expect(presenceEvents.length).toBe(1);
+    expect(presenceEvents[0].anonymous).toBe(true);
+    expect(presenceEvents[0].policy).toBe("warn");
+  });
+
+  it("honors ANON_MODE=block by rejecting unknown devices", async () => {
+    process.env.ANON_MODE = "block";
+    presenceEvents.length = 0;
+    presenceSessions.length = 0;
+
+    const orgId = "org_123";
+    const receiverId = "rcv_001";
+    const now = Math.floor(Date.now() / 1000);
+    const timeSlot = Math.floor(now / 15);
+    const tokenPrefixHex = "00112233445566778899aabbccddeeff";
+    const macHex = "aabbccddeeff0011";
+
+    const signature = computeSignature({
+      receiverSecret,
+      orgId,
+      receiverId,
+      timeSlot,
+      tokenPrefixHex,
+      timestamp: now,
+    });
+
+    const res = await request(app)
+      .post("/v2/presence")
+      .send({
+        org_id: orgId,
+        receiver_id: receiverId,
+        timestamp: now,
+        time_slot: timeSlot,
+        version: 0x02,
+        flags: 0,
+        token_prefix: tokenPrefixHex,
+        mac: macHex,
+        signature,
+      });
+
+    expect(res.status).toBe(403);
+    expect(res.body.error).toMatch(/anonymous devices are blocked/i);
+    expect(presenceEvents.length).toBe(0);
+    expect(presenceSessions.length).toBe(0);
   });
 });
