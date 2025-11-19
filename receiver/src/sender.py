@@ -97,7 +97,9 @@ async def run_sender() -> None:
             except Exception as exc:
                 # Network-level failure: queue for retry.
                 logger.warning(
-                    "Network error sending presence (time_slot=%s): %s",
+                    "Network error sending presence (org_id=%s, receiver_id=%s, time_slot=%s): %s",
+                    report.org_id,
+                    cfg.receiver_id,
                     report.time_slot,
                     exc,
                 )
@@ -152,7 +154,9 @@ async def run_sender() -> None:
                         status = await _post_presence(session, base_url, item.report)
                     except Exception as exc:
                         logger.warning(
-                            "Retry network error (attempt=%s, time_slot=%s): %s",
+                            "Retry network error (org_id=%s, receiver_id=%s, attempt=%s, time_slot=%s): %s",
+                            item.report.org_id,
+                            cfg.receiver_id,
                             item.attempts,
                             item.report.time_slot,
                             exc,

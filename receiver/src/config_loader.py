@@ -1,4 +1,6 @@
+import logging
 import os
+import sys
 from dataclasses import dataclass
 from typing import Optional
 
@@ -46,7 +48,12 @@ def load_receiver_config(config_path: Optional[str] = None) -> ReceiverConfig:
       - HNNP_RECEIVER_ID or RECEIVER_ID
       - HNNP_RECEIVER_SECRET or RECEIVER_SECRET
       - HNNP_API_BASE_URL or API_BASE_URL or HNNP_BACKEND_URL
+
+    On validation error, this function logs a clear error and exits the process
+    with status code 1 (instead of raising an exception).
     """
+    logger = logging.getLogger("hnnp.receiver.config")
+
     if config_path is None:
         config_path = os.environ.get("HNNP_CONFIG_PATH", "receiver.env")
 
@@ -65,14 +72,22 @@ def load_receiver_config(config_path: Optional[str] = None) -> ReceiverConfig:
         or ""
     )
 
+    missing = []
     if not org_id:
-        raise RuntimeError("HNNP_ORG_ID (or ORG_ID) must be set")
+        missing.append("HNNP_ORG_ID (or ORG_ID)")
     if not receiver_id:
-        raise RuntimeError("HNNP_RECEIVER_ID (or RECEIVER_ID) must be set")
+        missing.append("HNNP_RECEIVER_ID (or RECEIVER_ID)")
     if not receiver_secret:
-        raise RuntimeError("HNNP_RECEIVER_SECRET (or RECEIVER_SECRET) must be set")
+        missing.append("HNNP_RECEIVER_SECRET (or RECEIVER_SECRET)")
     if not api_base_url:
-        raise RuntimeError("HNNP_API_BASE_URL (or API_BASE_URL/HNNP_BACKEND_URL) must be set")
+        missing.append("HNNP_API_BASE_URL (or API_BASE_URL/HNNP_BACKEND_URL)")
+
+    if missing:
+        logger.error(
+            "Receiver configuration invalid; missing required settings: %s",
+            ", ".join(missing),
+        )
+        sys.exit(1)
 
     return ReceiverConfig(
         org_id=org_id,
@@ -80,4 +95,3 @@ def load_receiver_config(config_path: Optional[str] = None) -> ReceiverConfig:
         receiver_secret=receiver_secret,
         api_base_url=api_base_url.rstrip("/"),
     )
-
