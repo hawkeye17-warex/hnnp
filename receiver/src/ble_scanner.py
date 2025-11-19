@@ -47,9 +47,17 @@ def _parse_hnnp_payload(payload: bytes) -> Optional[BlePacketV2]:
     token_prefix = payload[6:22]
     mac = payload[22:30]
 
-    # Reject obviously invalid future time_slot: interpret as seconds = time_slot * 15.
-    unix_time_estimate = time_slot * 15
     now = int(time.time())
+
+    # time_slot window validation using 15-second slots with ±1 window tolerance.
+    # current_slot = floor(now / 15)
+    # Accept if |time_slot - current_slot| <= 1, otherwise drop.
+    current_slot = now // 15
+    if abs(time_slot - current_slot) > 1:
+        return None
+
+    # Reject obviously invalid future time_slot (sanity bound): interpret as seconds = time_slot * 15.
+    unix_time_estimate = time_slot * 15
     if unix_time_estimate > now + TEN_YEARS_SECONDS:
         return None
 
