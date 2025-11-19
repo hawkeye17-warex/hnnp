@@ -10,7 +10,7 @@ import (
 // Config holds receiver configuration loaded from environment or a simple env-style file.
 //
 // These correspond to the receiver parameters in protocol/spec.md (org_id, receiver_id, receiver_secret)
-// plus backend_url for the Cloud API base URL.
+// plus api_base_url for the Cloud API base URL.
 type Config struct {
 	OrgID          string
 	ReceiverID     string
@@ -25,7 +25,8 @@ type Config struct {
 //   - HNNP_ORG_ID
 //   - HNNP_RECEIVER_ID
 //   - HNNP_RECEIVER_SECRET
-//   - HNNP_BACKEND_URL
+//   - HNNP_BACKEND_URL (deprecated; prefer HNNP_API_BASE_URL)
+//   - HNNP_API_BASE_URL
 //   - HNNP_CONFIG_PATH (optional; default "receiver.env")
 func Load() (Config, error) {
 	configPath := os.Getenv("HNNP_CONFIG_PATH")
@@ -40,11 +41,20 @@ func Load() (Config, error) {
 		}
 	}
 
+	orgID := strings.TrimSpace(os.Getenv("HNNP_ORG_ID"))
+	receiverID := strings.TrimSpace(os.Getenv("HNNP_RECEIVER_ID"))
+	receiverSecret := strings.TrimSpace(os.Getenv("HNNP_RECEIVER_SECRET"))
+
+	backendURL := strings.TrimSpace(os.Getenv("HNNP_API_BASE_URL"))
+	if backendURL == "" {
+		backendURL = strings.TrimSpace(os.Getenv("HNNP_BACKEND_URL"))
+	}
+
 	cfg := Config{
-		OrgID:          strings.TrimSpace(os.Getenv("HNNP_ORG_ID")),
-		ReceiverID:     strings.TrimSpace(os.Getenv("HNNP_RECEIVER_ID")),
-		ReceiverSecret: strings.TrimSpace(os.Getenv("HNNP_RECEIVER_SECRET")),
-		BackendURL:     strings.TrimSpace(os.Getenv("HNNP_BACKEND_URL")),
+		OrgID:          orgID,
+		ReceiverID:     receiverID,
+		ReceiverSecret: receiverSecret,
+		BackendURL:     backendURL,
 	}
 
 	if cfg.OrgID == "" {
@@ -57,7 +67,7 @@ func Load() (Config, error) {
 		return Config{}, fmt.Errorf("HNNP_RECEIVER_SECRET is required")
 	}
 	if cfg.BackendURL == "" {
-		return Config{}, fmt.Errorf("HNNP_BACKEND_URL is required")
+		return Config{}, fmt.Errorf("HNNP_API_BASE_URL (or HNNP_BACKEND_URL) is required")
 	}
 
 	return cfg, nil
@@ -100,4 +110,3 @@ func loadEnvFile(path string) error {
 
 	return nil
 }
-

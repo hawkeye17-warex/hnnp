@@ -4,7 +4,9 @@ dotenv.config();
 
 export interface AppConfig {
   port: number;
-  databaseUrl: string | undefined;
+  databaseUrl?: string;
+  deviceIdSalt?: string;
+  webhookSecret?: string;
 }
 
 export function loadConfig(): AppConfig {
@@ -16,10 +18,13 @@ export function loadConfig(): AppConfig {
   }
 
   const databaseUrl = process.env.DATABASE_URL;
+  const deviceIdSalt = process.env.DEVICE_ID_SALT;
+  const webhookSecret = process.env.WEBHOOK_SECRET;
 
   return {
     port,
     databaseUrl,
+    deviceIdSalt,
+    webhookSecret,
   };
 }
-
