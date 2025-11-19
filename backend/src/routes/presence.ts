@@ -28,6 +28,7 @@ interface PresenceEvent {
   flags: number;
   token_prefix: string;
   mac: string;
+  suspicious_duplicate?: boolean;
 }
 
 // In-memory presence store for now; will be replaced with a real database later.
@@ -144,6 +145,36 @@ router.post("/v2/presence", (req: Request, res: Response) => {
     }
   }
 
+  // Anti-replay enforcement for (org_id, device_id, receiver_id, time_slot).
+  // First valid event is accepted as normal. Subsequent events with the same tuple
+  // in the same time_slot are either rejected or accepted but flagged as duplicates.
+  // We allow a second attempt if timestamp >= previous_timestamp + MIN_DUP_RETRY_SECONDS
+  // (default 5 seconds).
+  const minDupRetrySeconds = Number.isFinite(Number(process.env.MIN_DUP_RETRY_SECONDS))
+    ? Number(process.env.MIN_DUP_RETRY_SECONDS)
+    : 5;
+
+  const matchingEvents = presenceEvents.filter(
+    (evt) =>
+      evt.org_id === org_id &&
+      evt.device_id === deviceRecord.deviceId &&
+      evt.receiver_id === receiver_id &&
+      evt.time_slot === time_slot,
+  );
+
+  let suspiciousDuplicate = false;
+
+  if (matchingEvents.length > 0) {
+    const latest = matchingEvents.reduce((a, b) => (b.timestamp > a.timestamp ? b : a));
+    const deltaSeconds = timestamp - latest.timestamp;
+
+    if (deltaSeconds < minDupRetrySeconds) {
+      return res.status(409).json({ error: "Duplicate presence event in same time_slot" });
+    }
+
+    suspiciousDuplicate = true;
+  }
+
   const eventId = `evt_${presenceEvents.length + 1}`;
 
   const event: PresenceEvent = {
@@ -158,6 +189,7 @@ router.post("/v2/presence", (req: Request, res: Response) => {
     flags,
     token_prefix,
     mac,
+    suspicious_duplicate: suspiciousDuplicate || undefined,
   };
 
   presenceEvents.push(event);
