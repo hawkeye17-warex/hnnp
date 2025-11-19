@@ -612,4 +612,157 @@ If you are implementing a new client or receiver using only this guide and `spec
     - Webhook sending with HMAC signing and replay‑safe timestamp checks.
 
 Always cross‑check field names, encodings, and HMAC formulas against `protocol/spec.md` to ensure your implementation is fully compliant with HNNP v2.
+---
 
+## 8. Linking & revocation (practical guide)
+
+This section makes the linking and revocation flows concrete for engineers integrating with `/v2/link` and `/v2/link/{link_id}`.
+
+### 8.1 Field meanings in linking
+
+- `org_id`
+  - Tenant / customer identifier.
+  - All presence, links, and webhooks are scoped by `org_id`.
+- `presence_session_id`
+  - Stable identifier for an **unknown device** within a given org.
+  - Created by Cloud when presence events arrive for a device with no active link.
+  - Returned in `/v2/presence` responses when `linked: false`.
+- `user_ref`
+  - External system’s user identifier (employee ID, account ID, etc.).
+  - Cloud treats `user_ref` as an opaque string; it is not parsed or validated beyond presence.
+- `registration_blob`
+  - One-time onboarding blob emitted by the device:
+
+    ```text
+    registration_blob = HMAC-SHA256(device_auth_key, "hnnp_reg_v2")
+                        || device_local_id
+    ```
+
+  - Encoded (e.g., base64url) and delivered to the backend via QR code / deep link.
+  - Cloud uses it (together with other onboarding context) to validate the device and store `device_auth_key` for that device.
+
+### 8.2 Creating a link (POST /v2/link)
+
+**Request**
+
+```http
+POST /v2/link
+Content-Type: application/json
+```
+
+```json
+{
+  "org_id": "acme-corp",
+  "presence_session_id": "psess_12345",
+  "user_ref": "user_98765",
+  "registration_blob": "eyJ0eXAiOiJ..."
+}
+```
+
+- `org_id`:
+  - Org that owns the receiver and Cloud API.
+- `presence_session_id`:
+  - Identifies the unknown device to be linked, as seen in previous `/v2/presence` responses (`linked: false`).
+- `user_ref`:
+  - External identifier for the human being.
+- `registration_blob` (recommended):
+  - Proof that this particular physical device controls `device_auth_key` derived from its `device_secret`.
+
+**Cloud behavior (summary, per spec):**
+
+1. Resolve `presence_session_id` to `(org_id, device_id)`.
+2. If `registration_blob` is present:
+   - Validate it using the device-side derivation rules for `device_auth_key` and `registration_blob`.
+   - Store `device_auth_key` for this `device_id` in the `device_keys` data model.
+   - Mark the device as **registered**.
+3. Create a `link`:
+   - `link_id`, `org_id`, `device_id`, `user_ref`, `created_at`.
+4. Mark the `presence_session` as resolved (`resolved_at` set).
+5. Emit a `link.created` webhook to the org’s webhook endpoint.
+
+**Response**
+
+```json
+{
+  "status": "linked",
+  "link_id": "link_abc123",
+  "user_ref": "user_98765",
+  "device_id": "dev_4f9c..."
+}
+```
+
+- `device_id`:
+  - Cloud’s stable internal identifier derived from `device_id_base` and `device_id_salt`.
+
+### 8.3 Revoking a link (DELETE /v2/link/{link_id})
+
+When a device is lost, compromised, or no longer allowed to represent a user, the external system should revoke the link.
+
+**Request**
+
+```http
+DELETE /v2/link/link_abc123
+Content-Type: application/json
+```
+
+```json
+{
+  "org_id": "acme-corp"
+}
+```
+
+- `link_abc123`:
+  - Path parameter identifying the specific link to revoke.
+- `org_id`:
+  - Ensures the operation is scoped to the correct tenant (multi-tenant safety).
+
+**Cloud behavior (summary, per spec):**
+
+1. Locate the active link `(org_id, link_id)`.
+2. Mark it as revoked (set `revoked_at`).
+3. Future presence events for that `device_id` will no longer resolve to this link.
+4. Emit a `link.revoked` webhook.
+
+**Response**
+
+```json
+{
+  "status": "revoked",
+  "link_id": "link_abc123",
+  "revoked_at": 1732046400000
+}
+```
+
+### 8.4 Multi-device scenarios
+
+Because `device_id` is derived from per-device cryptographic material, each physical device has its own `device_id` and can be linked or revoked independently. Typical flows:
+
+- **User logs in on a second phone**
+  - The second phone runs the same device flow:
+    - Generates its own `device_secret` and `device_auth_key`.
+    - Produces a new `registration_blob`.
+  - The external system calls `/v2/link` for the new device’s `presence_session_id` and the same `user_ref`.
+  - Cloud creates a **second link** for the same `user_ref` but a different `device_id`.
+  - Both devices now produce `presence.check_in` events for that user (distinguishable by `device_id`).
+
+- **Device is lost and link is revoked**
+  - External system identifies the affected `link_id` (e.g., by listing links for a `user_ref`).
+  - Calls `DELETE /v2/link/{link_id}` for that device.
+  - Cloud stops resolving new presence events from that `device_id` as linked:
+    - Events can be treated as unknown presence (new `presence_session`).
+    - Or ignored by the external system based on policy.
+
+- **Same user later links a new device**
+  - The new physical device follows the normal onboarding path:
+    - New `device_secret`, new `device_auth_key`, new `registration_blob`.
+  - External system calls `/v2/link` with:
+    - The new device’s `presence_session_id`.
+    - The same `user_ref`.
+    - The new `registration_blob`.
+  - Cloud creates a new link for the new `device_id`. The old (revoked) link remains revoked; it is not reused.
+
+These flows ensure:
+
+- Device-level secrets (`device_secret`, `device_auth_key`) never move between devices.
+- A compromised or lost device can be removed from the trust graph without affecting other devices for the same user.
+- Users can safely migrate to new devices while preserving history per `device_id` and `user_ref`.
