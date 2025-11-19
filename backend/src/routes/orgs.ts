@@ -1,6 +1,6 @@
 import { Router, Request, Response } from "express";
 import argon2 from "argon2";
-import type { Org, Receiver } from "@prisma/client";
+import type { Org, Prisma, Receiver } from "@prisma/client";
 import { prisma } from "../db/prisma";
 
 const router = Router();
@@ -292,5 +292,106 @@ router.patch(
   },
 );
 
-export { router as orgsRouter };
+router.get("/v2/orgs/:org_id/presence", async (req: Request, res: Response) => {
+  const { org_id } = req.params;
+  const receiverIdParam = req.query.receiver_id;
+  const fromParam = req.query.from;
+  const toParam = req.query.to;
+  const resultParam = req.query.result;
+  const limitParam = req.query.limit;
 
+  const receiverId =
+    typeof receiverIdParam === "string" && receiverIdParam.length > 0
+      ? receiverIdParam
+      : undefined;
+
+  const result =
+    typeof resultParam === "string" && resultParam.length > 0 ? resultParam : undefined;
+
+  let from: Date | undefined;
+  if (typeof fromParam === "string" && fromParam.length > 0) {
+    const d = new Date(fromParam);
+    if (Number.isNaN(d.getTime())) {
+      return res.status(400).json({ error: "Invalid from timestamp" });
+    }
+    from = d;
+  }
+
+  let to: Date | undefined;
+  if (typeof toParam === "string" && toParam.length > 0) {
+    const d = new Date(toParam);
+    if (Number.isNaN(d.getTime())) {
+      return res.status(400).json({ error: "Invalid to timestamp" });
+    }
+    to = d;
+  }
+
+  let limit = 100;
+  if (typeof limitParam === "string" && limitParam.length > 0) {
+    const parsed = Number.parseInt(limitParam, 10);
+    if (Number.isFinite(parsed) && parsed > 0) {
+      limit = parsed;
+    }
+  }
+  if (limit > 1000) {
+    limit = 1000;
+  }
+
+  try {
+    const org = await prisma.org.findUnique({ where: { id: org_id } });
+    if (!org) {
+      return res.status(404).json({ error: "Org not found" });
+    }
+
+    const where: Prisma.PresenceEventWhereInput = {
+      orgId: org.id,
+    };
+
+    if (receiverId) {
+      where.receiverId = receiverId;
+    }
+
+    if (result) {
+      where.authResult = result;
+    }
+
+    if (from || to) {
+      where.serverTimestamp = {};
+      if (from) {
+        where.serverTimestamp.gte = from;
+      }
+      if (to) {
+        where.serverTimestamp.lte = to;
+      }
+    }
+
+    const events = await prisma.presenceEvent.findMany({
+      where,
+      orderBy: { serverTimestamp: "desc" },
+      take: limit,
+    });
+
+    return res.status(200).json({
+      events: events.map((evt) => ({
+        id: evt.id,
+        receiver_id: evt.receiverId,
+        client_timestamp_ms: Number(evt.clientTimestampMs),
+        server_timestamp: evt.serverTimestamp.toISOString(),
+        time_slot: evt.timeSlot,
+        version: evt.version,
+        flags: evt.flags,
+        token_prefix: evt.tokenPrefix,
+        auth_result: evt.authResult,
+        is_anonymous: evt.isAnonymous,
+        reason: evt.reason ?? null,
+        meta: evt.meta ?? null,
+      })),
+    });
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error("Error querying presence events", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+export { router as orgsRouter };
