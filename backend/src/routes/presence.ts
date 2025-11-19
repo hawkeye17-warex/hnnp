@@ -35,6 +35,18 @@ interface PresenceEvent {
 // In-memory presence store for now; will be replaced with a real database later.
 const presenceEvents: PresenceEvent[] = [];
 
+export interface PresenceSession {
+  presence_session_id: string;
+  org_id: string;
+  device_id: string;
+  first_seen_at: number;
+  last_seen_at: number;
+  resolved_at?: number | null;
+}
+
+// In-memory presence session store for now; will be replaced with a real database later.
+const presenceSessions: PresenceSession[] = [];
+
 const router = Router();
 
 router.post("/v2/presence", (req: Request, res: Response) => {
@@ -222,9 +234,29 @@ router.post("/v2/presence", (req: Request, res: Response) => {
 
   presenceEvents.push(event);
 
+  // Create or update presence_session for this (org_id, device_id) if not already resolved.
+  let session = presenceSessions.find(
+    (s) => s.org_id === org_id && s.device_id === deviceRecord.deviceId && !s.resolved_at,
+  );
+
+  if (!session) {
+    const presenceSessionId = `psess_${presenceSessions.length + 1}`;
+    session = {
+      presence_session_id: presenceSessionId,
+      org_id,
+      device_id: deviceRecord.deviceId,
+      first_seen_at: timestamp,
+      last_seen_at: timestamp,
+      resolved_at: null,
+    };
+    presenceSessions.push(session);
+  } else {
+    session.last_seen_at = timestamp;
+  }
+
   const linkResult = resolveLink({
     orgId: org_id,
-    deviceId: null,
+    deviceId: deviceRecord.deviceId,
   });
 
   if (linkResult.linked) {
@@ -237,14 +269,12 @@ router.post("/v2/presence", (req: Request, res: Response) => {
     });
   }
 
-  const presenceSessionId = `psess_${presenceEvents.length}`;
-
   return res.status(200).json({
     status: "accepted",
     linked: false,
     event_id: eventId,
-    presence_session_id: presenceSessionId,
+    presence_session_id: session.presence_session_id,
   });
 });
 
-export { router as presenceRouter, presenceEvents };
+export { router as presenceRouter, presenceEvents, presenceSessions };

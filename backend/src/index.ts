@@ -2,6 +2,7 @@ import http from "http";
 import express, { Request, Response } from "express";
 import { loadConfig } from "./config";
 import { presenceRouter } from "./routes/presence";
+import { linkRouter } from "./routes/link";
 
 const config = loadConfig();
 const app = express();
@@ -13,6 +14,7 @@ app.get("/health", (_req: Request, res: Response) => {
 });
 
 app.use(presenceRouter);
+app.use(linkRouter);
 
 const server = http.createServer(app);
 
