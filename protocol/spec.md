@@ -371,6 +371,49 @@ On network failure:
 
 ---
 
+### 7.7 Receiver Identity and Authentication (v2)
+
+Receivers are identified and authenticated at the HTTP layer using an `(org_id, receiver_id, receiver_secret)` tuple.
+
+- Each receiver belongs to exactly one `org_id` and has a stable `receiver_id` within that org.
+- Each `(org_id, receiver_id)` pair has a dedicated `receiver_secret` (Section 3.3) which MUST be:
+  - 32 random bytes, provisioned by Cloud or a secure controller.
+  - Stored only on the receiver host and in Cloud secret storage.
+  - Never present on mobile devices.
+
+For every `POST /v2/presence` request, the receiver computes a **receiver signature**:
+
+```text
+signature = HMAC-SHA256(receiver_secret,
+             org_id || receiver_id || encode_uint32(time_slot) ||
+             token_prefix || encode_uint32(timestamp))
+```
+
+where:
+
+- `org_id` and `receiver_id` are UTF-8 strings.
+- `time_slot` and `timestamp` are encoded as 32-bit unsigned integers (big-endian).
+- `token_prefix` is treated as raw bytes (e.g., decoded from hex).
+
+Cloud behavior:
+
+- Looks up `receiver_secret` for `(org_id, receiver_id)` in its `receivers` data model (Section 11).
+- Recomputes `expected_signature` using the same formula.
+- Uses constant-time comparison to compare `expected_signature` and the reported `signature`.
+- Rejects the report (HTTP 401/404) if:
+  - `(org_id, receiver_id)` is unknown, or
+  - the signature comparison fails.
+
+Multi-receiver deployments:
+
+- Orgs MAY deploy many receivers that all share the same `org_id` but have distinct `receiver_id` values.
+- `receiver_id` MUST be unique per `org_id` (per row in the `receivers` table).
+- Presence events always include `receiver_id`, allowing Cloud and downstream systems to reason about:
+  - which physical receiver observed the event, and
+  - anomalies such as the same device appearing at multiple receivers within an impossible time window.
+
+---
+
 # 8. CLOUD VERIFICATION AND PRESENCE PROCESSING (v2)
 
 ---
