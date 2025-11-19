@@ -12,7 +12,8 @@
     "simulate:presence": "ts-node-dev --transpile-only src/scripts/simulate-presence.ts",
     "prisma:migrate": "prisma migrate dev",
     "prisma:generate": "prisma generate",
-    "prisma:reset": "prisma migrate reset --force"
+    "prisma:reset": "prisma migrate reset --force",
+    "db:seed": "ts-node scripts/seed-dev-db.ts"
   },
   "keywords": [
     "hnnp",
@@ -23,6 +24,7 @@
   "license": "MIT",
   "dependencies": {
     "@prisma/client": "^6.0.0",
+    "argon2": "^0.44.0",
     "dotenv": "^16.4.5",
     "express": "^4.19.2"
   },
@@ -35,6 +37,7 @@
     "prisma": "^6.0.0",
     "supertest": "^7.1.4",
     "ts-jest": "^29.1.2",
+    "ts-node": "^10.9.2",
     "ts-node-dev": "^2.0.0",
     "typescript": "^5.5.0"
   }
