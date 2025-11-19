@@ -1,4 +1,5 @@
 import { Router, Request, Response } from "express";
+import type { Prisma } from "@prisma/client";
 import { verifyReceiverSignature, deriveDeviceIds, verifyPacketMac, deriveTokenPrefixWithNonce } from "../services/crypto";
 import { resolveLink } from "../services/links";
 import { getReceiverSecret } from "../services/receivers";
@@ -6,6 +7,8 @@ import { getOrCreateDevice, getDeviceKey } from "../services/devices";
 import { emitWebhook } from "../services/webhooks";
 import { computeLocalBeaconNonceHex } from "../services/localBeacon";
 import { evaluatePresenceFusion, PresenceFusionEvent } from "../services/presenceFusion";
+import { prisma } from "../db/prisma";
+import { computeTokenHash } from "../security/tokenHash";
 
 interface PresenceRequestBody {
   org_id: string;
@@ -50,6 +53,49 @@ const MAX_EVENTS_PER_DEVICE = 50;
 
 const router = Router();
 
+async function logPresenceEvent(params: {
+  orgId: string;
+  receiverId: string;
+  deviceIdHash?: string | null;
+  userRef?: string | null;
+  timestamp: number;
+  timeSlot: number;
+  version: number;
+  flags: number;
+  tokenPrefix: string;
+  macHex?: string | null;
+  signatureHex?: string | null;
+  isAnonymous: boolean;
+  authResult: string;
+  reason?: string;
+  meta?: Prisma.JsonValue;
+}) {
+  const clientTimestampMs = BigInt(Math.floor(params.timestamp * 1000));
+  const replayKey = `${params.orgId}:${params.receiverId}:${params.tokenPrefix.toLowerCase()}:${params.timeSlot}`;
+  const tokenHash = computeTokenHash(replayKey);
+
+  await prisma.presenceEvent.create({
+    data: {
+      orgId: params.orgId,
+      receiverId: params.receiverId,
+      deviceIdHash: params.deviceIdHash ?? null,
+      userRef: params.userRef ?? null,
+      clientTimestampMs,
+      timeSlot: params.timeSlot,
+      version: params.version,
+      flags: params.flags,
+      tokenPrefix: params.tokenPrefix.toLowerCase(),
+      tokenHash,
+      macHex: params.macHex ?? null,
+      signatureHex: params.signatureHex ?? null,
+      isAnonymous: params.isAnonymous,
+      authResult: params.authResult,
+      reason: params.reason,
+      meta: params.meta ?? undefined,
+    },
+  });
+}
+
 router.post("/v2/presence", async (req: Request, res: Response) => {
   const body = req.body as Partial<PresenceRequestBody> | undefined;
 
@@ -87,8 +133,32 @@ router.post("/v2/presence", async (req: Request, res: Response) => {
     return res.status(400).json({ error: "Unsupported version; expected 0x02" });
   }
 
-  const receiverSecret = getReceiverSecret(org_id, receiver_id);
+  const org = await prisma.org.findUnique({ where: { id: org_id } });
+  const receiverRecord = await prisma.receiver.findFirst({
+    where: { id: receiver_id, orgId: org_id },
+  });
+
+  if (!org || !receiverRecord) {
+    return res.status(404).json({ error: "Unknown org or receiver" });
+  }
+
+  const receiverSecret = getReceiverSecret(org.id, receiverRecord.id);
   if (!receiverSecret) {
+    await logPresenceEvent({
+      orgId: org.id,
+      receiverId: receiverRecord.id,
+      timestamp,
+      timeSlot: time_slot,
+      version,
+      flags,
+      tokenPrefix: token_prefix,
+      macHex: null,
+      signatureHex: signature,
+      isAnonymous: true,
+      authResult: "rejected_receiver_secret",
+      reason: "Unknown receiver or secret not configured",
+      meta: { error: "receiver_secret_not_configured" },
+    });
     return res.status(401).json({ error: "Unknown receiver or secret not configured" });
   }
 
@@ -103,6 +173,21 @@ router.post("/v2/presence", async (req: Request, res: Response) => {
   });
 
   if (!isValidSignature) {
+    await logPresenceEvent({
+      orgId: org.id,
+      receiverId: receiverRecord.id,
+      timestamp,
+      timeSlot: time_slot,
+      version,
+      flags,
+      tokenPrefix: token_prefix,
+      macHex: null,
+      signatureHex: signature,
+      isAnonymous: true,
+      authResult: "rejected_signature",
+      reason: "Invalid receiver signature",
+      meta: { error: "invalid_receiver_signature" },
+    });
     return res.status(401).json({ error: "Invalid receiver signature" });
   }
 
@@ -112,6 +197,21 @@ router.post("/v2/presence", async (req: Request, res: Response) => {
 
   const serverTime = Math.floor(Date.now() / 1000);
   if (Math.abs(serverTime - timestamp) > maxSkewSeconds) {
+    await logPresenceEvent({
+      orgId: org.id,
+      receiverId: receiverRecord.id,
+      timestamp,
+      timeSlot: time_slot,
+      version,
+      flags,
+      tokenPrefix: token_prefix,
+      macHex: null,
+      signatureHex: signature,
+      isAnonymous: true,
+      authResult: "rejected_window",
+      reason: "Timestamp skew too large",
+      meta: { error: "timestamp_skew_too_large" },
+    });
     return res.status(400).json({ error: "Timestamp skew too large" });
   }
 
@@ -123,11 +223,41 @@ router.post("/v2/presence", async (req: Request, res: Response) => {
     ? Number(process.env.MAX_DRIFT_SLOTS)
     : 1;
   if (Math.abs(serverSlot - time_slot) > maxDriftSlots) {
+    await logPresenceEvent({
+      orgId: org.id,
+      receiverId: receiverRecord.id,
+      timestamp,
+      timeSlot: time_slot,
+      version,
+      flags,
+      tokenPrefix: token_prefix,
+      macHex: null,
+      signatureHex: signature,
+      isAnonymous: true,
+      authResult: "rejected_window",
+      reason: "time_slot outside allowed drift window",
+      meta: { error: "time_slot_outside_drift_window" },
+    });
     return res.status(400).json({ error: "time_slot outside allowed drift window" });
   }
 
   const deviceIdSalt = process.env.DEVICE_ID_SALT;
   if (!deviceIdSalt) {
+    await logPresenceEvent({
+      orgId: org.id,
+      receiverId: receiverRecord.id,
+      timestamp,
+      timeSlot: time_slot,
+      version,
+      flags,
+      tokenPrefix: token_prefix,
+      macHex: null,
+      signatureHex: signature,
+      isAnonymous: true,
+      authResult: "rejected_server_config",
+      reason: "device_id_salt not configured",
+      meta: { error: "device_id_salt_not_configured" },
+    });
     return res.status(500).json({ error: "device_id_salt not configured" });
   }
 
@@ -162,6 +292,22 @@ router.post("/v2/presence", async (req: Request, res: Response) => {
     });
 
     if (!macValid) {
+      await logPresenceEvent({
+        orgId: org.id,
+        receiverId: receiverRecord.id,
+        deviceIdHash: deviceRecord.deviceId,
+        timestamp,
+        timeSlot: time_slot,
+        version,
+        flags,
+        tokenPrefix: token_prefix,
+        macHex: mac,
+        signatureHex: signature,
+        isAnonymous: true,
+        authResult: "rejected_mac",
+        reason: "Invalid MAC for registered device",
+        meta: { error: "invalid_mac" },
+      });
       return res.status(401).json({ error: "Invalid MAC for registered device" });
     }
 
@@ -217,6 +363,28 @@ router.post("/v2/presence", async (req: Request, res: Response) => {
   );
 
   if (fusionResult.shouldReject && fusionResult.rejectStatus && fusionResult.rejectError) {
+    await logPresenceEvent({
+      orgId: org.id,
+      receiverId: receiverRecord.id,
+      deviceIdHash: deviceRecord.deviceId,
+      timestamp,
+      timeSlot: time_slot,
+      version,
+      flags,
+      tokenPrefix: token_prefix,
+      macHex: deviceKey ? mac : null,
+      signatureHex: signature,
+      isAnonymous: true,
+      authResult:
+        fusionResult.rejectError === "Duplicate presence event in same time_slot"
+          ? "ignored_duplicate"
+          : "rejected_suspicious",
+      reason: fusionResult.rejectError,
+      meta: {
+        error: "presence_fusion_reject",
+        suspicious_flags: fusionResult.suspiciousFlags,
+      },
+    });
     return res.status(fusionResult.rejectStatus).json({ error: fusionResult.rejectError });
   }
 
@@ -232,6 +400,25 @@ router.post("/v2/presence", async (req: Request, res: Response) => {
   const anonMode = anonModeRaw.toLowerCase();
 
   if (!linkResult.linked && anonMode === "block") {
+    await logPresenceEvent({
+      orgId: org.id,
+      receiverId: receiverRecord.id,
+      deviceIdHash: deviceRecord.deviceId,
+      timestamp,
+      timeSlot: time_slot,
+      version,
+      flags,
+      tokenPrefix: token_prefix,
+      macHex: deviceKey ? mac : null,
+      signatureHex: signature,
+      isAnonymous: true,
+      authResult: "rejected_anonymous_blocked",
+      reason: "Anonymous devices are blocked by policy",
+      meta: {
+        error: "anonymous_blocked_by_policy",
+        anon_mode: anonMode,
+      },
+    });
     return res.status(403).json({ error: "Anonymous devices are blocked by policy" });
   }
 
@@ -309,6 +496,28 @@ router.post("/v2/presence", async (req: Request, res: Response) => {
       suspicious: suspiciousFlags.length > 0 || suspiciousDuplicate,
     });
 
+    await logPresenceEvent({
+      orgId: org.id,
+      receiverId: receiverRecord.id,
+      deviceIdHash: deviceRecord.deviceId,
+      userRef: linkResult.userRef ?? null,
+      timestamp,
+      timeSlot: time_slot,
+      version,
+      flags,
+      tokenPrefix: token_prefix,
+      macHex: deviceKey ? mac : null,
+      signatureHex: signature,
+      isAnonymous: false,
+      authResult: "accepted",
+      meta: {
+        linked: true,
+        link_id: linkResult.linkId,
+        suspicious_duplicate: suspiciousDuplicate,
+        suspicious_flags: suspiciousFlags,
+      },
+    });
+
     return res.status(200).json({
       status: "accepted",
       linked: true,
@@ -326,6 +535,28 @@ router.post("/v2/presence", async (req: Request, res: Response) => {
     presence_session_id: session.presence_session_id,
     receiver_id,
     timestamp,
+  });
+
+  await logPresenceEvent({
+    orgId: org.id,
+    receiverId: receiverRecord.id,
+    deviceIdHash: deviceRecord.deviceId,
+    userRef: null,
+    timestamp,
+    timeSlot: time_slot,
+    version,
+    flags,
+    tokenPrefix: token_prefix,
+    macHex: deviceKey ? mac : null,
+    signatureHex: signature,
+    isAnonymous: true,
+    authResult: "accepted",
+    meta: {
+      linked: false,
+      presence_session_id: session.presence_session_id,
+      suspicious_duplicate: suspiciousDuplicate,
+      suspicious_flags: suspiciousFlags,
+    },
   });
 
   return res.status(200).json({
