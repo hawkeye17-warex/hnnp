@@ -55,6 +55,38 @@ const isValid = verifyHnnpWebhook({
 
 ---
 
+## Webhook Consumer Example (Express)
+
+You can use the SDK helper inside a minimal Express server. An example is provided in:
+
+- `examples/webhook-consumer.ts`
+
+Outline:
+
+```ts
+import express from "express";
+import { verifyHnnpWebhook } from "@hnnp/sdk";
+
+const app = express();
+app.use(express.json({ verify: (req, _res, buf) => { req.rawBody = Buffer.from(buf); } }));
+
+app.post("/hnnp/webhook", (req, res) => {
+  const isValid = verifyHnnpWebhook({
+    rawBody: req.rawBody,
+    signature: req.header("X-HNNP-Signature"),
+    timestamp: req.header("X-HNNP-Timestamp"),
+    webhookSecret: process.env.WEBHOOK_SECRET
+  });
+
+  if (!isValid) return res.status(400).json({ error: "invalid_webhook_signature" });
+
+  console.log("Received HNNP webhook", req.body);
+  return res.status(200).json({ status: "ok" });
+});
+```
+
+---
+
 ## Available Methods
 
 client.listEvents()
