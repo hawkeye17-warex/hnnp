@@ -59,6 +59,54 @@ We design HNNP v2 to:
 - Perfect elimination of all wormhole attacks (no passive system can do this fully).
 - GPS-level location assurance.
 - Identity/KYC; external systems handle user identity.
+- Protection against compromise of Cloud-side key material (e.g., `device_id_salt`, `device_auth_key`, `receiver_secret`, `webhook_secret`).
+- Protection against high-power amplification or jamming attacks at the RF layer.
+
+---
+
+### 0.4 Defended Threats (Summary)
+
+Within the assumptions above, HNNP v2 is explicitly designed to defend against:
+
+- **BLE sniffing**  
+  Passive observers can capture all BLE traffic, but cannot:
+  - Derive device secrets or device_auth_key from token_prefix/mac.
+  - Link broadcasts to a stable identity without access to Cloud keys.
+
+- **Replay of captured BLE packets**  
+  Captured packets replayed later or from another location are constrained by:
+  - 15-second time_slot windows and strict time drift checks.
+  - Receiver duplicate suppression and Cloud anti-replay rules.
+
+- **Reverse engineering of app code**  
+  An attacker who decompiles the mobile app learns protocol details but cannot:
+  - Extract device_secret when it is stored in hardware-backed secure storage.
+  - Forge tokens for other devices without their secrets.
+
+- **Rogue receivers**  
+  A receiver without a valid `(org_id, receiver_id, receiver_secret)` cannot:
+  - Produce valid HMAC-signed presence reports for that org.
+  - Impersonate a legitimate receiver once Cloud enforces receiver signatures.
+
+- **Man-in-the-middle on receiver → Cloud**  
+  Assuming HTTPS (TLS) and correct receiver signatures:
+  - An on-path attacker cannot modify reports without breaking the HMAC.
+  - Replay of old signed reports is constrained by time-slot, skew, and anti-replay rules.
+
+### 0.5 Residual Risk
+
+Even with the mechanisms above, several residual risks remain by design:
+
+- **Hardware wormholes and sophisticated relays**  
+  Real-time RF relays or hardware wormholes that forward both BLE packets and any optional local_beacon_nonce can still create “teleport” effects; the protocol aims to detect and raise suspicion (e.g., impossible-movement checks), not to make such attacks cryptographically impossible.
+
+- **Cloud key compromise**  
+  If an attacker compromises Cloud secrets (e.g., `device_id_salt`, stored `device_auth_key`, `receiver_secret`, `webhook_secret`), they can forge valid tokens, presence events, and webhooks for affected orgs. HNNP assumes Cloud key management is handled by standard best practices (KMS, HSM, strict access control) outside the scope of this protocol.
+
+- **High-power RF or physical-layer attacks**  
+  High-power amplification, jamming, or directional antennas may degrade coverage or bias which receivers observe presence; these are RF/operational concerns and not fully addressed by the cryptographic design.
+
+Operators should evaluate these residual risks in the context of their deployment (receiver placement, NTP discipline, key management, and fraud monitoring) and treat HNNP as one layer in a broader defense-in-depth posture.
 
 ---
 
