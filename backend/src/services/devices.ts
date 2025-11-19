@@ -1,7 +1,11 @@
+import crypto from "crypto";
+import { prisma } from "../db/prisma";
+import { createDevice, createDeviceKey, getActiveDeviceKey, getDeviceById } from "../db/devices";
+
 export interface DeviceRecord {
   deviceId: string;
   deviceIdBase: string;
-  orgId: string | null;
+  orgId: string;
   firstSeenAt: number;
   registered: boolean;
 }
@@ -13,92 +17,101 @@ export interface DeviceKeyRecord {
   registrationAt: number;
 }
 
-const devicesByKey = new Map<string, DeviceRecord>();
-const deviceKeysByKey = new Map<string, DeviceKeyRecord>();
-
-function makeDeviceKey(orgId: string | null, deviceIdBase: string): string {
-  return `${orgId ?? "global"}:${deviceIdBase}`;
-}
-
-function makeDeviceKeyKey(orgId: string, deviceId: string): string {
-  return `${orgId}:${deviceId}`;
-}
-
-/**
- * Get or create a DeviceRecord for a given (orgId, device_id_base, device_id).
- *
- * This is an in-memory stand-in for the `devices` table described in
- * protocol/spec.md Section 11 (Data Model). A real implementation would
- * persist this to PostgreSQL.
- */
-export function getOrCreateDevice(params: {
-  orgId: string | null;
+export async function getOrCreateDevice(params: {
+  orgId: string;
   deviceIdBase: string;
   deviceId: string;
-}): DeviceRecord {
+}): Promise<DeviceRecord> {
   const { orgId, deviceIdBase, deviceId } = params;
-  const key = makeDeviceKey(orgId, deviceIdBase);
-  const existing = devicesByKey.get(key);
-
+  const existing = await getDeviceById(deviceId);
   if (existing) {
-    return existing;
+    const existingKey = await getActiveDeviceKey(existing.id);
+    return {
+      deviceId: existing.id,
+      deviceIdBase,
+      orgId: existing.orgId,
+      firstSeenAt: existing.createdAt.getTime(),
+      registered: !!existingKey,
+    };
   }
 
-  const now = Date.now();
-
-  const record: DeviceRecord = {
-    deviceId,
-    deviceIdBase,
+  const created = await createDevice({
+    id: deviceId,
     orgId,
-    firstSeenAt: now,
+  });
+
+  return {
+    deviceId: created.id,
+    deviceIdBase,
+    orgId: created.orgId,
+    firstSeenAt: created.createdAt.getTime(),
     registered: false,
   };
-
-  devicesByKey.set(key, record);
-  return record;
 }
 
-/**
- * Register a device_auth_key for a given (orgId, deviceId).
- *
- * This is an in-memory stand-in for the `device_keys` table from the spec.
- */
-export function registerDeviceKey(params: {
+export async function registerDeviceKey(params: {
   orgId: string;
   deviceId: string;
   deviceAuthKeyHex: string;
-}): DeviceKeyRecord {
+}): Promise<DeviceKeyRecord> {
   const { orgId, deviceId, deviceAuthKeyHex } = params;
-  const key = makeDeviceKeyKey(orgId, deviceId);
 
-  const record: DeviceKeyRecord = {
+  // Ensure device exists
+  await getOrCreateDevice({ orgId, deviceIdBase: "", deviceId });
+
+  const record = await createDeviceKey({
+    id: crypto.randomUUID(),
+    deviceId,
+    keyHash: deviceAuthKeyHex,
+    algorithm: "hmac_sha256",
+  });
+
+  return {
     orgId,
     deviceId,
-    deviceAuthKeyHex,
-    registrationAt: Date.now(),
+    deviceAuthKeyHex: record.keyHash,
+    registrationAt: record.createdAt.getTime(),
   };
+}
 
-  deviceKeysByKey.set(key, record);
-
-  // Ensure the corresponding DeviceRecord is marked as registered.
-  for (const device of devicesByKey.values()) {
-    if (device.orgId === orgId && device.deviceId === deviceId) {
-      device.registered = true;
-    }
+export async function getDeviceKey(params: {
+  orgId: string;
+  deviceId: string;
+}): Promise<DeviceKeyRecord | null> {
+  const record = await getActiveDeviceKey(params.deviceId);
+  if (!record) {
+    return null;
   }
-
-  return record;
+  return {
+    orgId: params.orgId,
+    deviceId: params.deviceId,
+    deviceAuthKeyHex: record.keyHash,
+    registrationAt: record.createdAt.getTime(),
+  };
 }
 
-export function getDeviceKey(params: { orgId: string; deviceId: string }): DeviceKeyRecord | null {
-  const key = makeDeviceKeyKey(params.orgId, params.deviceId);
-  return deviceKeysByKey.get(key) ?? null;
+export async function listDevices(): Promise<DeviceRecord[]> {
+  const devices = await prisma.device.findMany({ orderBy: { createdAt: "desc" } });
+  const results: DeviceRecord[] = [];
+  for (const d of devices) {
+    const key = await getActiveDeviceKey(d.id);
+    results.push({
+      deviceId: d.id,
+      deviceIdBase: "",
+      orgId: d.orgId,
+      firstSeenAt: d.createdAt.getTime(),
+      registered: !!key,
+    });
+  }
+  return results;
 }
 
-export function listDevices(): DeviceRecord[] {
-  return Array.from(devicesByKey.values());
-}
-
-export function listDeviceKeys(): DeviceKeyRecord[] {
-  return Array.from(deviceKeysByKey.values());
+export async function listDeviceKeys(): Promise<DeviceKeyRecord[]> {
+  const keys = await prisma.deviceKey.findMany({ orderBy: { createdAt: "desc" } });
+  return keys.map((k) => ({
+    orgId: "",
+    deviceId: k.deviceId,
+    deviceAuthKeyHex: k.keyHash,
+    registrationAt: k.createdAt.getTime(),
+  }));
 }

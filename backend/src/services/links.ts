@@ -1,11 +1,5 @@
-export interface LinkRecord {
-  linkId: string;
-  orgId: string;
-  deviceId: string;
-  userRef: string;
-  createdAt: number;
-  revokedAt?: number | null;
-}
+import crypto from "crypto";
+import { prisma } from "../db/prisma";
 
 export interface ResolveLinkParams {
   orgId: string;
@@ -15,53 +9,110 @@ export interface ResolveLinkParams {
 export interface ResolveLinkResult {
   linked: boolean;
   linkId?: string;
-  userRef?: string;
+  userRef?: string | null;
 }
 
-const links: LinkRecord[] = [];
+export interface LinkRecord {
+  id: string;
+  orgId: string;
+  deviceId: string | null;
+  userRef: string | null;
+  status: string;
+  createdAt: number;
+  activatedAt?: number | null;
+  revokedAt?: number | null;
+}
 
-export function createLink(params: { orgId: string; deviceId: string; userRef: string }): LinkRecord {
-  const linkId = `link_${links.length + 1}`;
-  const record: LinkRecord = {
-    linkId,
-    orgId: params.orgId,
-    deviceId: params.deviceId,
-    userRef: params.userRef,
-    createdAt: Date.now(),
-    revokedAt: null,
+export async function createLink(params: {
+  orgId: string;
+  deviceId: string;
+  userRef: string;
+}): Promise<LinkRecord> {
+  const now = new Date();
+  const link = await prisma.link.create({
+    data: {
+      id: crypto.randomUUID(),
+      orgId: params.orgId,
+      deviceId: params.deviceId,
+      userRef: params.userRef,
+      status: "active",
+      activatedAt: now,
+      revokedAt: null,
+    },
+  });
+
+  return {
+    id: link.id,
+    orgId: link.orgId,
+    deviceId: link.deviceId,
+    userRef: link.userRef,
+    status: link.status,
+    createdAt: link.createdAt.getTime(),
+    activatedAt: link.activatedAt?.getTime() ?? null,
+    revokedAt: link.revokedAt?.getTime() ?? null,
   };
-  links.push(record);
-  return record;
 }
 
-export function revokeLink(params: { orgId: string; linkId: string }): LinkRecord | null {
-  const link = links.find((l) => l.linkId === params.linkId && l.orgId === params.orgId && !l.revokedAt);
-  if (!link) {
+export async function revokeLink(params: { orgId: string; linkId: string }): Promise<LinkRecord | null> {
+  try {
+    const link = await prisma.link.update({
+      where: { id: params.linkId },
+      data: { status: "revoked", revokedAt: new Date() },
+    });
+
+    return {
+      id: link.id,
+      orgId: link.orgId,
+      deviceId: link.deviceId,
+      userRef: link.userRef,
+      status: link.status,
+      createdAt: link.createdAt.getTime(),
+      activatedAt: link.activatedAt?.getTime() ?? null,
+      revokedAt: link.revokedAt?.getTime() ?? null,
+    };
+  } catch {
     return null;
   }
-  link.revokedAt = Date.now();
-  return link;
 }
 
 // resolveLink looks up an active link for (orgId, deviceId), ignoring revoked links.
-export function resolveLink(params: ResolveLinkParams): ResolveLinkResult {
+export async function resolveLink(params: ResolveLinkParams): Promise<ResolveLinkResult> {
   const { orgId, deviceId } = params;
   if (!deviceId) {
     return { linked: false };
   }
 
-  const link = links.find((l) => l.orgId === orgId && l.deviceId === deviceId && !l.revokedAt);
+  const link = await prisma.link.findFirst({
+    where: {
+      orgId,
+      deviceId,
+      status: "active",
+      revokedAt: null,
+    },
+    orderBy: { activatedAt: "desc" },
+  });
+
   if (!link) {
     return { linked: false };
   }
 
   return {
     linked: true,
-    linkId: link.linkId,
+    linkId: link.id,
     userRef: link.userRef,
   };
 }
 
-export function listLinks(): LinkRecord[] {
-  return links.slice();
+export async function listLinks(): Promise<LinkRecord[]> {
+  const links = await prisma.link.findMany({ orderBy: { createdAt: "desc" } });
+  return links.map((l) => ({
+    id: l.id,
+    orgId: l.orgId,
+    deviceId: l.deviceId,
+    userRef: l.userRef,
+    status: l.status,
+    createdAt: l.createdAt.getTime(),
+    activatedAt: l.activatedAt?.getTime() ?? null,
+    revokedAt: l.revokedAt?.getTime() ?? null,
+  }));
 }

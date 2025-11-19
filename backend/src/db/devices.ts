@@ -6,12 +6,14 @@ export interface CreateDeviceInput {
   orgId: string;
   displayName?: string | null;
   status?: string;
+  id?: string;
 }
 
 export async function createDevice(input: CreateDeviceInput): Promise<Device> {
-  const { orgId, displayName, status } = input;
+  const { orgId, displayName, status, id } = input;
   return prisma.device.create({
     data: {
+      id,
       orgId,
       displayName: displayName ?? undefined,
       status: status ?? "active",
@@ -71,4 +73,3 @@ export async function touchDeviceKeyLastUsed(
     return null;
   }
 }
-

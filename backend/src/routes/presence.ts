@@ -326,10 +326,10 @@ router.post("/v2/presence", async (req: Request, res: Response) => {
   const { deviceIdBaseHex, deviceIdHex } = deriveDeviceIds({
     deviceIdSalt,
     timeSlot: time_slot,
-    tokenPrefixHex: token_prefix,
+   tokenPrefixHex: token_prefix,
   });
 
-  const deviceRecord = getOrCreateDevice({
+  const deviceRecord = await getOrCreateDevice({
     orgId: org_id,
     deviceIdBase: deviceIdBaseHex,
     deviceId: deviceIdHex,
@@ -337,7 +337,7 @@ router.post("/v2/presence", async (req: Request, res: Response) => {
 
   // For registered devices (device_keys present), verify packet MAC using device_auth_key.
   // For unregistered devices, skip MAC verification and treat presence as low-trust anonymous.
-  const deviceKey = getDeviceKey({ orgId: org_id, deviceId: deviceRecord.deviceId });
+  const deviceKey = await getDeviceKey({ orgId: org_id, deviceId: deviceRecord.deviceId });
 
   // Anti-replay / anomaly flags are tracked below.
   let suspiciousDuplicate = false;
@@ -453,7 +453,7 @@ router.post("/v2/presence", async (req: Request, res: Response) => {
   suspiciousDuplicate = fusionResult.suspiciousDuplicate;
   suspiciousFlags = fusionResult.suspiciousFlags;
 
-  const linkResult = resolveLink({
+  const linkResult = await resolveLink({
     orgId: org_id,
     deviceId: deviceRecord.deviceId,
   });

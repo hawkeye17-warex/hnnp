@@ -77,7 +77,7 @@ function buildPresenceReport(timeSlot: number, timestamp: number) {
   };
 }
 
-function registerDeviceForSlot(timeSlot: number): string {
+async function registerDeviceForSlot(timeSlot: number): Promise<string> {
   const { tokenPrefixHex } = buildDevicePacket(timeSlot);
 
   const { deviceIdHex } = deriveDeviceIds({
@@ -86,7 +86,7 @@ function registerDeviceForSlot(timeSlot: number): string {
     tokenPrefixHex,
   });
 
-  registerDeviceKey({
+  await registerDeviceKey({
     orgId: ORG_ID,
     deviceId: deviceIdHex,
     deviceAuthKeyHex: DEVICE_AUTH_KEY_HEX,
@@ -135,7 +135,7 @@ describe("device + receiver + cloud integration", () => {
     const serverTime = Math.floor(Date.now() / 1000);
     const timeSlot = Math.floor(serverTime / 15);
 
-    const deviceIdHex = registerDeviceForSlot(timeSlot);
+    const deviceIdHex = await registerDeviceForSlot(timeSlot);
     const report = buildPresenceReport(timeSlot, serverTime);
 
     const res = await request(app).post("/v2/presence").send(report);

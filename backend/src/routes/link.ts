@@ -47,21 +47,21 @@ router.post("/v2/link", async (req: Request, res: Response) => {
   // (useful for testing and non-production setups).
   const deviceAuthKeyHex = process.env.DEVICE_AUTH_KEY_HEX;
   if (registration_blob && deviceAuthKeyHex) {
-    registerDeviceKey({
+    await registerDeviceKey({
       orgId: org_id,
       deviceId: deviceId ?? "",
       deviceAuthKeyHex,
     });
 
     // Ensure the DeviceRecord exists; getOrCreateDevice will return existing if present.
-    getOrCreateDevice({
+    await getOrCreateDevice({
       orgId: org_id,
       deviceIdBase: "", // not needed here; placeholder for future DB-backed implementation
       deviceId: deviceId ?? "",
     });
   }
 
-  const link = createLink({
+  const link = await createLink({
     orgId: org_id,
     deviceId: deviceId ?? "",
     userRef: user_ref,
@@ -75,14 +75,14 @@ router.post("/v2/link", async (req: Request, res: Response) => {
 
   await emitWebhook(org_id, {
     type: "link.created",
-    link_id: link.linkId,
-    device_id: link.deviceId,
-    user_ref: link.userRef,
+    link_id: link.id,
+    device_id: link.deviceId ?? undefined,
+    user_ref: link.userRef ?? undefined,
   });
 
   return res.status(200).json({
     status: "linked",
-    link_id: link.linkId,
+    link_id: link.id,
     user_ref: link.userRef,
     device_id: link.deviceId,
   });
@@ -96,19 +96,19 @@ router.delete("/v2/link/:linkId", async (req: Request, res: Response) => {
     return res.status(400).json({ error: "org_id is required" });
   }
 
-  const link = revokeLink({ orgId, linkId });
+  const link = await revokeLink({ orgId, linkId });
   if (!link) {
     return res.status(404).json({ error: "link not found" });
   }
 
   await emitWebhook(orgId, {
     type: "link.revoked",
-    link_id: link.linkId,
+    link_id: link.id,
   });
 
   return res.status(200).json({
     status: "revoked",
-    link_id: link.linkId,
+    link_id: link.id,
     revoked_at: link.revokedAt,
   });
 });
