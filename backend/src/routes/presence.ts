@@ -3,6 +3,7 @@ import { verifyReceiverSignature, deriveDeviceIds, verifyPacketMac } from "../se
 import { resolveLink } from "../services/links";
 import { getReceiverSecret } from "../services/receivers";
 import { getOrCreateDevice, getDeviceKey } from "../services/devices";
+import { emitWebhook } from "../services/webhooks";
 
 interface PresenceRequestBody {
   org_id: string;
@@ -49,7 +50,7 @@ const presenceSessions: PresenceSession[] = [];
 
 const router = Router();
 
-router.post("/v2/presence", (req: Request, res: Response) => {
+router.post("/v2/presence", async (req: Request, res: Response) => {
   const body = req.body as Partial<PresenceRequestBody> | undefined;
 
   if (!body) {
@@ -260,6 +261,18 @@ router.post("/v2/presence", (req: Request, res: Response) => {
   });
 
   if (linkResult.linked) {
+    await emitWebhook(org_id, {
+      type: "presence.check_in",
+      event_id: eventId,
+      org_id,
+      device_id: deviceRecord.deviceId,
+      link_id: linkResult.linkId,
+      user_ref: linkResult.userRef,
+      receiver_id,
+      timestamp,
+      suspicious: suspiciousFlags.length > 0 || suspiciousDuplicate,
+    });
+
     return res.status(200).json({
       status: "accepted",
       linked: true,
@@ -268,6 +281,16 @@ router.post("/v2/presence", (req: Request, res: Response) => {
       user_ref: linkResult.userRef,
     });
   }
+
+  await emitWebhook(org_id, {
+    type: "presence.unknown",
+    event_id: eventId,
+    org_id,
+    device_id: deviceRecord.deviceId,
+    presence_session_id: session.presence_session_id,
+    receiver_id,
+    timestamp,
+  });
 
   return res.status(200).json({
     status: "accepted",
