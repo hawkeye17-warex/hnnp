@@ -863,6 +863,27 @@ MAY log:
 * Reject duplicate presence reports with the same `(org_id, device_id, receiver_id, time_slot)` **unless the packet timestamp differs by ≥5 seconds** (to allow congestion-based retries).
 * Accept that multiple BLE packets with identical `(token_prefix, time_slot)` may exist; anti-replay applies to  **Cloud presence reports** , not raw BLE packets.
 
+#### 12.4.1 Time Drift & Anti-Replay Rules
+
+This subsection makes the time and replay requirements explicit in terms of the 15-second rotation window and the server’s deduplication behavior.
+
+- Token rotation window:
+  - Devices and Cloud MUST treat `time_slot` as a 15-second window, derived as `time_slot = floor(unix_time / 15)` (Section 4).
+
+- Allowed drift:
+  - Let `MAX_DRIFT_SLOTS` be a small non-negative integer (recommended default: 1).
+  - For each presence report, Cloud computes `server_time = now()` and `server_slot = floor(server_time / 15)`.
+  - Cloud MUST reject any report whose `time_slot` differs from `server_slot` by more than `MAX_DRIFT_SLOTS`, i.e. when `|time_slot - server_slot| > MAX_DRIFT_SLOTS`.
+
+- Duplicate suppression window:
+  - Let `duplicate_suppress_seconds` be a small positive integer (recommended default: 5 seconds).
+  - Cloud tracks the last accepted report per `(org_id, device_id, receiver_id, time_slot)` (or an equivalent stable identifier).
+  - For each such tuple:
+    - The first valid report is accepted as normal.
+    - Any subsequent report with the same tuple and `timestamp < previous_timestamp + duplicate_suppress_seconds` MUST be rejected as a duplicate.
+    - Subsequent reports with `timestamp >= previous_timestamp + duplicate_suppress_seconds` MAY be accepted as retries but SHOULD be flagged as duplicates or suspicious.
+  - These anti-replay rules apply to Cloud presence reports; receivers are still expected to perform their own local duplicate suppression over BLE packets as described in Section 7.
+
 ### 12.5 Wormhole Mitigation (Recommended)
 
 To reduce wormhole attacks (remote replay in real-time), HNNP v2 recommends:

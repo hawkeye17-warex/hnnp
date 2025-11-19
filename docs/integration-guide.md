@@ -30,8 +30,8 @@ This rule is applied consistently:
 
 Skew and drift:
 
-- Cloud enforces `max_skew_seconds` (recommended 120s):  
-  `|server_time - timestamp| > max_skew_seconds` ⇒ reject.
+- Cloud enforces `max_skew_seconds` ?ecommended 120s):  
+  `|server_time - timestamp| > max_skew_seconds` ?� reject.
 - Cloud and receiver both treat `time_slot` in **15‑second windows** and allow a small drift window (±1 slot) to tolerate clock differences.
 
 **Key point:** all security decisions are made in terms of the 15‑second `time_slot`, not BLE packet timing.
@@ -334,7 +334,7 @@ For each accepted BLE packet:
   - On network or 5xx errors:
     - Queue reports locally (in memory or on disk).
     - Retry with backoff.
-  - Drop events older than `max_skew_seconds` (e.g., 120s).
+  - Drop events older than `max_skew_seconds` ?.g., 120s).
 
 Secrets:
 
@@ -377,7 +377,7 @@ Reject malformed or missing fields with HTTP 400.
 ### 5.3 Timestamp skew and time_slot drift
 
 1. Let `server_time = now()`.
-   - If `|server_time - timestamp| > max_skew_seconds` ⇒ HTTP 400.
+   - If `|server_time - timestamp| > max_skew_seconds` ?� HTTP 400.
 2. Compute:
 
    ```text
@@ -819,10 +819,10 @@ HNNP’s security model assumes that devices, receivers, and Cloud all use reaso
 - **Receivers**
   - Use their OS clock to validate BLE `time_slot` locally and to set `timestamp` in presence reports.
   - Should be NTP-synchronized in production; modest drift (±1 time_slot) is tolerated.
-  - The sender queue (`receiver/src/sender.py`) drops reports whose age exceeds `MAX_SKEW_SECONDS` (default 120s) before sending to Cloud.
+  - The sender queue (`receiver/src/sender.py`) drops reports whose age exceeds `max_skew_seconds` ?efault 120s) before sending to Cloud.
 
 - **Cloud**
-  - Uses its own `server_time` to enforce both `max_skew_seconds` and the slot drift window:
+  - Uses its own `server_time` to enforce both `max_skew_seconds` ?d the slot drift window:
     - Rejects if `|server_time - timestamp| > max_skew_seconds`.
     - Computes `server_slot = floor(server_time / 15)` and rejects if `|time_slot - server_slot| > MAX_DRIFT_SLOTS` (default 1).
   - This ensures that even if network delivery is slightly delayed or clocks are slightly skewed, events within a small time window still verify, while stale or badly skewed events are rejected.
