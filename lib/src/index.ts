@@ -15,3 +15,5 @@ export interface PresenceEventCore {
   tokenPrefix: TokenPrefixHex;
 }
 
+export * from "./crypto";
+
