@@ -43,14 +43,67 @@ client.link_presence_session(
 
 ## Webhook Verification
 
-from hnnp_sdk import verify_hnnp_webhook
+from hnnp_sdk import verify_webhook_signature
 
-is_valid = verify_hnnp_webhook(
-    raw_body,
-    signature,
-    timestamp,
-    webhook_secret
+is_valid = verify_webhook_signature(
+    secret=webhook_secret,
+    timestamp=timestamp_header,
+    raw_body=raw_body_bytes,
+    signature_hex=signature_header,
 )
+
+---
+
+## Flask Webhook Example
+
+```python
+import os
+from flask import Flask, request, jsonify
+from hnnp_sdk import verify_webhook_signature
+
+app = Flask(__name__)
+
+WEBHOOK_SECRET = os.environ["WEBHOOK_SECRET"]
+
+@app.route("/hnnp/webhook", methods=["POST"])
+def hnnp_webhook() -> "tuple[dict, int]" | "tuple[dict, int, dict]":
+    signature = request.headers.get("X-HNNP-Signature", "")
+    timestamp = request.headers.get("X-HNNP-Timestamp", "")
+    raw_body = request.get_data()  # bytes
+
+    if not verify_webhook_signature(WEBHOOK_SECRET, timestamp, raw_body, signature):
+        return jsonify({"error": "invalid_webhook_signature"}), 400
+
+    # At this point, request.json is trusted HNNP payload
+    print("Received HNNP webhook:", request.json)
+    return jsonify({"status": "ok"}), 200
+```
+
+---
+
+## FastAPI Webhook Example
+
+```python
+import os
+from fastapi import FastAPI, Request, HTTPException
+from hnnp_sdk import verify_webhook_signature
+
+app = FastAPI()
+WEBHOOK_SECRET = os.environ["WEBHOOK_SECRET"]
+
+@app.post("/hnnp/webhook")
+async def hnnp_webhook(request: Request):
+    signature = request.headers.get("X-HNNP-Signature", "")
+    timestamp = request.headers.get("X-HNNP-Timestamp", "")
+    raw_body = await request.body()  # bytes
+
+    if not verify_webhook_signature(WEBHOOK_SECRET, timestamp, raw_body, signature):
+        raise HTTPException(status_code=400, detail="invalid_webhook_signature")
+
+    payload = await request.json()
+    print("Received HNNP webhook:", payload)
+    return {"status": "ok"}
+```
 
 ---
 
