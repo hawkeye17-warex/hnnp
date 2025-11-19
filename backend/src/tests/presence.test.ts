@@ -36,6 +36,7 @@ describe("POST /v2/presence", () => {
     process.env.RECEIVER_ORG_ID = "org_123";
     process.env.RECEIVER_ID = "rcv_001";
     process.env.MAX_SKEW_SECONDS = "300";
+    process.env.DEVICE_ID_SALT = "test_device_id_salt";
   });
 
   it("returns 200 and status accepted for valid signature", async () => {

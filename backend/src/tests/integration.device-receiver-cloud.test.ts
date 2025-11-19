@@ -1,0 +1,180 @@
+import request from "supertest";
+import crypto from "crypto";
+import { app } from "../index";
+import { encodeUint32BE } from "../services/uint";
+import { deriveDeviceIds } from "../services/crypto";
+import { registerDeviceKey } from "../services/devices";
+import { presenceEvents, presenceSessions } from "../routes/presence";
+
+const ORG_ID = "org_test";
+const RECEIVER_ID = "receiver_test";
+const RECEIVER_SECRET = "receiver_secret_test";
+const DEVICE_ID_SALT = "device_id_salt_test";
+
+// Deterministic 32-byte device_secret for tests (device-side).
+const DEVICE_SECRET = Buffer.alloc(32, 7); // 0x07 repeated
+
+const VERSION = 0x02;
+const FLAGS = 0x00;
+
+function deriveDeviceAuthKeyHex(): string {
+  const h = crypto.createHmac("sha256", DEVICE_SECRET);
+  h.update("hnnp_device_auth_v2");
+  return h.digest("hex");
+}
+
+const DEVICE_AUTH_KEY_HEX = deriveDeviceAuthKeyHex();
+
+function buildDevicePacket(timeSlot: number): {
+  timeSlot: number;
+  tokenPrefixHex: string;
+  macHex: string;
+} {
+  const key = Buffer.from(DEVICE_AUTH_KEY_HEX, "hex");
+
+  // Device-side full_token and token_prefix per spec Section 5.
+  const tokenHmac = crypto.createHmac("sha256", key);
+  tokenHmac.update(encodeUint32BE(timeSlot));
+  tokenHmac.update(Buffer.from("hnnp_v2_presence", "utf8"));
+  const fullToken = tokenHmac.digest();
+  const tokenPrefix = fullToken.subarray(0, 16);
+  const tokenPrefixHex = tokenPrefix.toString("hex");
+
+  // Device-side packet MAC per spec Section 5.3.
+  const macHmac = crypto.createHmac("sha256", key);
+  macHmac.update(Buffer.from([VERSION & 0xff, FLAGS & 0xff]));
+  macHmac.update(encodeUint32BE(timeSlot));
+  macHmac.update(tokenPrefix);
+  const fullMac = macHmac.digest();
+  const macHex = fullMac.subarray(0, 8).toString("hex");
+
+  return { timeSlot, tokenPrefixHex, macHex };
+}
+
+function buildPresenceReport(timeSlot: number, timestamp: number) {
+  const { tokenPrefixHex, macHex } = buildDevicePacket(timeSlot);
+
+  // Receiver signature per spec Section 7.4.
+  const sigHmac = crypto.createHmac("sha256", Buffer.from(RECEIVER_SECRET, "utf8"));
+  sigHmac.update(Buffer.from(ORG_ID, "utf8"));
+  sigHmac.update(Buffer.from(RECEIVER_ID, "utf8"));
+  sigHmac.update(encodeUint32BE(timeSlot));
+  sigHmac.update(Buffer.from(tokenPrefixHex, "hex"));
+  sigHmac.update(encodeUint32BE(timestamp));
+  const signatureHex = sigHmac.digest("hex");
+
+  return {
+    org_id: ORG_ID,
+    receiver_id: RECEIVER_ID,
+    timestamp,
+    time_slot: timeSlot,
+    version: VERSION,
+    flags: FLAGS,
+    token_prefix: tokenPrefixHex,
+    mac: macHex,
+    signature: signatureHex,
+  };
+}
+
+function registerDeviceForSlot(timeSlot: number): string {
+  const { tokenPrefixHex } = buildDevicePacket(timeSlot);
+
+  const { deviceIdHex } = deriveDeviceIds({
+    deviceIdSalt: DEVICE_ID_SALT,
+    timeSlot,
+    tokenPrefixHex,
+  });
+
+  registerDeviceKey({
+    orgId: ORG_ID,
+    deviceId: deviceIdHex,
+    deviceAuthKeyHex: DEVICE_AUTH_KEY_HEX,
+  });
+
+  return deviceIdHex;
+}
+
+describe("device → receiver → cloud integration", () => {
+  beforeAll(() => {
+    process.env.RECEIVER_ORG_ID = ORG_ID;
+    process.env.RECEIVER_ID = RECEIVER_ID;
+    process.env.RECEIVER_SECRET = RECEIVER_SECRET;
+    process.env.DEVICE_ID_SALT = DEVICE_ID_SALT;
+    process.env.MAX_SKEW_SECONDS = "120";
+    process.env.MAX_DRIFT_SLOTS = "1";
+    process.env.DUPLICATE_SUPPRESS_SECONDS = "5";
+    process.env.IMPOSSIBLE_TRAVEL_SECONDS = "60";
+  });
+
+  beforeEach(() => {
+    presenceEvents.length = 0;
+    presenceSessions.length = 0;
+  });
+
+  it("accepts unregistered device reports across multiple time_slots", async () => {
+    const serverTime = Math.floor(Date.now() / 1000);
+    const baseSlot = Math.floor(serverTime / 15);
+
+    const slots = [baseSlot, baseSlot + 1];
+
+    for (const slot of slots) {
+      const timestamp = serverTime + (slot - baseSlot) * 15;
+      const report = buildPresenceReport(slot, timestamp);
+      const res = await request(app).post("/v2/presence").send(report);
+
+      expect(res.status).toBe(200);
+      expect(res.body.status).toBe("accepted");
+      expect(res.body.linked).toBe(false);
+    }
+
+    expect(presenceEvents.length).toBe(slots.length);
+    expect(presenceSessions.length).toBe(slots.length);
+  });
+
+  it("accepts registered device report with valid MAC", async () => {
+    const serverTime = Math.floor(Date.now() / 1000);
+    const timeSlot = Math.floor(serverTime / 15);
+
+    const deviceIdHex = registerDeviceForSlot(timeSlot);
+    const report = buildPresenceReport(timeSlot, serverTime);
+
+    const res = await request(app).post("/v2/presence").send(report);
+
+    expect(res.status).toBe(200);
+    expect(res.body.status).toBe("accepted");
+    expect(presenceEvents.length).toBe(1);
+    expect(presenceEvents[0].device_id).toBe(deviceIdHex);
+  });
+
+  it("rejects reports with timestamp skew beyond max_skew_seconds", async () => {
+    const serverTime = Math.floor(Date.now() / 1000);
+    const timeSlot = Math.floor(serverTime / 15);
+    const tooOldTimestamp = serverTime - 121; // > MAX_SKEW_SECONDS
+
+    const report = buildPresenceReport(timeSlot, tooOldTimestamp);
+    const res = await request(app).post("/v2/presence").send(report);
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/Timestamp skew too large/);
+    expect(presenceEvents.length).toBe(0);
+    expect(presenceSessions.length).toBe(0);
+  });
+
+  it("rejects duplicate presence reports in the same 15-second window", async () => {
+    const serverTime = Math.floor(Date.now() / 1000);
+    const timeSlot = Math.floor(serverTime / 15);
+
+    const report = buildPresenceReport(timeSlot, serverTime);
+
+    const first = await request(app).post("/v2/presence").send(report);
+    expect(first.status).toBe(200);
+
+    const second = await request(app).post("/v2/presence").send(report);
+    expect(second.status).toBe(409);
+    expect(second.body.error).toMatch(/Duplicate presence event in same time_slot/);
+
+    expect(presenceEvents.length).toBe(1);
+    expect(presenceSessions.length).toBe(1);
+  });
+});
+
