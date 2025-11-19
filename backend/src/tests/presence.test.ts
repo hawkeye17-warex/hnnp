@@ -33,6 +33,8 @@ describe("POST /v2/presence", () => {
 
   beforeAll(() => {
     process.env.RECEIVER_SECRET = receiverSecret;
+    process.env.RECEIVER_ORG_ID = "org_123";
+    process.env.RECEIVER_ID = "rcv_001";
     process.env.MAX_SKEW_SECONDS = "300";
   });
 
@@ -98,4 +100,3 @@ describe("POST /v2/presence", () => {
     expect(res.body.error).toMatch(/invalid receiver signature/i);
   });
 });
-

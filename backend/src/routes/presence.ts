@@ -1,6 +1,7 @@
 import { Router, Request, Response } from "express";
 import { verifyReceiverSignature } from "../services/crypto";
 import { resolveLink } from "../services/links";
+import { getReceiverSecret } from "../services/receivers";
 
 interface PresenceRequestBody {
   org_id: string;
@@ -68,9 +69,9 @@ router.post("/v2/presence", (req: Request, res: Response) => {
     return res.status(400).json({ error: "Unsupported version; expected 0x02" });
   }
 
-  const receiverSecret = process.env.RECEIVER_SECRET;
+  const receiverSecret = getReceiverSecret(org_id, receiver_id);
   if (!receiverSecret) {
-    return res.status(500).json({ error: "Receiver secret not configured" });
+    return res.status(401).json({ error: "Unknown receiver or secret not configured" });
   }
 
   const isValidSignature = verifyReceiverSignature({
@@ -138,4 +139,3 @@ router.post("/v2/presence", (req: Request, res: Response) => {
 });
 
 export { router as presenceRouter, presenceEvents };
-
