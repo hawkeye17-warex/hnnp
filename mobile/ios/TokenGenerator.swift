@@ -23,12 +23,21 @@ enum TokenGenerator {
     /// - Parameters:
     ///   - deviceAuthKey: 32-byte key derived from device_secret.
     ///   - timeSlot: 32-bit unsigned time slot value.
-    static func derivePresenceToken(deviceAuthKey: Data, timeSlot: Int64) throws -> PresenceToken {
+    ///   - localBeaconNonce: optional nonce broadcast by receiver (wormhole mitigation feature).
+    static func derivePresenceToken(
+        deviceAuthKey: Data,
+        timeSlot: Int64,
+        localBeaconNonce: Data? = nil
+    ) throws -> PresenceToken {
         guard timeSlot >= 0 && timeSlot <= Int64(UInt32.max) else {
             throw TokenGeneratorError.timeSlotOutOfRange
         }
 
-        let message = encodeUint32BE(UInt32(timeSlot)) + Data(contextString.utf8)
+        var message = encodeUint32BE(UInt32(timeSlot))
+        if let nonce = localBeaconNonce {
+            message.append(nonce)
+        }
+        message.append(Data(contextString.utf8))
 
         let key = SymmetricKey(data: deviceAuthKey)
         let mac = HMAC<SHA256>.authenticationCode(for: message, using: key)
@@ -51,4 +60,3 @@ enum TokenGenerator {
 enum TokenGeneratorError: Error {
     case timeSlotOutOfRange
 }
-

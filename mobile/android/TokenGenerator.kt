@@ -27,11 +27,33 @@ object TokenGenerator {
     /**
      * Derive full_token and token_prefix from device_auth_key and time_slot.
      *
-     * @param deviceAuthKey 32-byte HMAC key derived from device_secret.
-     * @param timeSlot      32-bit unsigned time slot value.
+     * If a localBeaconNonce is provided (optional wormhole mitigation feature),
+     * the derivation follows spec v2 local_beacon_nonce flow:
+     *
+     *   full_token = HMAC-SHA256(device_auth_key,
+     *                  encode_uint32(time_slot) || local_beacon_nonce || "hnnp_v2_presence")
+     *
+     * Otherwise, the base v2 derivation is used without nonce:
+     *
+     *   full_token = HMAC-SHA256(device_auth_key,
+     *                  encode_uint32(time_slot) || "hnnp_v2_presence")
+     *
+     * @param deviceAuthKey   32-byte HMAC key derived from device_secret.
+     * @param timeSlot        32-bit unsigned time slot value.
+     * @param localBeaconNonce optional nonce broadcast by receiver, bound to this time_slot.
      */
-    fun derivePresenceToken(deviceAuthKey: ByteArray, timeSlot: Long): PresenceToken {
-        val message = encodeUint32(timeSlot) + CONTEXT_STRING.toByteArray(Charsets.UTF_8)
+    fun derivePresenceToken(
+        deviceAuthKey: ByteArray,
+        timeSlot: Long,
+        localBeaconNonce: ByteArray? = null,
+    ): PresenceToken {
+        val tsBytes = encodeUint32(timeSlot)
+        val contextBytes = CONTEXT_STRING.toByteArray(Charsets.UTF_8)
+        val message = if (localBeaconNonce != null) {
+            tsBytes + localBeaconNonce + contextBytes
+        } else {
+            tsBytes + contextBytes
+        }
 
         val keySpec = SecretKeySpec(deviceAuthKey, HMAC_ALGORITHM)
         val mac = Mac.getInstance(HMAC_ALGORITHM)
@@ -59,4 +81,3 @@ object TokenGenerator {
         )
     }
 }
-

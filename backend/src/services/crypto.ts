@@ -1,4 +1,5 @@
 import crypto from "crypto";
+import { encodeUint32BE } from "./uint";
 
 export interface VerifyReceiverSignatureParams {
   receiverSecret: string;
@@ -25,14 +26,10 @@ export interface VerifyPacketMacParams {
   macHex: string;
 }
 
-function encodeUint32BE(value: number): Buffer {
-  if (!Number.isInteger(value) || value < 0) {
-    throw new Error(`encodeUint32BE: invalid value ${value}`);
-  }
-
-  const buf = Buffer.allocUnsafe(4);
-  buf.writeUInt32BE(value >>> 0, 0);
-  return buf;
+export interface DeriveTokenPrefixWithNonceParams {
+  deviceAuthKeyHex: string;
+  timeSlot: number;
+  localBeaconNonceHex: string;
 }
 
 function timingSafeEqualHex(expectedHex: string, actualHex: string): boolean {
@@ -104,6 +101,25 @@ export function deriveDeviceIds(params: DeriveDeviceIdsParams): {
   const deviceIdHex = hmacId.digest("hex");
 
   return { deviceIdBaseHex, deviceIdHex };
+}
+
+// deriveTokenPrefixWithNonce computes the expected token_prefix when a local_beacon_nonce
+// is used in full_token derivation:
+//
+// full_token = HMAC-SHA256(device_auth_key,
+//   encode_uint32(time_slot) || local_beacon_nonce || "hnnp_v2_presence")
+// token_prefix = first 16 bytes of full_token.
+export function deriveTokenPrefixWithNonce(params: DeriveTokenPrefixWithNonceParams): string {
+  const { deviceAuthKeyHex, timeSlot, localBeaconNonceHex } = params;
+
+  const key = Buffer.from(deviceAuthKeyHex, "hex");
+  const hmac = crypto.createHmac("sha256", key);
+  hmac.update(encodeUint32BE(timeSlot));
+  hmac.update(Buffer.from(localBeaconNonceHex, "hex"));
+  hmac.update(Buffer.from("hnnp_v2_presence", "utf8"));
+
+  const fullToken = hmac.digest();
+  return fullToken.subarray(0, 16).toString("hex");
 }
 
 // verifyPacketMac implements the packet MAC verification for registered devices:

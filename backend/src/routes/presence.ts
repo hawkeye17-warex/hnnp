@@ -1,9 +1,10 @@
 import { Router, Request, Response } from "express";
-import { verifyReceiverSignature, deriveDeviceIds, verifyPacketMac } from "../services/crypto";
+import { verifyReceiverSignature, deriveDeviceIds, verifyPacketMac, deriveTokenPrefixWithNonce } from "../services/crypto";
 import { resolveLink } from "../services/links";
 import { getReceiverSecret } from "../services/receivers";
 import { getOrCreateDevice, getDeviceKey } from "../services/devices";
 import { emitWebhook } from "../services/webhooks";
+import { computeLocalBeaconNonceHex } from "../services/localBeacon";
 
 interface PresenceRequestBody {
   org_id: string;
@@ -147,6 +148,10 @@ router.post("/v2/presence", async (req: Request, res: Response) => {
   // For unregistered devices, skip MAC verification and treat presence as low-trust anonymous.
   const deviceKey = getDeviceKey({ orgId: org_id, deviceId: deviceRecord.deviceId });
 
+  // Anti-replay / anomaly flags are tracked below.
+  let suspiciousDuplicate = false;
+  const suspiciousFlags: string[] = [];
+
   if (deviceKey) {
     const macValid = verifyPacketMac({
       deviceAuthKeyHex: deviceKey.deviceAuthKeyHex,
@@ -159,6 +164,26 @@ router.post("/v2/presence", async (req: Request, res: Response) => {
 
     if (!macValid) {
       return res.status(401).json({ error: "Invalid MAC for registered device" });
+    }
+
+    // Optional local_beacon_nonce verification (wormhole mitigation).
+    // When enabled, Cloud recomputes the expected token_prefix using a nonce derived
+    // from (receiver_secret, time_slot) and verifies consistency.
+    const localNonceEnabled =
+      process.env.LOCAL_BEACON_NONCE_ENABLED === "true" ||
+      process.env.LOCAL_BEACON_NONCE_ENABLED === "1";
+
+    if (localNonceEnabled) {
+      const localNonceHex = computeLocalBeaconNonceHex(receiverSecret, time_slot);
+      const expectedPrefixHex = deriveTokenPrefixWithNonce({
+        deviceAuthKeyHex: deviceKey.deviceAuthKeyHex,
+        timeSlot: time_slot,
+        localBeaconNonceHex: localNonceHex,
+      });
+
+      if (expectedPrefixHex !== token_prefix.toLowerCase()) {
+        suspiciousFlags.push("local_beacon_nonce_mismatch");
+      }
     }
   }
 
@@ -180,9 +205,6 @@ router.post("/v2/presence", async (req: Request, res: Response) => {
       evt.receiver_id === receiver_id &&
       evt.time_slot === time_slot,
   );
-
-  let suspiciousDuplicate = false;
-  const suspiciousFlags: string[] = [];
 
   if (matchingEvents.length > 0) {
     const latest = matchingEvents.reduce((a, b) => (b.timestamp > a.timestamp ? b : a));
