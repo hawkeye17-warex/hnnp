@@ -2,6 +2,8 @@ import React, {useEffect, useMemo, useState} from 'react';
 
 import Card from '../components/Card';
 import {useApi} from '../api/client';
+import Modal from '../components/Modal';
+import ReceiverForm, {ReceiverFormValues} from '../components/ReceiverForm';
 
 type Receiver = {
   id: string;
@@ -19,6 +21,9 @@ const ReceiversPage = () => {
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'online' | 'offline'>('all');
+  const [createOpen, setCreateOpen] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -85,7 +90,10 @@ const ReceiversPage = () => {
             </select>
             <button
               className="primary"
-              onClick={() => alert('New receiver modal coming soon')}>
+              onClick={() => {
+                setCreateError(null);
+                setCreateOpen(true);
+              }}>
               + New receiver
             </button>
           </div>
@@ -119,6 +127,43 @@ const ReceiversPage = () => {
           </div>
         )}
       </Card>
+      <Modal open={createOpen} onClose={() => setCreateOpen(false)} title="New receiver">
+        <ReceiverForm
+          loading={creating}
+          error={createError ?? undefined}
+          onCancel={() => setCreateOpen(false)}
+          onSubmit={async vals => {
+            setCreateError(null);
+            setCreating(true);
+            try {
+              const payload: any = {
+                receiver_id: vals.receiver_id,
+                display_name: vals.display_name,
+                location_label: vals.location_label,
+                auth_mode: vals.auth_mode,
+              };
+              if (vals.latitude) payload.latitude = Number(vals.latitude);
+              if (vals.longitude) payload.longitude = Number(vals.longitude);
+              if (vals.auth_mode === 'hmac_shared_secret') {
+                payload.shared_secret = vals.shared_secret;
+              } else {
+                payload.public_key_pem = vals.public_key_pem;
+              }
+              await api.createReceiver(payload);
+              setCreateOpen(false);
+              setCreating(false);
+              // refresh
+              setLoading(true);
+              const data = await api.getReceivers();
+              setReceivers(Array.isArray(data) ? data : data?.data ?? []);
+              setLoading(false);
+            } catch (err: any) {
+              setCreateError(err?.message ?? 'Failed to create receiver.');
+              setCreating(false);
+            }
+          }}
+        />
+      </Modal>
     </div>
   );
 };
