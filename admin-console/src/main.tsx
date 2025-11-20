@@ -12,12 +12,22 @@ import PresencePage from './pages/PresencePage';
 import ReceiversPage from './pages/ReceiversPage';
 import MainLayout from './layout/MainLayout';
 import {ThemeProvider} from './theme/ThemeProvider';
+import {useSession} from './hooks/useSession';
+import {Navigate} from 'react-router-dom';
+
+const ProtectedLayout = () => {
+  const {session} = useSession();
+  if (!session) {
+    return <Navigate to="/login" replace />;
+  }
+  return <MainLayout />;
+};
 
 const router = createBrowserRouter([
   {path: '/login', element: <LoginPage />},
   {
     path: '/',
-    element: <MainLayout />,
+    element: <ProtectedLayout />,
     children: [
       {path: 'overview', element: <OverviewPage />},
       {path: 'receivers', element: <ReceiversPage />},
