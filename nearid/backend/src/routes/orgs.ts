@@ -1,0 +1,401 @@
+import { Router, Request, Response } from "express";
+import argon2 from "argon2";
+import type { Org, Prisma, Receiver } from "@prisma/client";
+import { prisma } from "../db/prisma";
+import { apiKeyAuth } from "../middleware/apiKeyAuth";
+
+const router = Router();
+
+// Protect all org/receiver admin routes with API key auth.
+router.use(apiKeyAuth);
+
+function serializeOrg(org: Org) {
+  return {
+    org_id: org.id,
+    name: org.name,
+    slug: org.slug,
+    status: org.status,
+    config: org.config,
+    created_at: org.createdAt.toISOString(),
+    updated_at: org.updatedAt.toISOString(),
+  };
+}
+
+function serializeReceiver(receiver: Receiver) {
+  return {
+    receiver_id: receiver.id,
+    org_id: receiver.orgId,
+    display_name: receiver.displayName,
+    location_label: receiver.locationLabel,
+    latitude: receiver.latitude,
+    longitude: receiver.longitude,
+    auth_mode: receiver.authMode,
+    firmware_version: receiver.firmwareVersion,
+    status: receiver.status,
+    last_seen_at: receiver.lastSeenAt ? receiver.lastSeenAt.toISOString() : null,
+    created_at: receiver.createdAt.toISOString(),
+    updated_at: receiver.updatedAt.toISOString(),
+  };
+}
+
+router.get("/v2/orgs/:org_id", async (req: Request, res: Response) => {
+  const { org_id } = req.params;
+
+  try {
+    const org = await prisma.org.findUnique({ where: { id: org_id } });
+
+    if (!org) {
+      return res.status(404).json({ error: "Org not found" });
+    }
+
+    return res.status(200).json(serializeOrg(org));
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error("Error fetching org", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.get("/v2/orgs/:org_id/receivers", async (req: Request, res: Response) => {
+  const { org_id } = req.params;
+
+  try {
+    const org = await prisma.org.findUnique({ where: { id: org_id } });
+    if (!org) {
+      return res.status(404).json({ error: "Org not found" });
+    }
+
+    const receivers = await prisma.receiver.findMany({
+      where: { orgId: org_id },
+      orderBy: { id: "asc" },
+    });
+
+    return res.status(200).json(receivers.map(serializeReceiver));
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error("Error listing receivers", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.post("/v2/orgs/:org_id/receivers", async (req: Request, res: Response) => {
+  const { org_id } = req.params;
+  const body = req.body ?? {};
+
+  const {
+    receiver_id,
+    display_name,
+    location_label,
+    latitude,
+    longitude,
+    auth_mode,
+    shared_secret,
+    public_key_pem,
+    firmware_version,
+    status,
+  } = body as {
+    receiver_id?: unknown;
+    display_name?: unknown;
+    location_label?: unknown;
+    latitude?: unknown;
+    longitude?: unknown;
+    auth_mode?: unknown;
+    shared_secret?: unknown;
+    public_key_pem?: unknown;
+    firmware_version?: unknown;
+    status?: unknown;
+  };
+
+  if (typeof receiver_id !== "string" || receiver_id.length === 0) {
+    return res.status(400).json({ error: "receiver_id is required" });
+  }
+
+  if (typeof auth_mode !== "string" || auth_mode.length === 0) {
+    return res.status(400).json({ error: "auth_mode is required" });
+  }
+
+  const authMode = auth_mode;
+
+  try {
+    const org = await prisma.org.findUnique({ where: { id: org_id } });
+    if (!org) {
+      return res.status(404).json({ error: "Org not found" });
+    }
+
+    const existing = await prisma.receiver.findUnique({ where: { id: receiver_id } });
+    if (existing) {
+      return res.status(409).json({ error: "Receiver with this id already exists" });
+    }
+
+    let sharedSecretHash: string | undefined;
+    let publicKeyPem: string | undefined;
+
+    if (authMode === "hmac_shared_secret") {
+      if (typeof shared_secret !== "string" || shared_secret.length === 0) {
+        return res
+          .status(400)
+          .json({ error: "shared_secret is required when auth_mode is hmac_shared_secret" });
+      }
+      sharedSecretHash = await argon2.hash(shared_secret);
+    } else if (authMode === "public_key") {
+      if (typeof public_key_pem !== "string" || public_key_pem.length === 0) {
+        return res
+          .status(400)
+          .json({ error: "public_key_pem is required when auth_mode is public_key" });
+      }
+      publicKeyPem = public_key_pem;
+    }
+
+    const receiver = await prisma.receiver.create({
+      data: {
+        id: receiver_id,
+        orgId: org.id,
+        displayName:
+          typeof display_name === "string" && display_name.length > 0
+            ? display_name
+            : `Receiver ${receiver_id}`,
+        locationLabel:
+          typeof location_label === "string" && location_label.length > 0
+            ? location_label
+            : undefined,
+        latitude:
+          typeof latitude === "number"
+            ? latitude
+            : typeof latitude === "string" && latitude.length > 0
+              ? Number(latitude)
+              : undefined,
+        longitude:
+          typeof longitude === "number"
+            ? longitude
+            : typeof longitude === "string" && longitude.length > 0
+              ? Number(longitude)
+              : undefined,
+        authMode,
+        sharedSecretHash,
+        publicKeyPem,
+        firmwareVersion:
+          typeof firmware_version === "string" && firmware_version.length > 0
+            ? firmware_version
+            : undefined,
+        status:
+          typeof status === "string" && status.length > 0
+            ? status
+            : "active",
+      },
+    });
+
+    return res.status(201).json(serializeReceiver(receiver));
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error("Error creating receiver", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.patch(
+  "/v2/orgs/:org_id/receivers/:receiver_id",
+  async (req: Request, res: Response) => {
+    const { org_id, receiver_id } = req.params;
+    const body = req.body ?? {};
+
+    const {
+      display_name,
+      location_label,
+      latitude,
+      longitude,
+      auth_mode,
+      shared_secret,
+      public_key_pem,
+      firmware_version,
+      status,
+    } = body as {
+      display_name?: unknown;
+      location_label?: unknown;
+      latitude?: unknown;
+      longitude?: unknown;
+      auth_mode?: unknown;
+      shared_secret?: unknown;
+      public_key_pem?: unknown;
+      firmware_version?: unknown;
+      status?: unknown;
+    };
+
+    try {
+      const org = await prisma.org.findUnique({ where: { id: org_id } });
+      if (!org) {
+        return res.status(404).json({ error: "Org not found" });
+      }
+
+      const receiver = await prisma.receiver.findFirst({
+        where: { id: receiver_id, orgId: org_id },
+      });
+
+      if (!receiver) {
+        return res.status(404).json({ error: "Receiver not found" });
+      }
+
+      const data: Record<string, unknown> = {};
+
+      if (typeof display_name === "string") {
+        data.displayName = display_name;
+      }
+
+      if (typeof location_label === "string") {
+        data.locationLabel = location_label;
+      }
+
+      if (typeof latitude === "number") {
+        data.latitude = latitude;
+      } else if (typeof latitude === "string" && latitude.length > 0) {
+        data.latitude = Number(latitude);
+      }
+
+      if (typeof longitude === "number") {
+        data.longitude = longitude;
+      } else if (typeof longitude === "string" && longitude.length > 0) {
+        data.longitude = Number(longitude);
+      }
+
+      let newAuthMode = receiver.authMode;
+      if (typeof auth_mode === "string" && auth_mode.length > 0) {
+        newAuthMode = auth_mode;
+        data.authMode = newAuthMode;
+      }
+
+      if (newAuthMode === "hmac_shared_secret" && typeof shared_secret === "string") {
+        data.sharedSecretHash = await argon2.hash(shared_secret);
+      } else if (newAuthMode !== "hmac_shared_secret" && shared_secret !== undefined) {
+        data.sharedSecretHash = null;
+      }
+
+      if (newAuthMode === "public_key" && typeof public_key_pem === "string") {
+        data.publicKeyPem = public_key_pem;
+      } else if (newAuthMode !== "public_key" && public_key_pem !== undefined) {
+        data.publicKeyPem = null;
+      }
+
+      if (typeof firmware_version === "string") {
+        data.firmwareVersion = firmware_version;
+      }
+
+      if (typeof status === "string") {
+        data.status = status;
+      }
+
+      const updated = await prisma.receiver.update({
+        where: { id: receiver_id },
+        data,
+      });
+
+      return res.status(200).json(serializeReceiver(updated));
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error("Error updating receiver", err);
+      return res.status(500).json({ error: "Internal server error" });
+    }
+  },
+);
+
+router.get("/v2/orgs/:org_id/presence", async (req: Request, res: Response) => {
+  const { org_id } = req.params;
+  const receiverIdParam = req.query.receiver_id;
+  const fromParam = req.query.from;
+  const toParam = req.query.to;
+  const resultParam = req.query.result;
+  const limitParam = req.query.limit;
+
+  const receiverId =
+    typeof receiverIdParam === "string" && receiverIdParam.length > 0
+      ? receiverIdParam
+      : undefined;
+
+  const result =
+    typeof resultParam === "string" && resultParam.length > 0 ? resultParam : undefined;
+
+  let from: Date | undefined;
+  if (typeof fromParam === "string" && fromParam.length > 0) {
+    const d = new Date(fromParam);
+    if (Number.isNaN(d.getTime())) {
+      return res.status(400).json({ error: "Invalid from timestamp" });
+    }
+    from = d;
+  }
+
+  let to: Date | undefined;
+  if (typeof toParam === "string" && toParam.length > 0) {
+    const d = new Date(toParam);
+    if (Number.isNaN(d.getTime())) {
+      return res.status(400).json({ error: "Invalid to timestamp" });
+    }
+    to = d;
+  }
+
+  let limit = 100;
+  if (typeof limitParam === "string" && limitParam.length > 0) {
+    const parsed = Number.parseInt(limitParam, 10);
+    if (Number.isFinite(parsed) && parsed > 0) {
+      limit = parsed;
+    }
+  }
+  if (limit > 1000) {
+    limit = 1000;
+  }
+
+  try {
+    const org = await prisma.org.findUnique({ where: { id: org_id } });
+    if (!org) {
+      return res.status(404).json({ error: "Org not found" });
+    }
+
+    const where: Prisma.PresenceEventWhereInput = {
+      orgId: org.id,
+    };
+
+    if (receiverId) {
+      where.receiverId = receiverId;
+    }
+
+    if (result) {
+      where.authResult = result;
+    }
+
+    if (from || to) {
+      where.serverTimestamp = {};
+      if (from) {
+        where.serverTimestamp.gte = from;
+      }
+      if (to) {
+        where.serverTimestamp.lte = to;
+      }
+    }
+
+    const events = await prisma.presenceEvent.findMany({
+      where,
+      orderBy: { serverTimestamp: "desc" },
+      take: limit,
+    });
+
+    return res.status(200).json({
+      events: events.map((evt) => ({
+        id: evt.id,
+        receiver_id: evt.receiverId,
+        client_timestamp_ms: Number(evt.clientTimestampMs),
+        server_timestamp: evt.serverTimestamp.toISOString(),
+        time_slot: evt.timeSlot,
+        version: evt.version,
+        flags: evt.flags,
+        token_prefix: evt.tokenPrefix,
+        auth_result: evt.authResult,
+        is_anonymous: evt.isAnonymous,
+        reason: evt.reason ?? null,
+        meta: evt.meta ?? null,
+      })),
+    });
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error("Error querying presence events", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+export { router as orgsRouter };

@@ -1,0 +1,285 @@
+import request from "supertest";
+import crypto from "crypto";
+import { app } from "../index";
+import { presenceEvents } from "../routes/presence";
+import { prisma } from "../db/prisma";
+
+function encodeUint32BE(value: number): Buffer {
+  const buf = Buffer.allocUnsafe(4);
+  buf.writeUInt32BE(value >>> 0, 0);
+  return buf;
+}
+
+function computeSignature(params: {
+  receiverSecret: string;
+  orgId: string;
+  receiverId: string;
+  timeSlot: number;
+  tokenPrefixHex: string;
+  timestamp: number;
+}): string {
+  const { receiverSecret, orgId, receiverId, timeSlot, tokenPrefixHex, timestamp } = params;
+
+  const hmac = crypto.createHmac("sha256", Buffer.from(receiverSecret, "utf8"));
+  hmac.update(Buffer.from(orgId, "utf8"));
+  hmac.update(Buffer.from(receiverId, "utf8"));
+  hmac.update(encodeUint32BE(timeSlot));
+  hmac.update(Buffer.from(tokenPrefixHex, "hex"));
+  hmac.update(encodeUint32BE(timestamp));
+
+  return hmac.digest("hex");
+}
+
+describe("POST /v2/presence", () => {
+  const receiverSecret = "test_receiver_secret_32_bytes_long!";
+
+  beforeAll(async () => {
+    process.env.MAX_SKEW_SECONDS = "300";
+    process.env.DEVICE_ID_SALT = "test_device_id_salt";
+
+    await prisma.presenceEvent.deleteMany({ where: { orgId: "org_123" } });
+    await prisma.receiver.deleteMany({ where: { orgId: "org_123" } });
+    await prisma.org.deleteMany({ where: { id: "org_123" } });
+
+    await prisma.org.create({
+      data: {
+        id: "org_123",
+        name: "Test Org 123",
+        slug: "org-123",
+        status: "active",
+      },
+    });
+
+    await prisma.receiver.create({
+      data: {
+        id: "rcv_001",
+        orgId: "org_123",
+        displayName: "Receiver 001",
+        authMode: "hmac_shared_secret",
+        sharedSecretHash: receiverSecret,
+        status: "active",
+      },
+    });
+  });
+
+  it("returns 200 and status accepted for valid signature", async () => {
+    const orgId = "org_123";
+    const receiverId = "rcv_001";
+    const now = Math.floor(Date.now() / 1000);
+    const timeSlot = Math.floor(now / 15);
+    const tokenPrefixHex = "00112233445566778899aabbccddeeff";
+    const macHex = "aabbccddeeff0011";
+
+    const signature = computeSignature({
+      receiverSecret,
+      orgId,
+      receiverId,
+      timeSlot,
+      tokenPrefixHex,
+      timestamp: now,
+    });
+
+    const res = await request(app)
+      .post("/v2/presence")
+      .send({
+        org_id: orgId,
+        receiver_id: receiverId,
+        timestamp: now,
+        time_slot: timeSlot,
+        version: 0x02,
+        flags: 0,
+        token_prefix: tokenPrefixHex,
+        mac: macHex,
+        signature,
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body.status).toBe("accepted");
+    expect(res.body.linked).toBe(false);
+    expect(typeof res.body.event_id).toBe("string");
+    expect(typeof res.body.presence_session_id).toBe("string");
+  });
+
+  it("returns 401 for invalid signature", async () => {
+    const orgId = "org_123";
+    const receiverId = "rcv_001";
+    const now = Math.floor(Date.now() / 1000);
+    const timeSlot = Math.floor(now / 15);
+
+    const res = await request(app)
+      .post("/v2/presence")
+      .send({
+        org_id: orgId,
+        receiver_id: receiverId,
+        timestamp: now,
+        time_slot: timeSlot,
+        version: 0x02,
+        flags: 0,
+        token_prefix: "00112233445566778899aabbccddeeff",
+        mac: "aabbccddeeff0011",
+        signature: "deadbeef", // invalid
+      });
+
+    expect(res.status).toBe(401);
+    expect(res.body.error).toMatch(/invalid receiver signature/i);
+  });
+
+  it("returns 400 when time_slot is outside drift window", async () => {
+    const orgId = "org_123";
+    const receiverId = "rcv_001";
+    const now = Math.floor(Date.now() / 1000);
+    // Choose a time_slot far in the future so that |report_slot - server_slot| >> 1,
+    // while keeping timestamp skew small.
+    const timeSlotFarFuture = Math.floor((now + 300) / 15);
+
+    const tokenPrefixHex = "00112233445566778899aabbccddeeff";
+    const macHex = "aabbccddeeff0011";
+
+    const signature = computeSignature({
+      receiverSecret,
+      orgId,
+      receiverId,
+      timeSlot: timeSlotFarFuture,
+      tokenPrefixHex,
+      timestamp: now,
+    });
+
+    const res = await request(app)
+      .post("/v2/presence")
+      .send({
+        org_id: orgId,
+        receiver_id: receiverId,
+        timestamp: now,
+        time_slot: timeSlotFarFuture,
+        version: 0x02,
+        flags: 0,
+        token_prefix: tokenPrefixHex,
+        mac: macHex,
+        signature,
+      });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/time_slot/i);
+  });
+
+  it("honors ANON_MODE=allow for unknown devices", async () => {
+    process.env.ANON_MODE = "allow";
+    presenceEvents.length = 0;
+
+    const orgId = "org_123";
+    const receiverId = "rcv_001";
+    const now = Math.floor(Date.now() / 1000);
+    const timeSlot = Math.floor(now / 15);
+    const tokenPrefixHex = "00112233445566778899aabbccddeeff";
+    const macHex = "aabbccddeeff0011";
+
+    const signature = computeSignature({
+      receiverSecret,
+      orgId,
+      receiverId,
+      timeSlot,
+      tokenPrefixHex,
+      timestamp: now,
+    });
+
+    const res = await request(app)
+      .post("/v2/presence")
+      .send({
+        org_id: orgId,
+        receiver_id: receiverId,
+        timestamp: now,
+        time_slot: timeSlot,
+        version: 0x02,
+        flags: 0,
+        token_prefix: tokenPrefixHex,
+        mac: macHex,
+        signature,
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body.linked).toBe(false);
+    expect(presenceEvents.length).toBe(1);
+    expect(presenceEvents[0].anonymous).toBeUndefined();
+    expect(presenceEvents[0].policy).toBeUndefined();
+  });
+
+  it("honors ANON_MODE=warn by marking anonymous events", async () => {
+    process.env.ANON_MODE = "warn";
+    presenceEvents.length = 0;
+
+    const orgId = "org_123";
+    const receiverId = "rcv_001";
+    const now = Math.floor(Date.now() / 1000);
+    const timeSlot = Math.floor(now / 15);
+    const tokenPrefixHex = "00112233445566778899aabbccddeeff";
+    const macHex = "aabbccddeeff0011";
+
+    const signature = computeSignature({
+      receiverSecret,
+      orgId,
+      receiverId,
+      timeSlot,
+      tokenPrefixHex,
+      timestamp: now,
+    });
+
+    const res = await request(app)
+      .post("/v2/presence")
+      .send({
+        org_id: orgId,
+        receiver_id: receiverId,
+        timestamp: now,
+        time_slot: timeSlot,
+        version: 0x02,
+        flags: 0,
+        token_prefix: tokenPrefixHex,
+        mac: macHex,
+        signature,
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body.linked).toBe(false);
+    expect(presenceEvents.length).toBe(1);
+    expect(presenceEvents[0].anonymous).toBe(true);
+    expect(presenceEvents[0].policy).toBe("warn");
+  });
+
+  it("honors ANON_MODE=block by rejecting unknown devices", async () => {
+    process.env.ANON_MODE = "block";
+    presenceEvents.length = 0;
+
+    const orgId = "org_123";
+    const receiverId = "rcv_001";
+    const now = Math.floor(Date.now() / 1000);
+    const timeSlot = Math.floor(now / 15);
+    const tokenPrefixHex = "00112233445566778899aabbccddeeff";
+    const macHex = "aabbccddeeff0011";
+
+    const signature = computeSignature({
+      receiverSecret,
+      orgId,
+      receiverId,
+      timeSlot,
+      tokenPrefixHex,
+      timestamp: now,
+    });
+
+    const res = await request(app)
+      .post("/v2/presence")
+      .send({
+        org_id: orgId,
+        receiver_id: receiverId,
+        timestamp: now,
+        time_slot: timeSlot,
+        version: 0x02,
+        flags: 0,
+        token_prefix: tokenPrefixHex,
+        mac: macHex,
+        signature,
+      });
+
+    expect(res.status).toBe(403);
+    expect(res.body.error).toMatch(/anonymous devices are blocked/i);
+    expect(presenceEvents.length).toBe(0);
+  });
+});

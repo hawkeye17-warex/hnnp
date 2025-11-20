@@ -1,0 +1,27 @@
+node_modules/
+dist/
+.env
+.env.local
+
+# React Native / Android build artifacts
+android/.gradle/
+android/.idea/
+android/local.properties
+android/app/build/
+android/app/.cxx/
+android/build/
+
+# iOS build artifacts
+ios/Pods/
+ios/build/
+
+# Gradle + IDE
+.gradle/
+.idea/
+*.iml
+local.properties
+
+# Misc cache/output
+*.log
+*.tmp
+*.lock

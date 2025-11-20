@@ -1,0 +1,82 @@
+apply plugin: "com.android.application"
+apply plugin: "org.jetbrains.kotlin.android"
+apply plugin: "com.facebook.react"
+
+/**
+ * React Native configuration block.
+ * Defaults are fine unless you need custom paths.
+ */
+react {
+    autolinkLibrariesWithApp()
+    extraPackagerArgs = ["--reset-cache", "--verbose"]
+}
+
+/**
+ * Build flags
+ */
+def enableProguardInReleaseBuilds = true
+
+// Hermes ON by default (recommended)
+def enableHermes = (findProperty("hermesEnabled") ?: "true").toBoolean()
+
+// JavaScriptCore fallback if Hermes is disabled
+def jscFlavor = 'io.github.react-native-community:jsc-android:2026004.+'
+
+android {
+    namespace "com.nearid"
+
+    ndkVersion rootProject.ext.ndkVersion
+    buildToolsVersion rootProject.ext.buildToolsVersion
+    compileSdk rootProject.ext.compileSdkVersion
+
+    defaultConfig {
+        applicationId "com.nearid"
+        minSdkVersion rootProject.ext.minSdkVersion
+        targetSdkVersion rootProject.ext.targetSdkVersion
+        versionCode 1
+        versionName "1.0"
+    }
+
+    signingConfigs {
+        debug {
+            storeFile file('debug.keystore')
+            storePassword 'android'
+            keyAlias 'androiddebugkey'
+            keyPassword 'android'
+        }
+    }
+
+    buildTypes {
+        debug {
+            signingConfig signingConfigs.debug
+        }
+        release {
+            // ⚠️ In production you must use your own keystore.
+            signingConfig signingConfigs.debug
+            minifyEnabled enableProguardInReleaseBuilds
+            proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
+        }
+    }
+
+    kotlinOptions {
+        jvmTarget = "17"
+    }
+
+    packagingOptions {
+        pickFirst "**/libc++_shared.so"
+    }
+}
+
+dependencies {
+    // React Native core
+    implementation("com.facebook.react:react-android")
+
+    // Hermes or JSC
+    if (enableHermes) {
+        implementation("com.facebook.react:hermes-android")
+    } else {
+        implementation jscFlavor
+    }
+
+    // other dependencies are auto-linked
+}

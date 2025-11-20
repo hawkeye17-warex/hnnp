@@ -1,0 +1,15 @@
+{
+  "name": "@hnnp/cloud-api",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Workspace wrapper for the HNNP Cloud API backend service implemented in ./backend.",
+  "scripts": {
+    "dev": "npm --prefix ../backend run dev",
+    "build": "npm --prefix ../backend run build",
+    "start": "npm --prefix ../backend run start",
+    "test": "npm --prefix ../backend run test"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.83.0"
+  }
+}

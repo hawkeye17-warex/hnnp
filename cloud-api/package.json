@@ -4,6 +4,7 @@
   "private": true,
   "description": "Workspace wrapper for the HNNP Cloud API backend service implemented in ./backend.",
   "scripts": {
+    "postinstall": "npm --prefix ../backend install --include=dev --production=false",
     "dev": "npm --prefix ../backend run dev",
     "build": "npm --prefix ../backend run build",
     "start": "npm --prefix ../backend run start",
