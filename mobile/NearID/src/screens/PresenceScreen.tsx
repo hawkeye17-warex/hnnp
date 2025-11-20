@@ -1,6 +1,8 @@
 import React from 'react';
 import {StyleSheet, View} from 'react-native';
 
+import Card from '../components/Card';
+import PresenceRing from '../components/PresenceRing';
 import ScreenContainer from '../components/ScreenContainer';
 import {BodyText, TitleText} from '../components/Text';
 import {useTheme} from '../theme/ThemeProvider';
@@ -42,9 +44,9 @@ const PresenceScreen = (): React.JSX.Element => {
         </View>
       </View>
 
-      <View style={styles.content}>
-        <TitleText>Presence Screen</TitleText>
-      </View>
+      <Card style={styles.card}>
+        <PresenceRing status="searching" />
+      </Card>
     </ScreenContainer>
   );
 };
@@ -95,11 +97,11 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
   },
-  content: {
+  card: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 16,
+    paddingVertical: 32,
   },
 });
 
