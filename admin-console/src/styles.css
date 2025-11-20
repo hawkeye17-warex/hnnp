@@ -60,7 +60,7 @@ p {
   border: 1px solid var(--color-card-border);
   border-radius: 16px;
   padding: 20px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.03);
+  box-shadow: 0 12px 32px rgba(42, 109, 255, 0.08);
   display: grid;
   gap: 10px;
 }
@@ -122,12 +122,13 @@ p {
   text-decoration: none;
   padding: 10px 12px;
   border-radius: 10px;
+  transition: background 0.2s ease, color 0.2s ease;
 }
 
 .sidebar__link--active,
 .sidebar__link:hover {
-  background: #2a6dff15;
-  color: var(--color-text-primary);
+  background: rgba(42, 109, 255, 0.2);
+  color: #f5f6ff;
 }
 
 .main {
@@ -151,6 +152,7 @@ p {
 
 .content {
   padding: 24px;
+  background: radial-gradient(circle at 25% 20%, #f5f6ff, var(--color-page-bg) 45%), var(--color-page-bg);
 }
 
 .overview {
