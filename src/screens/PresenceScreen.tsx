@@ -2,6 +2,7 @@ import React from 'react';
 import { StatusBar, StyleSheet, View } from 'react-native';
 
 import Card from '../components/Card';
+import PresenceRing from '../components/PresenceRing';
 import PrimaryButton from '../components/PrimaryButton';
 import ScreenContainer from '../components/ScreenContainer';
 import { BodyText, MutedText, TitleText } from '../components/text';
@@ -56,6 +57,9 @@ const PresenceScreen = () => {
           <MutedText style={styles.spaced}>
             This button is wired to the theme colors but disabled for now.
           </MutedText>
+          <View style={styles.ringWrapper}>
+            <PresenceRing status="searching" />
+          </View>
           <PrimaryButton
             title="Check in"
             onPress={() => {}}
@@ -120,6 +124,10 @@ const styles = StyleSheet.create({
   },
   spaced: {
     marginBottom: 8,
+  },
+  ringWrapper: {
+    marginVertical: 16,
+    alignItems: 'center',
   },
   button: {
     marginTop: 12,
