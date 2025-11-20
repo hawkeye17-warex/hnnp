@@ -1,5 +1,5 @@
 import React from 'react';
-import {StyleSheet, View} from 'react-native';
+import {Pressable, StyleSheet, View} from 'react-native';
 
 import Card from '../components/Card';
 import PrimaryButton from '../components/PrimaryButton';
@@ -13,8 +13,19 @@ const PresenceScreen = (): React.JSX.Element => {
   const {colors} = useTheme();
   const status: PresenceStatus = 'verified';
 
+  const todaySummary = [
+    {label: 'Verified events', value: '3'},
+    {label: 'Total verified time', value: '4h 12m'},
+  ];
+
+  const recentPlaces = [
+    {name: 'Building A · Main Entrance', time: 'Verified at 3:12 PM', status: 'verified' as PresenceStatus},
+    {name: 'Library · 2nd Floor', time: 'Verified at 1:05 PM', status: 'verified' as PresenceStatus},
+    {name: 'Parking Garage', time: 'Verified at 9:24 AM', status: 'verified' as PresenceStatus},
+  ];
+
   return (
-    <ScreenContainer>
+    <ScreenContainer scroll contentContainerStyle={styles.page}>
       <View style={styles.headerRow}>
         <View
           style={[
@@ -29,8 +40,7 @@ const PresenceScreen = (): React.JSX.Element => {
         <View style={styles.headerCenter}>
           <TitleText style={styles.appTitle}>NearID</TitleText>
           <View style={styles.orgChip}>
-            <BodyText
-              style={[styles.orgChipText, {color: colors.accentPrimary}]}>
+            <BodyText style={[styles.orgChipText, {color: colors.accentPrimary}]}>
               U of M · Science
             </BodyText>
           </View>
@@ -47,7 +57,7 @@ const PresenceScreen = (): React.JSX.Element => {
         </View>
       </View>
 
-      <Card style={styles.card}>
+      <Card style={styles.presenceCard}>
         <StatusPill status={status} label="Verified" />
 
         <View style={styles.ringWrapper}>
@@ -64,11 +74,54 @@ const PresenceScreen = (): React.JSX.Element => {
       <View style={styles.actionRow}>
         <PrimaryButton title="Send Ping" onPress={() => {}} />
       </View>
+
+      <Card style={styles.summaryCard}>
+        <TitleText style={styles.sectionTitle}>Today</TitleText>
+        {todaySummary.map(item => (
+          <View style={styles.summaryRow} key={item.label}>
+            <MutedText>{item.label}</MutedText>
+            <BodyText style={styles.summaryValue}>{item.value}</BodyText>
+          </View>
+        ))}
+      </Card>
+
+      <Card style={styles.recentCard}>
+        <View style={styles.recentHeader}>
+          <TitleText style={styles.sectionTitle}>Recent places</TitleText>
+          <Pressable>
+            <BodyText style={[styles.viewAll, {color: colors.accentPrimary}]}>View all</BodyText>
+          </Pressable>
+        </View>
+
+        <View style={styles.recentList}>
+          {recentPlaces.map(place => (
+            <View style={styles.placeRow} key={place.name + place.time}>
+              <View style={styles.placeCopy}>
+                <BodyText style={styles.placeName}>{place.name}</BodyText>
+                <MutedText style={styles.placeTime}>{place.time}</MutedText>
+              </View>
+              <View
+                style={[
+                  styles.statusDot,
+                  {
+                    backgroundColor:
+                      place.status === 'verified' ? colors.accentSuccess : colors.danger,
+                  },
+                ]}
+              />
+            </View>
+          ))}
+        </View>
+      </Card>
     </ScreenContainer>
   );
 };
 
 const styles = StyleSheet.create({
+  page: {
+    paddingBottom: 24,
+    gap: 16,
+  },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -114,14 +167,12 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
   },
-  card: {
-    flex: 1,
+  presenceCard: {
     paddingVertical: 24,
     paddingHorizontal: 16,
     gap: 16,
   },
   ringWrapper: {
-    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 16,
@@ -140,7 +191,61 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   actionRow: {
-    padding: 16,
+    paddingHorizontal: 16,
+  },
+  summaryCard: {
+    paddingHorizontal: 16,
+    paddingVertical: 20,
+    gap: 12,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  summaryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  summaryValue: {
+    fontWeight: '700',
+  },
+  recentCard: {
+    paddingHorizontal: 16,
+    paddingVertical: 20,
+    gap: 12,
+  },
+  recentHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  viewAll: {
+    fontWeight: '600',
+  },
+  recentList: {
+    gap: 12,
+  },
+  placeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 2,
+  },
+  placeCopy: {
+    flex: 1,
+    marginRight: 12,
+  },
+  placeName: {
+    fontWeight: '600',
+  },
+  placeTime: {
+    marginTop: 2,
+  },
+  statusDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
   },
 });
 
