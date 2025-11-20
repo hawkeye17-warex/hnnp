@@ -1,20 +1,160 @@
-import React from 'react';
+import React, {useEffect, useMemo, useState} from 'react';
 
 import Card from '../components/Card';
+import {useApi} from '../api/client';
+
+type Receiver = {
+  id: string;
+  name?: string;
+  status?: string;
+  last_seen_at?: string;
+};
+
+type PresenceEvent = {
+  id: string;
+  timestamp?: string;
+  occurredAt?: string;
+  createdAt?: string;
+  userRef?: string;
+  receiverName?: string;
+  status?: string;
+};
 
 const OverviewPage = () => {
+  const api = useApi();
+  const [org, setOrg] = useState<any>(null);
+  const [receivers, setReceivers] = useState<Receiver[]>([]);
+  const [events, setEvents] = useState<PresenceEvent[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    const load = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const [orgRes, receiversRes, eventsRes] = await Promise.all([
+          api.getOrg(),
+          api.getReceivers(),
+          api.getPresenceEvents({limit: 10, sort: 'desc'}),
+        ]);
+        if (!mounted) return;
+        setOrg(orgRes);
+        setReceivers(receiversRes ?? []);
+        setEvents(Array.isArray(eventsRes?.data) ? eventsRes.data : eventsRes ?? []);
+      } catch (err: any) {
+        if (!mounted) return;
+        setError(err?.message ?? 'Failed to load overview.');
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    };
+    load();
+    return () => {
+      mounted = false;
+    };
+  }, [api]);
+
+  const {totalReceivers, onlineReceivers, eventsToday} = useMemo(() => {
+    const now = new Date();
+    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const twentyMinutes = 20 * 60 * 1000;
+
+    const online = receivers.filter(r => {
+      if (r.status === 'online') return true;
+      if (r.last_seen_at) {
+        const last = new Date(r.last_seen_at).getTime();
+        return !Number.isNaN(last) && now.getTime() - last < twentyMinutes;
+      }
+      return false;
+    }).length;
+
+    const todays = events.filter(ev => {
+      const ts =
+        ev.timestamp ||
+        ev.occurredAt ||
+        ev.createdAt ||
+        (ev as any).time ||
+        (ev as any).at;
+      if (!ts) return false;
+      const time = new Date(ts).getTime();
+      return !Number.isNaN(time) && time >= startOfDay;
+    }).length;
+
+    return {
+      totalReceivers: receivers.length,
+      onlineReceivers: online,
+      eventsToday: todays,
+    };
+  }, [receivers, events]);
+
   return (
-    <div className="card-grid">
+    <div className="overview">
+      <div className="card-grid metrics-grid">
+        <Card>
+          <p className="muted">Organization</p>
+          <h2>{org?.name ?? '—'}</h2>
+          <p className="muted">Org ID: {org?.id ?? '—'}</p>
+        </Card>
+        <Card>
+          <p className="muted">Receivers</p>
+          <h2>{totalReceivers}</h2>
+          <p className="muted">{onlineReceivers} online</p>
+        </Card>
+        <Card>
+          <p className="muted">Events today</p>
+          <h2>{eventsToday}</h2>
+          <p className="muted">Last 10 shown below</p>
+        </Card>
+      </div>
+
       <Card>
-        <h2>Overview</h2>
-        <p>Snapshot of presence, org status, and recent activity.</p>
-      </Card>
-      <Card>
-        <h2>Presence status</h2>
-        <p>Placeholder widget content.</p>
+        <div className="table__header">
+          <h2>Recent presence events</h2>
+          {loading ? <span className="muted">Loading…</span> : null}
+          {error ? <span className="form__error">{error}</span> : null}
+        </div>
+        {loading ? (
+          <div className="table__loading">Loading…</div>
+        ) : events.length === 0 ? (
+          <div className="table__empty">No recent events.</div>
+        ) : (
+          <div className="table">
+            <div className="table__row table__head">
+              <div>Time</div>
+              <div>User</div>
+              <div>Receiver</div>
+              <div>Status</div>
+            </div>
+            {events.map(ev => (
+              <div className="table__row" key={ev.id}>
+                <div>{formatTime(ev)}</div>
+                <div>{ev.userRef || '—'}</div>
+                <div>{ev.receiverName || '—'}</div>
+                <div>
+                  <span className="badge">{ev.status || 'unknown'}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </Card>
     </div>
   );
+};
+
+const formatTime = (ev: PresenceEvent) => {
+  const ts =
+    ev.timestamp ||
+    ev.occurredAt ||
+    ev.createdAt ||
+    (ev as any).time ||
+    (ev as any).at;
+  if (!ts) return '—';
+  const d = new Date(ts);
+  if (Number.isNaN(d.getTime())) return '—';
+  return d.toLocaleString();
 };
 
 export default OverviewPage;
