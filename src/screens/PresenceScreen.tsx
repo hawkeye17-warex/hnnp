@@ -1,28 +1,52 @@
 import React from 'react';
-import { NewAppScreen } from '@react-native/new-app-screen';
-import { StatusBar, StyleSheet, useColorScheme, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { StatusBar, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+
+import { useTheme } from '../theme/ThemeProvider';
 
 const PresenceScreen = () => {
-  const isDarkMode = useColorScheme() === 'dark';
-  const safeAreaInsets = useSafeAreaInsets();
+  const { colors, isDark } = useTheme();
 
   return (
-    <>
-      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
-      <View style={styles.container}>
-        <NewAppScreen
-          templateFileName="PresenceScreen.tsx"
-          safeAreaInsets={safeAreaInsets}
-        />
+    <SafeAreaView
+      style={[styles.safeArea, { backgroundColor: colors.bgPrimary }]}
+      edges={['top', 'right', 'bottom', 'left']}>
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
+      <View
+        style={[
+          styles.card,
+          { backgroundColor: colors.bgSurface, borderColor: colors.borderSubtle },
+        ]}>
+        <Text style={[styles.title, { color: colors.textPrimary }]}>
+          Presence
+        </Text>
+        <Text style={[styles.subtitle, { color: colors.textMuted }]}>
+          Theme placeholder screen. Replace this with the real experience.
+        </Text>
       </View>
-    </>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
+  safeArea: {
     flex: 1,
+    paddingHorizontal: 24,
+    justifyContent: 'center',
+  },
+  card: {
+    padding: 20,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  title: {
+    fontSize: 22,
+    fontWeight: '700',
+    marginBottom: 8,
+  },
+  subtitle: {
+    fontSize: 16,
+    lineHeight: 22,
   },
 });
 
