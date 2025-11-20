@@ -1,33 +1,25 @@
-import React, {useMemo} from 'react';
-import {StyleSheet, Text, View} from 'react-native';
-import {useTheme} from '../theme/ThemeProvider';
+import React from 'react';
+import {StyleSheet, View} from 'react-native';
+
+import ScreenContainer from '../components/ScreenContainer';
+import {TitleText} from '../components/Text';
 
 const HistoryScreen = (): React.JSX.Element => {
-  const {colors} = useTheme();
-
-  const styles = useMemo(
-    () =>
-      StyleSheet.create({
-        container: {
-          flex: 1,
-          alignItems: 'center',
-          justifyContent: 'center',
-          backgroundColor: colors.bgPrimary,
-        },
-        text: {
-          fontSize: 18,
-          fontWeight: '600',
-          color: colors.textPrimary,
-        },
-      }),
-    [colors],
-  );
-
   return (
-    <View style={styles.container}>
-      <Text style={styles.text}>History Screen</Text>
-    </View>
+    <ScreenContainer>
+      <View style={styles.center}>
+        <TitleText>History Screen</TitleText>
+      </View>
+    </ScreenContainer>
   );
 };
+
+const styles = StyleSheet.create({
+  center: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+});
 
 export default HistoryScreen;
