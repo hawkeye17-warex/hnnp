@@ -3,7 +3,7 @@ import React, {useEffect, useMemo, useState} from 'react';
 import Card from '../components/Card';
 import {useApi} from '../api/client';
 import Modal from '../components/Modal';
-import ReceiverForm, {ReceiverFormValues} from '../components/ReceiverForm';
+import ReceiverForm from '../components/ReceiverForm';
 import LoadingState from '../components/LoadingState';
 import ErrorState from '../components/ErrorState';
 import EmptyState from '../components/EmptyState';
@@ -28,27 +28,23 @@ const ReceiversPage = () => {
   const [createError, setCreateError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
 
+  const loadReceivers = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await api.getReceivers();
+      setReceivers(Array.isArray(data) ? data : data?.data ?? []);
+    } catch (err: any) {
+      setError(err?.message ?? 'Failed to load receivers.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    let mounted = true;
-    const load = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const data = await api.getReceivers();
-        if (!mounted) return;
-        setReceivers(Array.isArray(data) ? data : data?.data ?? []);
-      } catch (err: any) {
-        if (!mounted) return;
-        setError(err?.message ?? 'Failed to load receivers.');
-      } finally {
-        if (mounted) setLoading(false);
-      }
-    };
-    load();
-    return () => {
-      mounted = false;
-    };
-  }, [api]);
+    loadReceivers();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const filtered = useMemo(() => {
     const term = search.toLowerCase();
@@ -102,7 +98,7 @@ const ReceiversPage = () => {
         {loading ? (
           <LoadingState message="Loading receivers..." />
         ) : error ? (
-          <ErrorState message={error} onRetry={loadLinks} />
+          <ErrorState message={error} onRetry={loadReceivers} />
         ) : filtered.length === 0 ? (
           <EmptyState message="No receivers found." />
         ) : (
@@ -155,11 +151,7 @@ const ReceiversPage = () => {
               await api.createReceiver(payload);
               setCreateOpen(false);
               setCreating(false);
-              // refresh
-              setLoading(true);
-              const data = await api.getReceivers();
-              setReceivers(Array.isArray(data) ? data : data?.data ?? []);
-              setLoading(false);
+              await loadReceivers();
             } catch (err: any) {
               setCreateError(err?.message ?? 'Failed to create receiver.');
               setCreating(false);
