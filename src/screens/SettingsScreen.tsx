@@ -1,51 +1,33 @@
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { StyleSheet, View } from 'react-native';
 
-import { useTheme } from '../theme/ThemeProvider';
+import Card from '../components/Card';
+import ScreenContainer from '../components/ScreenContainer';
+import { BodyText, MutedText, TitleText } from '../components/text';
 
 const SettingsScreen = () => {
-  const { colors } = useTheme();
-
   return (
-    <SafeAreaView
-      style={[styles.safeArea, { backgroundColor: colors.bgPrimary }]}
-      edges={['top', 'right', 'bottom', 'left']}>
-      <View
-        style={[
-          styles.card,
-          { backgroundColor: colors.bgSurface, borderColor: colors.borderSubtle },
-        ]}>
-        <Text style={[styles.title, { color: colors.textPrimary }]}>
-          Settings
-        </Text>
-        <Text style={[styles.subtitle, { color: colors.textMuted }]}>
-          Configure your NearID preferences here.
-        </Text>
+    <ScreenContainer>
+      <View style={styles.stack}>
+        <Card>
+          <TitleText style={styles.spaced}>Settings</TitleText>
+          <BodyText style={styles.spaced}>
+            Configure your NearID preferences here.
+          </BodyText>
+          <MutedText>More controls coming soon.</MutedText>
+        </Card>
       </View>
-    </SafeAreaView>
+    </ScreenContainer>
   );
 };
 
 const styles = StyleSheet.create({
-  safeArea: {
+  stack: {
     flex: 1,
-    paddingHorizontal: 24,
     justifyContent: 'center',
   },
-  card: {
-    padding: 20,
-    borderRadius: 12,
-    borderWidth: 1,
-  },
-  title: {
-    fontSize: 22,
-    fontWeight: '700',
+  spaced: {
     marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 16,
-    lineHeight: 22,
   },
 });
 

@@ -1,52 +1,49 @@
 import React from 'react';
-import { StatusBar, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { StatusBar, StyleSheet, View } from 'react-native';
 
+import Card from '../components/Card';
+import PrimaryButton from '../components/PrimaryButton';
+import ScreenContainer from '../components/ScreenContainer';
+import { BodyText, MutedText, TitleText } from '../components/text';
 import { useTheme } from '../theme/ThemeProvider';
 
 const PresenceScreen = () => {
-  const { colors, isDark } = useTheme();
+  const { isDark } = useTheme();
 
   return (
-    <SafeAreaView
-      style={[styles.safeArea, { backgroundColor: colors.bgPrimary }]}
-      edges={['top', 'right', 'bottom', 'left']}>
+    <ScreenContainer>
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
-      <View
-        style={[
-          styles.card,
-          { backgroundColor: colors.bgSurface, borderColor: colors.borderSubtle },
-        ]}>
-        <Text style={[styles.title, { color: colors.textPrimary }]}>
-          Presence
-        </Text>
-        <Text style={[styles.subtitle, { color: colors.textMuted }]}>
-          Theme placeholder screen. Replace this with the real experience.
-        </Text>
+      <View style={styles.stack}>
+        <Card>
+          <TitleText style={styles.spaced}>Presence</TitleText>
+          <BodyText style={styles.spaced}>
+            Theme placeholder screen. Replace this with the real experience.
+          </BodyText>
+          <MutedText style={styles.spaced}>
+            This button is wired to the theme colors but disabled for now.
+          </MutedText>
+          <PrimaryButton
+            title="Check in"
+            onPress={() => {}}
+            disabled
+            style={styles.button}
+          />
+        </Card>
       </View>
-    </SafeAreaView>
+    </ScreenContainer>
   );
 };
 
 const styles = StyleSheet.create({
-  safeArea: {
+  stack: {
     flex: 1,
-    paddingHorizontal: 24,
     justifyContent: 'center',
   },
-  card: {
-    padding: 20,
-    borderRadius: 12,
-    borderWidth: 1,
-  },
-  title: {
-    fontSize: 22,
-    fontWeight: '700',
+  spaced: {
     marginBottom: 8,
   },
-  subtitle: {
-    fontSize: 16,
-    lineHeight: 22,
+  button: {
+    marginTop: 12,
   },
 });
 
