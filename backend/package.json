@@ -5,6 +5,7 @@
   "description": "HNNP Cloud backend HTTP service, implementing the Cloud role from protocol/spec.md.",
   "main": "dist/index.js",
   "scripts": {
+    "prebuild": "npm run prisma:generate",
     "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
     "build": "tsc -p tsconfig.json",
     "start": "node dist/index.js",
