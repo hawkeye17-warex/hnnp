@@ -1,6 +1,9 @@
 import React, {useEffect, useState} from 'react';
 
 import Card from '../components/Card';
+import EmptyState from '../components/EmptyState';
+import ErrorState from '../components/ErrorState';
+import LoadingState from '../components/LoadingState';
 import {useApi} from '../api/client';
 
 const OrgSettingsPage = () => {
@@ -33,8 +36,8 @@ const OrgSettingsPage = () => {
     <div className="overview">
       <Card>
         <h2>Organization</h2>
-        {loading ? <p className="muted">Loading…</p> : null}
-        {error ? <p className="form__error">{error}</p> : null}
+        {loading ? <LoadingState /> : null}
+        {error ? <ErrorState message={error} onRetry={() => window.location.reload()} /> : null}
         {org ? (
           <div className="org-grid">
             <div>
@@ -62,6 +65,8 @@ const OrgSettingsPage = () => {
               <p>{formatTime(org.updated_at || org.updatedAt)}</p>
             </div>
           </div>
+        ) : !loading && !error ? (
+          <EmptyState message="No org info available." />
         ) : null}
       </Card>
       <Card>

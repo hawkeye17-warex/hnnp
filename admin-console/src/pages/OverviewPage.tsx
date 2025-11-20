@@ -2,6 +2,9 @@ import React, {useEffect, useMemo, useState} from 'react';
 
 import Card from '../components/Card';
 import {useApi} from '../api/client';
+import LoadingState from '../components/LoadingState';
+import ErrorState from '../components/ErrorState';
+import EmptyState from '../components/EmptyState';
 
 type Receiver = {
   id: string;
@@ -89,6 +92,26 @@ const OverviewPage = () => {
     };
   }, [receivers, events]);
 
+  if (loading) {
+    return (
+      <div className="overview">
+        <Card>
+          <LoadingState message="Loading overview..." />
+        </Card>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="overview">
+        <Card>
+          <ErrorState message={error} onRetry={() => window.location.reload()} />
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="overview">
       <div className="card-grid metrics-grid">
@@ -112,13 +135,9 @@ const OverviewPage = () => {
       <Card>
         <div className="table__header">
           <h2>Recent presence events</h2>
-          {loading ? <span className="muted">Loading…</span> : null}
-          {error ? <span className="form__error">{error}</span> : null}
         </div>
-        {loading ? (
-          <div className="table__loading">Loading…</div>
-        ) : events.length === 0 ? (
-          <div className="table__empty">No recent events.</div>
+        {events.length === 0 ? (
+          <EmptyState message="No recent events." />
         ) : (
           <div className="table">
             <div className="table__row table__head">

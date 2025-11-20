@@ -4,6 +4,9 @@ import Card from '../components/Card';
 import {useApi} from '../api/client';
 import Modal from '../components/Modal';
 import ReceiverForm, {ReceiverFormValues} from '../components/ReceiverForm';
+import LoadingState from '../components/LoadingState';
+import ErrorState from '../components/ErrorState';
+import EmptyState from '../components/EmptyState';
 
 type Receiver = {
   id: string;
@@ -70,8 +73,6 @@ const ReceiversPage = () => {
         <div className="table__header">
           <div>
             <h2>Receivers</h2>
-            {loading ? <span className="muted">Loading…</span> : null}
-            {error ? <span className="form__error">{error}</span> : null}
           </div>
           <div className="actions">
             <input
@@ -99,9 +100,11 @@ const ReceiversPage = () => {
           </div>
         </div>
         {loading ? (
-          <div className="table__loading">Loading…</div>
+          <LoadingState message="Loading receivers..." />
+        ) : error ? (
+          <ErrorState message={error} onRetry={loadLinks} />
         ) : filtered.length === 0 ? (
-          <div className="table__empty">No receivers found.</div>
+          <EmptyState message="No receivers found." />
         ) : (
           <div className="table">
             <div className="table__row table__head">

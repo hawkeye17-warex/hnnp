@@ -2,6 +2,9 @@ import React, {useEffect, useMemo, useState} from 'react';
 
 import Card from '../components/Card';
 import {useApi} from '../api/client';
+import LoadingState from '../components/LoadingState';
+import ErrorState from '../components/ErrorState';
+import EmptyState from '../components/EmptyState';
 
 type Link = {
   id: string;
@@ -120,13 +123,13 @@ const LinksPage = () => {
       <Card>
         <div className="table__header">
           <h2>Links</h2>
-          {loading ? <span className="muted">Loading…</span> : null}
-          {error ? <span className="form__error">{error}</span> : null}
         </div>
         {loading ? (
-          <div className="table__loading">Loading…</div>
+          <LoadingState message="Loading links..." />
+        ) : error ? (
+          <ErrorState message={error} onRetry={loadLinks} />
         ) : filtered.length === 0 ? (
-          <div className="table__empty">No links found.</div>
+          <EmptyState message="No links found." />
         ) : (
           <div className="table">
             <div className="table__row table__head">
