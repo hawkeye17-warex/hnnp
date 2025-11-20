@@ -9,6 +9,12 @@ import StatusPill from '../components/StatusPill';
 import { BodyText, MutedText, TitleText } from '../components/text';
 import { useTheme } from '../theme/ThemeProvider';
 
+const RECENT_PLACES = [
+  { name: 'Building A · Lab 3', time: 'Verified at 09:42', status: 'verified' },
+  { name: 'Building B · Lobby', time: 'Verified at 08:15', status: 'verified' },
+  { name: 'Annex · Server Room', time: 'Verified at 07:30', status: 'error' },
+];
+
 const PresenceScreen = () => {
   const { isDark, colors } = useTheme();
 
@@ -63,6 +69,46 @@ const PresenceScreen = () => {
             <MutedText>
               Mock data for now. Hook this up to presence once available.
             </MutedText>
+          </View>
+        </Card>
+        <Card>
+          <TitleText style={styles.spaced}>Today</TitleText>
+          <View style={styles.row}>
+            <BodyText>Verified events</BodyText>
+            <TitleText>3</TitleText>
+          </View>
+          <View style={styles.row}>
+            <BodyText>Total verified time</BodyText>
+            <TitleText>4h 12m</TitleText>
+          </View>
+        </Card>
+        <Card>
+          <View style={styles.listHeader}>
+            <TitleText>Recent places</TitleText>
+            <BodyText style={[styles.viewAll, { color: colors.accentPrimary }]}>
+              View all
+            </BodyText>
+          </View>
+          <View style={styles.list}>
+            {RECENT_PLACES.map(place => (
+              <View key={place.name} style={styles.listItem}>
+                <View style={styles.listText}>
+                  <TitleText style={styles.listTitle}>{place.name}</TitleText>
+                  <MutedText>{place.time}</MutedText>
+                </View>
+                <View
+                  style={[
+                    styles.statusDot,
+                    {
+                      backgroundColor:
+                        place.status === 'verified'
+                          ? colors.accentSuccess
+                          : colors.danger,
+                    },
+                  ]}
+                />
+              </View>
+            ))}
           </View>
         </Card>
         <PrimaryButton
@@ -134,6 +180,41 @@ const styles = StyleSheet.create({
   },
   centerText: {
     alignItems: 'center',
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  listHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  viewAll: {
+    fontWeight: '700',
+  },
+  list: {
+    gap: 12,
+  },
+  listItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  listText: {
+    flex: 1,
+    marginRight: 12,
+  },
+  listTitle: {
+    marginBottom: 2,
+  },
+  statusDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
   },
   button: {
     marginTop: 16,
