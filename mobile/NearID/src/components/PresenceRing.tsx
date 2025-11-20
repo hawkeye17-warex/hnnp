@@ -3,7 +3,7 @@ import {Animated, StyleSheet, View} from 'react-native';
 
 import {useTheme} from '../theme/ThemeProvider';
 
-type PresenceStatus = 'verified' | 'searching' | 'not_detected' | 'error';
+export type PresenceStatus = 'verified' | 'searching' | 'not_detected' | 'error';
 
 type PresenceRingProps = {
   status: PresenceStatus;

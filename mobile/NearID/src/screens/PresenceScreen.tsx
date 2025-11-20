@@ -2,13 +2,16 @@ import React from 'react';
 import {StyleSheet, View} from 'react-native';
 
 import Card from '../components/Card';
-import PresenceRing from '../components/PresenceRing';
+import PrimaryButton from '../components/PrimaryButton';
+import PresenceRing, {PresenceStatus} from '../components/PresenceRing';
 import ScreenContainer from '../components/ScreenContainer';
-import {BodyText, TitleText} from '../components/Text';
+import StatusPill from '../components/StatusPill';
+import {BodyText, MutedText, TitleText} from '../components/Text';
 import {useTheme} from '../theme/ThemeProvider';
 
 const PresenceScreen = (): React.JSX.Element => {
   const {colors} = useTheme();
+  const status: PresenceStatus = 'verified';
 
   return (
     <ScreenContainer>
@@ -45,8 +48,22 @@ const PresenceScreen = (): React.JSX.Element => {
       </View>
 
       <Card style={styles.card}>
-        <PresenceRing status="searching" />
+        <StatusPill status={status} label="Verified" />
+
+        <View style={styles.ringWrapper}>
+          <PresenceRing status={status} />
+
+          <View style={styles.presenceCopy}>
+            <TitleText style={styles.presenceTitle}>You are verified</TitleText>
+            <BodyText style={styles.place}>Building A · Main Entrance</BodyText>
+            <MutedText style={styles.time}>Just now</MutedText>
+          </View>
+        </View>
       </Card>
+
+      <View style={styles.actionRow}>
+        <PrimaryButton title="Send Ping" onPress={() => {}} />
+      </View>
     </ScreenContainer>
   );
 };
@@ -99,9 +116,31 @@ const styles = StyleSheet.create({
   },
   card: {
     flex: 1,
+    paddingVertical: 24,
+    paddingHorizontal: 16,
+    gap: 16,
+  },
+  ringWrapper: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 32,
+    gap: 16,
+  },
+  presenceCopy: {
+    alignItems: 'center',
+    gap: 4,
+  },
+  presenceTitle: {
+    fontSize: 18,
+  },
+  place: {
+    fontWeight: '500',
+  },
+  time: {
+    fontSize: 14,
+  },
+  actionRow: {
+    padding: 16,
   },
 });
 
