@@ -317,6 +317,20 @@ p {
   color: var(--color-text-primary);
 }
 
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.pagination {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+}
+
 .modal-backdrop {
   position: fixed;
   inset: 0;
