@@ -5,6 +5,7 @@ import Card from '../components/Card';
 import PresenceRing from '../components/PresenceRing';
 import PrimaryButton from '../components/PrimaryButton';
 import ScreenContainer from '../components/ScreenContainer';
+import StatusPill from '../components/StatusPill';
 import { BodyText, MutedText, TitleText } from '../components/text';
 import { useTheme } from '../theme/ThemeProvider';
 
@@ -50,23 +51,25 @@ const PresenceScreen = () => {
               <TitleText style={styles.avatarText}>NC</TitleText>
             </View>
           </View>
-          <TitleText style={styles.spaced}>Presence</TitleText>
-          <BodyText style={styles.spaced}>
-            Theme placeholder screen. Replace this with the real experience.
-          </BodyText>
-          <MutedText style={styles.spaced}>
-            This button is wired to the theme colors but disabled for now.
-          </MutedText>
+          <StatusPill status="verified" label="Verified" />
           <View style={styles.ringWrapper}>
-            <PresenceRing status="searching" />
+            <PresenceRing status="verified" />
           </View>
-          <PrimaryButton
-            title="Check in"
-            onPress={() => {}}
-            disabled
-            style={styles.button}
-          />
+          <View style={styles.centerText}>
+            <TitleText style={styles.spaced}>You are verified</TitleText>
+            <BodyText style={styles.spaced}>
+              Building A · Main entrance · Just now
+            </BodyText>
+            <MutedText>
+              Mock data for now. Hook this up to presence once available.
+            </MutedText>
+          </View>
         </Card>
+        <PrimaryButton
+          title="Send Ping"
+          onPress={() => {}}
+          style={styles.button}
+        />
       </View>
     </ScreenContainer>
   );
@@ -129,8 +132,11 @@ const styles = StyleSheet.create({
     marginVertical: 16,
     alignItems: 'center',
   },
+  centerText: {
+    alignItems: 'center',
+  },
   button: {
-    marginTop: 12,
+    marginTop: 16,
   },
 });
 
