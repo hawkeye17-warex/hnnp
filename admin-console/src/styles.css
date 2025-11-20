@@ -1,7 +1,7 @@
 :root {
   font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  color: #0e0e11;
-  background-color: #fafbff;
+  color: var(--color-text-primary);
+  background-color: var(--color-page-bg);
   line-height: 1.5;
 }
 
@@ -12,7 +12,7 @@
 body {
   margin: 0;
   min-height: 100vh;
-  background: radial-gradient(circle at 20% 20%, #f5f6ff, #fafbff 40%), #fafbff;
+  background: radial-gradient(circle at 20% 20%, #f5f6ff, var(--color-page-bg) 40%), var(--color-page-bg);
 }
 
 .app-shell {
@@ -31,8 +31,8 @@ body {
   display: inline-flex;
   align-items: center;
   padding: 6px 12px;
-  background: #2a6dff15;
-  color: #2a6dff;
+  background: var(--color-pill-bg, rgba(42, 109, 255, 0.08));
+  color: var(--color-accent-primary);
   border-radius: 999px;
   font-weight: 700;
   width: fit-content;
@@ -41,12 +41,12 @@ body {
 h1 {
   margin: 0;
   font-size: 32px;
-  color: #151722;
+  color: var(--color-text-primary);
 }
 
 p {
   margin: 0;
-  color: #6c6f7b;
+  color: var(--color-text-muted);
 }
 
 .card-grid {
@@ -56,8 +56,8 @@ p {
 }
 
 .card {
-  background: #ffffff;
-  border: 1px solid #e2e4ec;
+  background: var(--color-card-bg);
+  border: 1px solid var(--color-card-border);
   border-radius: 16px;
   padding: 20px;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.03);
@@ -67,7 +67,7 @@ p {
 
 .card h2 {
   margin: 0;
-  color: #151722;
+  color: var(--color-text-primary);
 }
 
 .card button {
@@ -85,14 +85,14 @@ p {
 }
 
 .primary {
-  background: #2a6dff;
-  color: #f5f6ff;
+  background: var(--color-accent-primary);
+  color: var(--color-text-primary);
 }
 
 .secondary {
   background: transparent;
-  color: #2a6dff;
-  border: 1px solid #e2e4ec;
+  color: var(--color-accent-primary);
+  border: 1px solid var(--color-card-border);
 }
 
 .layout {
@@ -102,8 +102,7 @@ p {
 }
 
 .sidebar {
-  background: #f5f6ff;
-  border-right: 1px solid #e2e4ec;
+  border-right: 1px solid var(--color-card-border);
   padding: 24px;
   display: grid;
   gap: 16px;
@@ -111,7 +110,6 @@ p {
 
 .sidebar__logo {
   font-weight: 800;
-  color: #2a6dff;
 }
 
 .sidebar__nav {
@@ -120,7 +118,7 @@ p {
 }
 
 .sidebar__link {
-  color: #6c6f7b;
+  color: var(--color-sidebar-text);
   text-decoration: none;
   padding: 10px 12px;
   border-radius: 10px;
@@ -129,7 +127,7 @@ p {
 .sidebar__link--active,
 .sidebar__link:hover {
   background: #2a6dff15;
-  color: #151722;
+  color: var(--color-text-primary);
 }
 
 .main {
@@ -142,15 +140,12 @@ p {
   display: flex;
   align-items: center;
   padding: 0 20px;
-  border-bottom: 1px solid #e2e4ec;
-  background: #ffffff;
+  border-bottom: 1px solid var(--color-card-border);
 }
 
 .org-pill {
   padding: 6px 12px;
-  background: #2a6dff15;
   border-radius: 999px;
-  color: #2a6dff;
   font-weight: 700;
 }
 
@@ -163,13 +158,13 @@ p {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: radial-gradient(circle at 20% 20%, #f5f6ff, #fafbff 40%), #fafbff;
+  background: radial-gradient(circle at 20% 20%, #f5f6ff, var(--color-page-bg) 40%), var(--color-page-bg);
 }
 
 .auth-card {
   width: 360px;
-  background: #ffffff;
-  border: 1px solid #e2e4ec;
+  background: var(--color-card-bg);
+  border: 1px solid var(--color-card-border);
   border-radius: 16px;
   padding: 24px;
   display: grid;
@@ -179,7 +174,7 @@ p {
 
 .auth-logo {
   font-weight: 800;
-  color: #2a6dff;
+  color: var(--color-accent-primary);
 }
 
 .auth-button {
