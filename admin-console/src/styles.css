@@ -106,6 +106,7 @@ p {
   padding: 24px;
   display: grid;
   gap: 16px;
+  color: #c5c8d8;
 }
 
 .sidebar__logo {
@@ -118,17 +119,19 @@ p {
 }
 
 .sidebar__link {
-  color: var(--color-sidebar-text);
+  color: #c5c8d8;
   text-decoration: none;
   padding: 10px 12px;
   border-radius: 10px;
   transition: background 0.2s ease, color 0.2s ease;
+  font-weight: 600;
 }
 
 .sidebar__link--active,
 .sidebar__link:hover {
   background: rgba(42, 109, 255, 0.2);
   color: #f5f6ff;
+  font-weight: 700;
 }
 
 .main {
