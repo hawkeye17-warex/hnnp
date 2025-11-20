@@ -36,8 +36,8 @@ const Sidebar = () => {
               `sidebar__link ${isActive ? 'sidebar__link--active' : ''}`
             }
             style={({isActive}) => ({
-              color: isActive ? colors.textPrimary : colors.sidebarText,
-              background: isActive ? `${colors.accentPrimary}22` : 'transparent',
+              color: isActive ? '#F5F6FF' : '#c5c8d8',
+              background: isActive ? `${colors.accentPrimary}33` : 'transparent',
             })}>
             {item.label}
           </NavLink>
