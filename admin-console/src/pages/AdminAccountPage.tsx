@@ -116,6 +116,7 @@ const AdminAccountPage = () => {
             try {
               const {error: updateError} = await supabase.auth.updateUser({password});
               if (updateError) throw updateError;
+              await supabase.auth.signOut({scope: 'others'}).catch(() => {});
               success('Password updated');
               setPassword('');
               setConfirm('');

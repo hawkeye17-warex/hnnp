@@ -38,6 +38,7 @@ const ResetPasswordPage = () => {
     try {
       const {error: updateError} = await supabase.auth.updateUser({password});
       if (updateError) throw updateError;
+      await supabase.auth.signOut({scope: 'others'}).catch(() => {});
       setSuccess(true);
       navigate('/dashboard', {replace: true});
     } catch (err: any) {
