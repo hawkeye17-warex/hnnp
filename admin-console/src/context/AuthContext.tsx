@@ -9,6 +9,7 @@ import React, {
 import {Navigate} from 'react-router-dom';
 
 import type {Session} from '../types/session';
+import {supabase} from '../api/api';
 
 export type CurrentUser = {
   id?: string;
@@ -75,6 +76,33 @@ export const AuthProvider = ({children}: {children: React.ReactNode}) => {
       JSON.stringify({session: nextSession, currentUser: nextUser}),
     );
   }, []);
+
+  const restoreSupabaseSession = useCallback(async () => {
+    if (session) return;
+    try {
+      const {data, error} = await supabase.auth.getSession();
+      if (error) throw error;
+      if (data.session) {
+        const profile: CurrentUser = {
+          id: data.session.user?.id,
+          email: data.session.user?.email ?? undefined,
+        };
+        const restoredSession: Session = {
+          orgId: data.session.user?.id ?? '',
+          apiKey: data.session.access_token,
+        };
+        setSession(restoredSession);
+        setCurrentUser(profile);
+        persist(restoredSession, profile);
+      }
+    } catch (err) {
+      console.warn('Supabase session restore failed', err);
+    }
+  }, [session, persist]);
+
+  useEffect(() => {
+    restoreSupabaseSession();
+  }, [restoreSupabaseSession]);
 
   const login = useCallback(
     (nextSession: Session, user?: CurrentUser) => {
