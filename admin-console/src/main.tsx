@@ -10,6 +10,8 @@ import OrgSettingsPage from './pages/OrgSettingsPage';
 import OverviewPage from './pages/OverviewPage';
 import PresencePage from './pages/PresencePage';
 import ReceiversPage from './pages/ReceiversPage';
+import DashboardPage from './pages/DashboardPage';
+import SupabaseLoginPage from './pages/SupabaseLoginPage';
 import MainLayout from './layout/MainLayout';
 import {ThemeProvider} from './theme/ThemeProvider';
 import {AuthProvider, ProtectedRoute} from './context/AuthContext';
@@ -18,6 +20,8 @@ import {ToastProvider} from './context/ToastContext';
 const ProtectedLayout = ProtectedRoute(MainLayout);
 
 const router = createBrowserRouter([
+  {path: '/supabase-login', element: <SupabaseLoginPage />},
+  {path: '/dashboard', element: <DashboardPage />},
   {path: '/login', element: <LoginPage />},
   {
     path: '/',
