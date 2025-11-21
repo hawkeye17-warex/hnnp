@@ -15,6 +15,7 @@ import SupabaseLoginPage from './pages/SupabaseLoginPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
 import AdminAccountPage from './pages/AdminAccountPage';
+import OrganizationsPage from './pages/OrganizationsPage';
 import MainLayout from './layout/MainLayout';
 import {ThemeProvider} from './theme/ThemeProvider';
 import {AuthProvider, ProtectedRoute} from './context/AuthContext';
@@ -40,6 +41,7 @@ const router = createBrowserRouter([
       {path: 'org-settings', element: <OrgSettingsPage />},
       {path: 'api', element: <ApiDocsPage />},
       {path: 'account', element: <AdminAccountPage />},
+      {path: 'organizations', element: <OrganizationsPage />},
     ],
   },
 ]);

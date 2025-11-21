@@ -30,6 +30,14 @@ export const createApiClient = (session: Session) => {
     return res.json();
   };
 
+  const getOrganizations = async () => {
+    const res = await fetch(`${baseUrl}/v2/orgs`, {
+      headers: buildHeaders(session),
+    });
+    if (!res.ok) throw new Error('Failed to fetch organizations');
+    return res.json();
+  };
+
   const getReceivers = async () => {
     const res = await fetch(`${baseUrl}/v2/orgs/${encodeURIComponent(session.orgId)}/receivers`, {
       headers: buildHeaders(session),
@@ -115,6 +123,7 @@ export const createApiClient = (session: Session) => {
 
   return {
     getOrg,
+    getOrganizations,
     getReceivers,
     createReceiver,
     updateReceiver,
