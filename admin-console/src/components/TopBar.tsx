@@ -3,7 +3,7 @@ import React from 'react';
 import {useTheme} from '../theme/ThemeProvider';
 
 const TopBar = () => {
-  const {theme} = useTheme();
+  const {theme, mode, toggle} = useTheme();
   const {colors} = theme;
 
   return (
@@ -18,6 +18,9 @@ const TopBar = () => {
         }}>
         Org: NearID Labs
       </div>
+      <button className="secondary" onClick={toggle}>
+        {mode === 'dark' ? 'Light mode' : 'Dark mode'}
+      </button>
       <button className="secondary logout-btn">Logout</button>
     </header>
   );

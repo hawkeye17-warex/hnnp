@@ -1,13 +1,24 @@
-import React, {createContext, useContext, useEffect, useMemo} from 'react';
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  useCallback,
+} from 'react';
 
-import {lightTheme, Theme} from './theme';
+import {darkTheme, lightTheme, Theme} from './theme';
 
 type ThemeContextType = {
   theme: Theme;
+  mode: 'light' | 'dark';
+  toggle: () => void;
 };
 
 const ThemeContext = createContext<ThemeContextType>({
   theme: lightTheme,
+  mode: 'light',
+  toggle: () => {},
 });
 
 type ThemeProviderProps = {
@@ -15,10 +26,20 @@ type ThemeProviderProps = {
 };
 
 export const ThemeProvider = ({children}: ThemeProviderProps) => {
-  const value = useMemo(() => ({theme: lightTheme}), []);
+  const prefersDark =
+    typeof window !== 'undefined' &&
+    window.matchMedia &&
+    window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const [mode, setMode] = useState<'light' | 'dark'>(() => {
+    if (typeof window === 'undefined') return 'light';
+    const stored = window.localStorage.getItem('nearid_theme_mode');
+    if (stored === 'light' || stored === 'dark') return stored;
+    return prefersDark ? 'dark' : 'light';
+  });
+  const theme = mode === 'dark' ? darkTheme : lightTheme;
 
-  useEffect(() => {
-    const {colors} = lightTheme;
+  const applyTheme = (nextTheme: Theme) => {
+    const {colors} = nextTheme;
     const root = document.documentElement;
     root.style.setProperty('--color-page-bg', colors.pageBg);
     root.style.setProperty('--color-card-bg', colors.cardBg);
@@ -32,7 +53,27 @@ export const ThemeProvider = ({children}: ThemeProviderProps) => {
     root.style.setProperty('--color-sidebar-bg', colors.sidebarBg);
     root.style.setProperty('--color-sidebar-text', colors.sidebarText);
     root.style.setProperty('--color-sidebar-active', colors.sidebarActive);
+  };
+
+  useEffect(() => {
+    applyTheme(theme);
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem('nearid_theme_mode', mode);
+    }
+  }, [theme, mode]);
+
+  const toggle = useCallback(() => {
+    setMode(prev => (prev === 'light' ? 'dark' : 'light'));
   }, []);
+
+  const value = useMemo(
+    () => ({
+      theme,
+      mode,
+      toggle,
+    }),
+    [theme, mode, toggle],
+  );
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 };
