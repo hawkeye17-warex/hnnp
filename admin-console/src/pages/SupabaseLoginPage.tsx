@@ -18,6 +18,32 @@ const SupabaseLoginPage = () => {
     return <Navigate to="/dashboard" replace />;
   }
 
+  const logAuthEvent = async (
+    event: 'login_success' | 'login_failure',
+    success: boolean,
+    userId?: string,
+  ) => {
+    const backend = import.meta.env.VITE_BACKEND_BASE_URL;
+    if (!backend) return;
+    try {
+      await fetch(`${backend}/admin/auth/log`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          user_id: userId,
+          email,
+          event,
+          success,
+          user_agent: navigator.userAgent,
+        }),
+      });
+    } catch (err) {
+      if (import.meta.env.DEV) {
+        console.warn('Auth log failed', err);
+      }
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -39,9 +65,11 @@ const SupabaseLoginPage = () => {
         await supabase.auth.signOut();
         throw new Error('Access denied: admin role required.');
       }
+      await logAuthEvent('login_success', true, userData.user?.id);
       navigate('/dashboard', {replace: true});
     } catch (err: any) {
       setError(err?.message ?? 'Login failed. Please try again.');
+      await logAuthEvent('login_failure', false);
     } finally {
       setLoading(false);
     }

@@ -7,6 +7,7 @@ import { debugRouter } from "./routes/debug";
 import { orgsRouter } from "./routes/orgs";
 import { linksRouter } from "./routes/links";
 import { presenceReadRouter } from "./routes/presenceRead";
+import { adminAuthLogRouter } from "./routes/adminAuthLog";
 import { prisma } from "./db/prisma";
 
 const config = loadConfig();
@@ -24,6 +25,7 @@ app.use(debugRouter);
 app.use(orgsRouter);
 app.use(linksRouter);
 app.use(presenceReadRouter);
+app.use(adminAuthLogRouter);
 
 const server = http.createServer(app);
 
