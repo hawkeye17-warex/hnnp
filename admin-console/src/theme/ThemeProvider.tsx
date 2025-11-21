@@ -13,12 +13,14 @@ type ThemeContextType = {
   theme: Theme;
   mode: 'light' | 'dark';
   toggle: () => void;
+  setMode: (mode: 'light' | 'dark') => void;
 };
 
 const ThemeContext = createContext<ThemeContextType>({
   theme: lightTheme,
   mode: 'light',
   toggle: () => {},
+  setMode: () => {},
 });
 
 type ThemeProviderProps = {
@@ -67,13 +69,18 @@ export const ThemeProvider = ({children}: ThemeProviderProps) => {
     setMode(prev => (prev === 'light' ? 'dark' : 'light'));
   }, []);
 
+  const setThemeMode = useCallback((next: 'light' | 'dark') => {
+    setMode(next);
+  }, []);
+
   const value = useMemo(
     () => ({
       theme,
       mode,
       toggle,
+      setMode: setThemeMode,
     }),
-    [theme, mode, toggle],
+    [theme, mode, toggle, setThemeMode],
   );
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
