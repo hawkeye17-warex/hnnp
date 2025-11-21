@@ -19,6 +19,19 @@ const DashboardPage = () => {
         if (sessionError) throw sessionError;
         if (!mounted) return;
         setAuthenticated(Boolean(data.session));
+        if (data.session) {
+          const {data: userData, error: userError} = await supabase.auth.getUser();
+          if (userError) throw userError;
+          const role =
+            (userData.user?.user_metadata as any)?.role ??
+            (userData.user?.app_metadata as any)?.role ??
+            '';
+          if (role !== 'admin') {
+            await supabase.auth.signOut();
+            setAuthenticated(false);
+            throw new Error('Access denied: admin role required.');
+          }
+        }
       } catch (err: any) {
         if (!mounted) return;
         setError(err?.message ?? 'Failed to load session.');

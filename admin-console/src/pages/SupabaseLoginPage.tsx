@@ -27,6 +27,18 @@ const SupabaseLoginPage = () => {
       if (authError) {
         throw authError;
       }
+      const {data: userData, error: userError} = await supabase.auth.getUser();
+      if (userError) {
+        throw userError;
+      }
+      const role =
+        (userData.user?.user_metadata as any)?.role ??
+        (userData.user?.app_metadata as any)?.role ??
+        '';
+      if (role !== 'admin') {
+        await supabase.auth.signOut();
+        throw new Error('Access denied: admin role required.');
+      }
       navigate('/dashboard', {replace: true});
     } catch (err: any) {
       setError(err?.message ?? 'Login failed. Please try again.');
