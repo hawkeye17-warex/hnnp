@@ -347,6 +347,38 @@ p {
   margin-top: 12px;
 }
 
+.datatable {
+  display: grid;
+  gap: 12px;
+}
+
+.datatable__header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.datatable__actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.datatable__table .table__row {
+  align-items: center;
+}
+
+.datatable__sort {
+  margin-left: 6px;
+  font-size: 12px;
+  opacity: 0.8;
+}
+
+.datatable__pagination {
+  justify-content: flex-end;
+}
+
 .org-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
