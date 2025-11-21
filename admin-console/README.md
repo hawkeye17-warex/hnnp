@@ -22,3 +22,4 @@ The app runs on http://localhost:5173 by default.
 ## Notes
 - All source lives in `admin-console/src`.
 - Customize components in `src/App.tsx` and styles in `src/styles.css`.
+- Login fallback is enabled by default (`VITE_ENABLE_LOGIN_FALLBACK=true`) so you can access the UI without org credentials during development; set it to `false` once the backend auth is live.

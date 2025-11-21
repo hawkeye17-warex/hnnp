@@ -13,7 +13,16 @@ const LoginPage = () => {
   const [apiKey, setApiKey] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const allowOfflineFallback = true; // TODO: remove fallback once backend is wired
+  const allowOfflineFallback =
+    (import.meta.env.VITE_ENABLE_LOGIN_FALLBACK ?? 'true').toLowerCase() !== 'false';
+
+  const fallbackLogin = (reason: unknown) => {
+    if (!allowOfflineFallback) return false;
+    console.warn('Login fallback enabled: proceeding without backend verification', reason);
+    setSession({orgId, apiKey});
+    navigate('/overview', {replace: true});
+    return true;
+  };
 
   if (session) {
     return <Navigate to="/overview" replace />;
@@ -26,6 +35,9 @@ const LoginPage = () => {
     try {
       const baseUrl = import.meta.env.VITE_BACKEND_BASE_URL;
       if (!baseUrl) {
+        if (fallbackLogin('Backend URL is not configured.')) {
+          return;
+        }
         throw new Error('Backend URL is not configured.');
       }
       const res = await fetch(`${baseUrl}/v2/orgs/${encodeURIComponent(orgId)}`, {
@@ -46,13 +58,10 @@ const LoginPage = () => {
       setSession({orgId, apiKey});
       navigate('/overview', {replace: true});
     } catch (err: any) {
-      if (allowOfflineFallback) {
-        console.warn('Login fallback: proceeding without backend verification', err);
-        setSession({orgId, apiKey});
-        navigate('/overview', {replace: true});
-      } else {
-        setError(err?.message ?? 'Sign-in failed.');
+      if (fallbackLogin(err)) {
+        return;
       }
+      setError(err?.message ?? 'Sign-in failed.');
     } finally {
       setLoading(false);
     }
@@ -64,6 +73,11 @@ const LoginPage = () => {
         <div className="auth-logo">NearID Admin</div>
         <h1>Sign in</h1>
         <p>Use your org admin credentials to access the console.</p>
+        {allowOfflineFallback ? (
+          <p className="muted">
+            Login fallback is ON for development, so credentials are not validated yet.
+          </p>
+        ) : null}
         <form className="form" onSubmit={handleSubmit}>
           <label className="form__field">
             <span>Org ID</span>
