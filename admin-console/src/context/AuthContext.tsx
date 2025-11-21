@@ -118,6 +118,9 @@ export const AuthProvider = ({children}: {children: React.ReactNode}) => {
     setSession(null);
     setCurrentUser(null);
     persist(null, null);
+    supabase.auth.signOut().catch(err => {
+      console.warn('Supabase sign-out failed', err);
+    });
   }, [persist]);
 
   const value = useMemo(

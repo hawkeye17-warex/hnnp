@@ -1,10 +1,14 @@
 import React from 'react';
 
 import {useTheme} from '../theme/ThemeProvider';
+import {useAuth} from '../context/AuthContext';
+import {useNavigate} from 'react-router-dom';
 
 const TopBar = () => {
   const {theme, mode, toggle} = useTheme();
   const {colors} = theme;
+  const {logout} = useAuth();
+  const navigate = useNavigate();
 
   return (
     <header
@@ -21,7 +25,14 @@ const TopBar = () => {
       <button className="secondary" onClick={toggle}>
         {mode === 'dark' ? 'Light mode' : 'Dark mode'}
       </button>
-      <button className="secondary logout-btn">Logout</button>
+      <button
+        className="secondary logout-btn"
+        onClick={() => {
+          logout();
+          navigate('/login', {replace: true});
+        }}>
+        Logout
+      </button>
     </header>
   );
 };
