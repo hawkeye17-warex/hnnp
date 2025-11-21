@@ -8,18 +8,26 @@ import {supabase} from '../api/api';
 const DashboardPage = () => {
   const [loading, setLoading] = useState(true);
   const [authenticated, setAuthenticated] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let mounted = true;
-    supabase.auth
-      .getSession()
-      .then(({data}) => {
+    const check = async () => {
+      setError(null);
+      try {
+        const {data, error: sessionError} = await supabase.auth.getSession();
+        if (sessionError) throw sessionError;
         if (!mounted) return;
         setAuthenticated(Boolean(data.session));
-      })
-      .finally(() => {
+      } catch (err: any) {
+        if (!mounted) return;
+        setError(err?.message ?? 'Failed to load session.');
+        setAuthenticated(false);
+      } finally {
         if (mounted) setLoading(false);
-      });
+      }
+    };
+    check();
     return () => {
       mounted = false;
     };
@@ -29,6 +37,16 @@ const DashboardPage = () => {
     return (
       <Card>
         <LoadingState message="Loading session..." />
+      </Card>
+    );
+  }
+
+  if (error) {
+    return (
+      <Card>
+        <p className="form__error" style={{margin: 0}}>
+          {error}
+        </p>
       </Card>
     );
   }
