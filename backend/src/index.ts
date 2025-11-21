@@ -9,11 +9,19 @@ import { linksRouter } from "./routes/links";
 import { presenceReadRouter } from "./routes/presenceRead";
 import { adminAuthLogRouter } from "./routes/adminAuthLog";
 import { prisma } from "./db/prisma";
+import cors from "cors";
 
 const config = loadConfig();
 const app = express();
 
 app.use(express.json());
+app.use(
+  cors({
+    origin: ["https://nearid-admin.vercel.app", "http://localhost:5173"],
+    methods: ["GET", "POST", "PATCH", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "x-hnnp-api-key"],
+  }),
+);
 
 app.get("/health", (_req: Request, res: Response) => {
   res.status(200).json({ status: "ok" });
