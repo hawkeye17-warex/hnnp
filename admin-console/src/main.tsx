@@ -12,6 +12,7 @@ import PresencePage from './pages/PresencePage';
 import ReceiversPage from './pages/ReceiversPage';
 import DashboardPage from './pages/DashboardPage';
 import SupabaseLoginPage from './pages/SupabaseLoginPage';
+import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import MainLayout from './layout/MainLayout';
 import {ThemeProvider} from './theme/ThemeProvider';
 import {AuthProvider, ProtectedRoute} from './context/AuthContext';
@@ -21,6 +22,7 @@ const ProtectedLayout = ProtectedRoute(MainLayout);
 
 const router = createBrowserRouter([
   {path: '/supabase-login', element: <SupabaseLoginPage />},
+  {path: '/forgot-password', element: <ForgotPasswordPage />},
   {path: '/dashboard', element: <DashboardPage />},
   {path: '/login', element: <LoginPage />},
   {
