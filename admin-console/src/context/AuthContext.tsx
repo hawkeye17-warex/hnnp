@@ -1,4 +1,11 @@
-import React, {createContext, useCallback, useContext, useMemo, useState} from 'react';
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
 import {Navigate} from 'react-router-dom';
 
 import type {Session} from '../types/session';
@@ -15,6 +22,7 @@ type AuthState = {
   currentUser: CurrentUser | null;
   login: (session: Session, user?: CurrentUser) => void;
   logout: () => void;
+  hydrated: boolean;
 };
 
 const STORAGE_KEY = 'nearid_admin_session';
@@ -39,12 +47,22 @@ const AuthContext = createContext<AuthState>({
   currentUser: null,
   login: () => {},
   logout: () => {},
+  hydrated: false,
 });
 
 export const AuthProvider = ({children}: {children: React.ReactNode}) => {
   const initial = readStoredAuth();
   const [session, setSession] = useState<Session | null>(initial.session);
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(initial.currentUser);
+  const [hydrated, setHydrated] = useState(typeof window !== 'undefined');
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const stored = readStoredAuth();
+    setSession(stored.session);
+    setCurrentUser(stored.currentUser);
+    setHydrated(true);
+  }, []);
 
   const persist = useCallback((nextSession: Session | null, nextUser: CurrentUser | null) => {
     if (typeof window === 'undefined') return;
@@ -80,8 +98,9 @@ export const AuthProvider = ({children}: {children: React.ReactNode}) => {
       currentUser,
       login,
       logout,
+      hydrated,
     }),
-    [session, currentUser, login, logout],
+    [session, currentUser, login, logout, hydrated],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
@@ -92,9 +111,14 @@ export const useAuth = (): AuthState => useContext(AuthContext);
 export const requireAuth =
   <P extends object>(Component: React.ComponentType<P>): React.FC<P> =>
   props => {
-    const {session} = useAuth();
+    const {session, hydrated} = useAuth();
+    if (!hydrated) {
+      return <div>Loading...</div>;
+    }
     if (!session) {
       return <Navigate to="/login" replace />;
     }
     return <Component {...(props as P)} />;
   };
+
+export const ProtectedRoute = requireAuth;

@@ -12,9 +12,9 @@ import PresencePage from './pages/PresencePage';
 import ReceiversPage from './pages/ReceiversPage';
 import MainLayout from './layout/MainLayout';
 import {ThemeProvider} from './theme/ThemeProvider';
-import {AuthProvider, requireAuth} from './context/AuthContext';
+import {AuthProvider, ProtectedRoute} from './context/AuthContext';
 
-const ProtectedLayout = requireAuth(MainLayout);
+const ProtectedLayout = ProtectedRoute(MainLayout);
 
 const router = createBrowserRouter([
   {path: '/login', element: <LoginPage />},
