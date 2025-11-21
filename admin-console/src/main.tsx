@@ -10,12 +10,12 @@ import OrgSettingsPage from './pages/OrgSettingsPage';
 import OverviewPage from './pages/OverviewPage';
 import PresencePage from './pages/PresencePage';
 import ReceiversPage from './pages/ReceiversPage';
-import MainLayout from './layout/MainLayout';
+import AdminLayout from './layout/AdminLayout';
 import {ThemeProvider} from './theme/ThemeProvider';
 import {AuthProvider, ProtectedRoute} from './context/AuthContext';
 import {ToastProvider} from './context/ToastContext';
 
-const ProtectedLayout = ProtectedRoute(MainLayout);
+const ProtectedLayout = ProtectedRoute(AdminLayout);
 
 const router = createBrowserRouter([
   {path: '/login', element: <LoginPage />},
