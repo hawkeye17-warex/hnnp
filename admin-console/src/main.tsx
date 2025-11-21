@@ -13,6 +13,7 @@ import ReceiversPage from './pages/ReceiversPage';
 import MainLayout from './layout/MainLayout';
 import {ThemeProvider} from './theme/ThemeProvider';
 import {AuthProvider, ProtectedRoute} from './context/AuthContext';
+import {ToastProvider} from './context/ToastContext';
 
 const ProtectedLayout = ProtectedRoute(MainLayout);
 
@@ -35,9 +36,11 @@ const router = createBrowserRouter([
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
   <React.StrictMode>
     <ThemeProvider>
-      <AuthProvider>
-        <RouterProvider router={router} />
-      </AuthProvider>
+      <ToastProvider>
+        <AuthProvider>
+          <RouterProvider router={router} />
+        </AuthProvider>
+      </ToastProvider>
     </ThemeProvider>
   </React.StrictMode>,
 );
