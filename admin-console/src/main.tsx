@@ -13,6 +13,7 @@ import ReceiversPage from './pages/ReceiversPage';
 import DashboardPage from './pages/DashboardPage';
 import SupabaseLoginPage from './pages/SupabaseLoginPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
+import ResetPasswordPage from './pages/ResetPasswordPage';
 import MainLayout from './layout/MainLayout';
 import {ThemeProvider} from './theme/ThemeProvider';
 import {AuthProvider, ProtectedRoute} from './context/AuthContext';
@@ -24,6 +25,7 @@ const router = createBrowserRouter([
   {path: '/supabase-login', element: <SupabaseLoginPage />},
   {path: '/forget-password', element: <Navigate to="/forgot-password" replace />},
   {path: '/forgot-password', element: <ForgotPasswordPage />},
+  {path: '/reset-password', element: <ResetPasswordPage />},
   {path: '/dashboard', element: <DashboardPage />},
   {path: '/login', element: <LoginPage />},
   {
