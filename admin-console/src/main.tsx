@@ -1,6 +1,6 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import {createBrowserRouter, RouterProvider} from 'react-router-dom';
+import {createBrowserRouter, RouterProvider, Navigate} from 'react-router-dom';
 
 import './styles.css';
 import ApiDocsPage from './pages/ApiDocsPage';
@@ -22,6 +22,7 @@ const ProtectedLayout = ProtectedRoute(MainLayout);
 
 const router = createBrowserRouter([
   {path: '/supabase-login', element: <SupabaseLoginPage />},
+  {path: '/forget-password', element: <Navigate to="/forgot-password" replace />},
   {path: '/forgot-password', element: <ForgotPasswordPage />},
   {path: '/dashboard', element: <DashboardPage />},
   {path: '/login', element: <LoginPage />},
