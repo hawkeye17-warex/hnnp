@@ -38,6 +38,16 @@ export const createApiClient = (session: Session) => {
     return res.json();
   };
 
+  const createOrganization = async (payload: Record<string, unknown>) => {
+    const res = await fetch(`${baseUrl}/v2/orgs`, {
+      method: 'POST',
+      headers: buildHeaders(session),
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) throw new Error('Failed to create organization');
+    return res.json();
+  };
+
   const getReceivers = async () => {
     const res = await fetch(`${baseUrl}/v2/orgs/${encodeURIComponent(session.orgId)}/receivers`, {
       headers: buildHeaders(session),
@@ -124,6 +134,7 @@ export const createApiClient = (session: Session) => {
   return {
     getOrg,
     getOrganizations,
+    createOrganization,
     getReceivers,
     createReceiver,
     updateReceiver,
