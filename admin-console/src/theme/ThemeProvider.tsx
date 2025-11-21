@@ -42,6 +42,7 @@ export const ThemeProvider = ({children}: ThemeProviderProps) => {
     const {colors} = nextTheme;
     const root = document.documentElement;
     root.style.setProperty('--color-page-bg', colors.pageBg);
+    root.style.setProperty('--color-bg-tint', colors.bgTint);
     root.style.setProperty('--color-card-bg', colors.cardBg);
     root.style.setProperty('--color-card-border', colors.cardBorder);
     root.style.setProperty('--color-text-primary', colors.textPrimary);
