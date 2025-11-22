@@ -26,12 +26,20 @@ const LinksPage = () => {
   const [newDeviceId, setNewDeviceId] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
+  const normalizeLinks = (payload: any): Link[] => {
+    if (!payload) return [];
+    if (Array.isArray(payload)) return payload;
+    if (Array.isArray(payload?.data)) return payload.data;
+    if (Array.isArray(payload?.links)) return payload.links;
+    return [];
+  };
+
   const loadLinks = async () => {
     setLoading(true);
     setError(null);
     try {
       const res = await api.getLinks(userRefFilter ? {userRef: userRefFilter} : {});
-      setLinks(Array.isArray(res?.data) ? res.data : res ?? []);
+      setLinks(normalizeLinks(res));
     } catch (err: any) {
       setError(err?.message ?? 'Failed to load links');
     } finally {
@@ -44,7 +52,7 @@ const LinksPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const filtered = useMemo(() => links, [links]);
+  const filtered = useMemo(() => (Array.isArray(links) ? links : []), [links]);
 
   const handleCreate = async () => {
     setSubmitting(true);

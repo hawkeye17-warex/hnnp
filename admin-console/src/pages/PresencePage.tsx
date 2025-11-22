@@ -33,10 +33,20 @@ const PresencePage = () => {
   const [page, setPage] = useState(1);
   const limit = 10;
 
+  const normalizeArray = <T,>(payload: any): T[] => {
+    if (!payload) return [];
+    if (Array.isArray(payload)) return payload;
+    if (Array.isArray(payload?.data)) return payload.data;
+    if (Array.isArray(payload?.items)) return payload.items;
+    if (Array.isArray(payload?.results)) return payload.results;
+    if (Array.isArray(payload?.events)) return payload.events;
+    return [];
+  };
+
   const loadReceivers = async () => {
     try {
       const data = await api.getReceivers();
-      setReceivers(Array.isArray(data) ? data : data?.data ?? []);
+      setReceivers(normalizeArray<Receiver>(data));
     } catch {
       // ignore receiver load errors for filters
     }
@@ -52,7 +62,7 @@ const PresencePage = () => {
       if (fromDate) params.from = fromDate;
       if (toDate) params.to = toDate;
       const res = await api.getPresenceEvents(params);
-      setEvents(Array.isArray(res?.data) ? res.data : res ?? []);
+      setEvents(normalizeArray<PresenceEvent>(res));
     } catch (err: any) {
       setError(err?.message ?? 'Failed to load events');
     } finally {
@@ -105,7 +115,7 @@ const PresencePage = () => {
             value={receiverId}
             onChange={e => setReceiverId(e.target.value)}>
             <option value="">All receivers</option>
-            {receivers.map(r => (
+            {(Array.isArray(receivers) ? receivers : []).map(r => (
               <option key={r.id} value={r.id}>
                 {r.displayName || r.id}
               </option>
