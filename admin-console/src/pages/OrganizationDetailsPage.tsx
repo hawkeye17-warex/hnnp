@@ -10,6 +10,7 @@ import ReceiversPage from './ReceiversPage';
 import PresencePage from './PresencePage';
 import OrgSettingsPage from './OrgSettingsPage';
 import ApiKeysTab from './ApiKeysTab';
+import UsersTab from './UsersTab';
 
 const OrganizationDetailsPage = () => {
   const {id} = useParams<{id: string}>();
@@ -17,7 +18,7 @@ const OrganizationDetailsPage = () => {
   const [org, setOrg] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [tab, setTab] = useState<'overview' | 'receivers' | 'presence' | 'settings' | 'keys'>('overview');
+  const [tab, setTab] = useState<'overview' | 'receivers' | 'presence' | 'users' | 'settings' | 'keys'>('overview');
 
   useEffect(() => {
     let mounted = true;
@@ -87,6 +88,11 @@ const OrganizationDetailsPage = () => {
             Presence Logs
           </button>
           <button
+            className={tab === 'users' ? 'primary' : 'secondary'}
+            onClick={() => setTab('users')}>
+            Users
+          </button>
+          <button
             className={tab === 'settings' ? 'primary' : 'secondary'}
             onClick={() => setTab('settings')}>
             Settings
@@ -100,11 +106,12 @@ const OrganizationDetailsPage = () => {
       </Card>
 
       <div style={{marginTop: 16}}>
-        {tab === 'overview' && <OverviewPage />}
-        {tab === 'receivers' && <ReceiversPage />}
-        {tab === 'presence' && <PresencePage />}
-        {tab === 'settings' && <OrgSettingsPage />}
-        {tab === 'keys' && <ApiKeysTab />}
+        {tab === 'overview' && <OverviewPage org={org} />}
+        {tab === 'receivers' && <ReceiversPage orgId={org?.id} />}
+        {tab === 'presence' && <PresencePage orgId={org?.id} />}
+        {tab === 'users' && <UsersTab orgId={org?.id} />}
+        {tab === 'settings' && <OrgSettingsPage org={org} onUpdate={() => {}} />}
+        {tab === 'keys' && <ApiKeysTab org={org} />}
       </div>
     </div>
   );
