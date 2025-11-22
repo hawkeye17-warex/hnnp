@@ -44,8 +44,20 @@ const OverviewPage = () => {
         ]);
         if (!mounted) return;
         setOrg(orgRes);
-        setReceivers(receiversRes ?? []);
-        setEvents(Array.isArray(eventsRes?.data) ? eventsRes.data : eventsRes ?? []);
+        const receiversData = Array.isArray(receiversRes)
+          ? receiversRes
+          : Array.isArray((receiversRes as any)?.data)
+          ? (receiversRes as any).data
+          : [];
+        const eventsData = Array.isArray((eventsRes as any)?.events)
+          ? (eventsRes as any).events
+          : Array.isArray((eventsRes as any)?.data)
+          ? (eventsRes as any).data
+          : Array.isArray(eventsRes)
+          ? eventsRes
+          : [];
+        setReceivers(receiversData);
+        setEvents(eventsData);
       } catch (err: any) {
         if (!mounted) return;
         setError(err?.message ?? 'Failed to load overview.');
