@@ -22,6 +22,7 @@ const OrgSettingsPage = () => {
   const [timezone, setTimezone] = useState('');
   const [saving, setSaving] = useState(false);
   const [saveErr, setSaveErr] = useState<string | null>(null);
+  const [actionLoading, setActionLoading] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -72,6 +73,40 @@ const OrgSettingsPage = () => {
     }
   };
 
+  const archiveOrg = async () => {
+    if (!org?.id) return;
+    const ok = window.confirm('Archive this organization? This will soft-delete (archive) it.');
+    if (!ok) return;
+    setActionLoading(true);
+    try {
+      await api.updateOrganization({status: 'archived'});
+      toast.success('Organization archived');
+      const updated = await api.getOrg();
+      setOrg(updated);
+    } catch (err: any) {
+      toast.error(err?.message ?? 'Failed to archive organization');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const restoreOrg = async () => {
+    if (!org?.id) return;
+    const ok = window.confirm('Restore this archived organization?');
+    if (!ok) return;
+    setActionLoading(true);
+    try {
+      await api.updateOrganization({status: 'active'});
+      toast.success('Organization restored');
+      const updated = await api.getOrg();
+      setOrg(updated);
+    } catch (err: any) {
+      toast.error(err?.message ?? 'Failed to restore organization');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   return (
     <div className="overview">
       <Card>
@@ -118,6 +153,31 @@ const OrgSettingsPage = () => {
               {saveErr ? <div className="form__error">{saveErr}</div> : null}
               <div style={{marginTop: 8}}>
                 <SubmitButton loading={saving} label="Save changes" />
+              </div>
+              <div style={{marginTop: 12, display: 'flex', gap: 8, alignItems: 'center'}}>
+                {org?.status === 'archived' ? (
+                  <button
+                    type="button"
+                    className="secondary"
+                    onClick={restoreOrg}
+                    disabled={actionLoading}>
+                    {actionLoading ? 'Restoring...' : 'Restore organization'}
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className="secondary"
+                    onClick={archiveOrg}
+                    disabled={actionLoading}
+                    style={{background: '#c0392b', color: '#fff'}}>
+                    {actionLoading ? 'Archiving...' : 'Archive organization'}
+                  </button>
+                )}
+                <div className="muted" style={{fontSize: 12}}>
+                  {org?.status === 'archived'
+                    ? 'This organization is archived. Restore to re-enable.'
+                    : 'Archiving will soft-delete the organization (can be restored).'}
+                </div>
               </div>
             </div>
           </form>
