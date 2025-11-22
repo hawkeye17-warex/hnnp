@@ -1,0 +1,188 @@
+import React, {useEffect, useState} from 'react';
+import Card from '../components/Card';
+import LoadingState from '../components/LoadingState';
+import ErrorState from '../components/ErrorState';
+import {useApi} from '../api/client';
+import {useToast} from '../hooks/useToast';
+
+type KeyInfo = {
+  type: string;
+  created_at?: string;
+  last_rotated_at?: string;
+  // backend should NOT return raw key except on creation — handle accordingly
+};
+
+const ApiKeysTab = () => {
+  const api = useApi();
+  const toast = useToast();
+  const [keys, setKeys] = useState<KeyInfo[] | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [generated, setGenerated] = useState<{type: string; key: string} | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const load = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await api.getApiKeys();
+      // expect array or {data: [...]} — be permissive
+      const list = Array.isArray(res) ? res : (res as any)?.data ?? [];
+      setKeys(list);
+    } catch (err: any) {
+      setError(err?.message ?? 'Failed to load API keys.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const doGenerate = async (type: 'ADMIN_KEY' | 'RECEIVER_KEY') => {
+    const ok = window.confirm(`Generate a new ${type}? The key will be shown once.`);
+    if (!ok) return;
+    setBusy(true);
+    setGenerated(null);
+    try {
+      const res = await api.generateApiKey(type);
+      // expect {key: 'xxxx', type: 'ADMIN_KEY'}
+      const key = (res as any)?.key ?? (res as any)?.secret ?? null;
+      if (key) {
+        setGenerated({type, key});
+        toast.success(`${type} generated — copy it now`);
+      } else {
+        toast.success(`${type} generated`);
+      }
+      await load();
+    } catch (err: any) {
+      toast.error(err?.message ?? 'Failed to generate key');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const doRotate = async (type: 'ADMIN_KEY' | 'RECEIVER_KEY') => {
+    const ok = window.confirm(`Rotate ${type}? This will replace the existing key.`);
+    if (!ok) return;
+    setBusy(true);
+    setGenerated(null);
+    try {
+      const res = await api.rotateApiKey(type);
+      const key = (res as any)?.key ?? (res as any)?.secret ?? null;
+      if (key) {
+        setGenerated({type, key});
+        toast.success(`${type} rotated — copy new key now`);
+      } else {
+        toast.success(`${type} rotated`);
+      }
+      await load();
+    } catch (err: any) {
+      toast.error(err?.message ?? 'Failed to rotate key');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const copy = async (val: string) => {
+    try {
+      await navigator.clipboard.writeText(val);
+      toast.success('Copied to clipboard');
+    } catch (e) {
+      // fallback
+      try {
+        // @ts-ignore
+        window.prompt('Copy the key (Ctrl+C, Enter):', val);
+      } catch {}
+    }
+  };
+
+  if (loading) {
+    return (
+      <Card>
+        <LoadingState message="Loading API keys..." />
+      </Card>
+    );
+  }
+
+  if (error) {
+    return (
+      <Card>
+        <ErrorState message={error} onRetry={load} />
+      </Card>
+    );
+  }
+
+  return (
+    <div>
+      <Card>
+        <h2>API Keys</h2>
+        <p className="muted">Generate and rotate organization API keys. Keys are shown once on creation.</p>
+
+        <div style={{display: 'flex', gap: 8, marginTop: 8}}>
+          <div>
+            <p className="muted">Admin key</p>
+            <div style={{display: 'flex', gap: 8}}>
+              <button className="secondary" onClick={() => doGenerate('ADMIN_KEY')} disabled={busy}>
+                {busy ? 'Working…' : 'Generate ADMIN_KEY'}
+              </button>
+              <button className="secondary" onClick={() => doRotate('ADMIN_KEY')} disabled={busy}>
+                {busy ? 'Working…' : 'Rotate ADMIN_KEY'}
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <p className="muted">Receiver key</p>
+            <div style={{display: 'flex', gap: 8}}>
+              <button className="secondary" onClick={() => doGenerate('RECEIVER_KEY')} disabled={busy}>
+                {busy ? 'Working…' : 'Generate RECEIVER_KEY'}
+              </button>
+              <button className="secondary" onClick={() => doRotate('RECEIVER_KEY')} disabled={busy}>
+                {busy ? 'Working…' : 'Rotate RECEIVER_KEY'}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div style={{marginTop: 12}}>
+          <h4>Key metadata</h4>
+          {(!keys || keys.length === 0) && <div className="muted">No key metadata available.</div>}
+          {keys && keys.length > 0 && (
+            <div className="table">
+              <div className="table__row table__head">
+                <div>Type</div>
+                <div>Created</div>
+                <div>Last rotated</div>
+              </div>
+              {keys.map(k => (
+                <div className="table__row" key={k.type}>
+                  <div>{k.type}</div>
+                  <div>{k.created_at ? new Date(k.created_at).toLocaleString() : '—'}</div>
+                  <div>{(k as any).last_rotated_at ? new Date((k as any).last_rotated_at).toLocaleString() : '—'}</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {generated ? (
+          <div style={{marginTop: 12}}>
+            <h4>Newly generated key ({generated.type})</h4>
+            <div className="code-block" style={{display: 'flex', gap: 8, alignItems: 'center'}}>
+              <code style={{whiteSpace: 'break-spaces'}}>{generated.key}</code>
+              <button className="secondary" onClick={() => copy(generated.key)}>Copy</button>
+            </div>
+            <div className="muted" style={{fontSize: 12, marginTop: 8}}>
+              This key will not be shown again. Store it securely.
+            </div>
+          </div>
+        ) : null}
+      </Card>
+    </div>
+  );
+};
+
+export default ApiKeysTab;

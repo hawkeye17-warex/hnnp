@@ -9,6 +9,7 @@ import OverviewPage from './OverviewPage';
 import ReceiversPage from './ReceiversPage';
 import PresencePage from './PresencePage';
 import OrgSettingsPage from './OrgSettingsPage';
+import ApiKeysTab from './ApiKeysTab';
 
 const OrganizationDetailsPage = () => {
   const {id} = useParams<{id: string}>();
@@ -16,7 +17,7 @@ const OrganizationDetailsPage = () => {
   const [org, setOrg] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [tab, setTab] = useState<'overview' | 'receivers' | 'presence' | 'settings'>('overview');
+  const [tab, setTab] = useState<'overview' | 'receivers' | 'presence' | 'settings' | 'keys'>('overview');
 
   useEffect(() => {
     let mounted = true;
@@ -90,6 +91,11 @@ const OrganizationDetailsPage = () => {
             onClick={() => setTab('settings')}>
             Settings
           </button>
+          <button
+            className={tab === 'keys' ? 'primary' : 'secondary'}
+            onClick={() => setTab('keys')}>
+            API Keys
+          </button>
         </div>
       </Card>
 
@@ -98,6 +104,7 @@ const OrganizationDetailsPage = () => {
         {tab === 'receivers' && <ReceiversPage />}
         {tab === 'presence' && <PresencePage />}
         {tab === 'settings' && <OrgSettingsPage />}
+        {tab === 'keys' && <ApiKeysTab />}
       </div>
     </div>
   );

@@ -117,6 +117,40 @@ export const createApiClient = (session: Session) => {
     return res.json();
   };
 
+  /* ---------------- API Keys ---------------- */
+  const getApiKeys = async (orgId?: string) => {
+    const id = orgId ?? session.orgId;
+    const res = await fetch(`${baseUrl}/v2/orgs/${encodeURIComponent(id)}/keys`, {
+      headers: buildHeaders(session),
+    });
+    if (!res.ok) throw new Error('Failed to fetch API keys');
+    return res.json();
+  };
+
+  const generateApiKey = async (keyType: 'ADMIN_KEY' | 'RECEIVER_KEY', orgId?: string) => {
+    const id = orgId ?? session.orgId;
+    const res = await fetch(`${baseUrl}/v2/orgs/${encodeURIComponent(id)}/keys`, {
+      method: 'POST',
+      headers: buildHeaders(session),
+      body: JSON.stringify({type: keyType}),
+    });
+    if (!res.ok) throw new Error('Failed to generate API key');
+    return res.json();
+  };
+
+  const rotateApiKey = async (keyType: 'ADMIN_KEY' | 'RECEIVER_KEY', orgId?: string) => {
+    const id = orgId ?? session.orgId;
+    const res = await fetch(
+      `${baseUrl}/v2/orgs/${encodeURIComponent(id)}/keys/${encodeURIComponent(keyType)}/rotate`,
+      {
+        method: 'POST',
+        headers: buildHeaders(session),
+      },
+    );
+    if (!res.ok) throw new Error('Failed to rotate API key');
+    return res.json();
+  };
+
   const createLink = async (payload: LinkPayload) => {
     const res = await fetch(`${baseUrl}/v1/links`, {
       method: 'POST',
@@ -158,6 +192,9 @@ export const createApiClient = (session: Session) => {
     createLink,
     activateLink,
     revokeLink,
+    getApiKeys,
+    generateApiKey,
+    rotateApiKey,
   };
 };
 
