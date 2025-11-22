@@ -38,6 +38,7 @@ function DataTable<T>({
   bulkActions,
   emptyMessage = 'No records found.',
 }: DataTableProps<T>) {
+  const tableData = Array.isArray(data) ? data : [];
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
   const [sortBy, setSortBy] = useState<string | null>(null);
@@ -55,11 +56,11 @@ function DataTable<T>({
 
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
-    if (!term) return data;
+    if (!term) return tableData;
     if (searchFn) {
-      return data.filter(row => searchFn(row, term));
+      return tableData.filter(row => searchFn(row, term));
     }
-    return data.filter(row =>
+    return tableData.filter(row =>
       columns.some(col => {
         const value =
           col.accessor?.(row) ??
