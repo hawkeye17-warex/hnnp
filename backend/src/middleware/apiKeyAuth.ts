@@ -43,6 +43,11 @@ function derivePrefix(rawKey: string): string | null {
 }
 
 export async function apiKeyAuth(req: Request, res: Response, next: NextFunction) {
+  // Allow CORS preflight to pass through without auth
+  if (req.method === "OPTIONS") {
+    return next();
+  }
+
   const rawKey = extractRawKey(req);
   if (!rawKey) {
     return res.status(401).json({ error: "Missing API key" });
@@ -88,4 +93,3 @@ export async function apiKeyAuth(req: Request, res: Response, next: NextFunction
     return res.status(401).json({ error: "Invalid API key" });
   }
 }
-
