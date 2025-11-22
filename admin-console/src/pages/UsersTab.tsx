@@ -54,8 +54,7 @@ const UsersTab = ({orgId}: Props) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orgId]);
 
-  const validateEmail = (val: string) => /
-^\S+@\S+\.\S+$/.test(val);
+  const validateEmail = (val: string) => /^\S+@\S+\.\S+$/.test(val);
 
   const invite = async (e: React.FormEvent) => {
     e.preventDefault();
