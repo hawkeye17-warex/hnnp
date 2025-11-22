@@ -151,6 +151,54 @@ export const createApiClient = (session: Session) => {
     return res.json();
   };
 
+  /* ---------------- Org Users ---------------- */
+  const getOrgUsers = async (orgId?: string) => {
+    const id = orgId ?? session.orgId;
+    const res = await fetch(`${baseUrl}/v2/orgs/${encodeURIComponent(id)}/users`, {
+      headers: buildHeaders(session),
+    });
+    if (!res.ok) throw new Error('Failed to fetch organization users');
+    return res.json();
+  };
+
+  /* ---------------- Org Metrics / Errors ---------------- */
+  const getOrgUsageMetrics = async (params: Record<string, string | number> = {}, orgId?: string) => {
+    const id = orgId ?? session.orgId;
+    const search = new URLSearchParams(Object.fromEntries(Object.entries(params).map(([k, v]) => [k, String(v)])));
+    const res = await fetch(`${baseUrl}/v2/orgs/${encodeURIComponent(id)}/metrics/usage?${search.toString()}`, {
+      headers: buildHeaders(session),
+    });
+    if (!res.ok) throw new Error('Failed to fetch usage metrics');
+    return res.json();
+  };
+
+  const getOrgErrors = async (params: Record<string, string | number> = {}, orgId?: string) => {
+    const id = orgId ?? session.orgId;
+    const search = new URLSearchParams(Object.fromEntries(Object.entries(params).map(([k, v]) => [k, String(v)])));
+    const res = await fetch(`${baseUrl}/v2/orgs/${encodeURIComponent(id)}/errors?${search.toString()}`, {
+      headers: buildHeaders(session),
+    });
+    if (!res.ok) throw new Error('Failed to fetch org errors');
+    return res.json();
+  };
+
+  const inviteOrgUser = async (
+    email: string,
+    role: string | undefined = undefined,
+    orgId?: string,
+  ) => {
+    const id = orgId ?? session.orgId;
+    const body: Record<string, unknown> = {email};
+    if (role) body.role = role;
+    const res = await fetch(`${baseUrl}/v2/orgs/${encodeURIComponent(id)}/invite`, {
+      method: 'POST',
+      headers: buildHeaders(session),
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) throw new Error('Failed to send invite');
+    return res.json();
+  };
+
   const createLink = async (payload: LinkPayload) => {
     const res = await fetch(`${baseUrl}/v1/links`, {
       method: 'POST',
@@ -195,6 +243,10 @@ export const createApiClient = (session: Session) => {
     getApiKeys,
     generateApiKey,
     rotateApiKey,
+    getOrgUsers,
+    inviteOrgUser,
+    getOrgUsageMetrics,
+    getOrgErrors,
   };
 };
 

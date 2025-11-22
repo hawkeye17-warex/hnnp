@@ -11,6 +11,7 @@ import PresencePage from './PresencePage';
 import OrgSettingsPage from './OrgSettingsPage';
 import ApiKeysTab from './ApiKeysTab';
 import UsersTab from './UsersTab';
+import UsageDashboard from './UsageDashboard';
 
 const OrganizationDetailsPage = () => {
   const {id} = useParams<{id: string}>();
@@ -18,7 +19,7 @@ const OrganizationDetailsPage = () => {
   const [org, setOrg] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [tab, setTab] = useState<'overview' | 'receivers' | 'presence' | 'users' | 'settings' | 'keys'>('overview');
+  const [tab, setTab] = useState<'overview' | 'receivers' | 'presence' | 'users' | 'usage' | 'settings' | 'keys'>('overview');
 
   useEffect(() => {
     let mounted = true;
@@ -93,6 +94,11 @@ const OrganizationDetailsPage = () => {
             Users
           </button>
           <button
+            className={tab === 'usage' ? 'primary' : 'secondary'}
+            onClick={() => setTab('usage')}>
+            Usage
+          </button>
+          <button
             className={tab === 'settings' ? 'primary' : 'secondary'}
             onClick={() => setTab('settings')}>
             Settings
@@ -110,6 +116,7 @@ const OrganizationDetailsPage = () => {
         {tab === 'receivers' && <ReceiversPage orgId={org?.id} />}
         {tab === 'presence' && <PresencePage orgId={org?.id} />}
         {tab === 'users' && <UsersTab orgId={org?.id} />}
+        {tab === 'usage' && <UsageDashboard orgId={org?.id} />}
         {tab === 'settings' && <OrgSettingsPage org={org} onUpdate={() => {}} />}
         {tab === 'keys' && <ApiKeysTab org={org} />}
       </div>
