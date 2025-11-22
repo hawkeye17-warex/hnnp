@@ -10,6 +10,7 @@ import OrgSettingsPage from './pages/OrgSettingsPage';
 import OverviewPage from './pages/OverviewPage';
 import PresencePage from './pages/PresencePage';
 import ReceiversPage from './pages/ReceiversPage';
+import OrganizationDetailsPage from './pages/OrganizationDetailsPage';
 import DashboardPage from './pages/DashboardPage';
 import SupabaseLoginPage from './pages/SupabaseLoginPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
@@ -42,6 +43,7 @@ const router = createBrowserRouter([
       {path: 'api', element: <ApiDocsPage />},
       {path: 'account', element: <AdminAccountPage />},
       {path: 'organizations', element: <OrganizationsPage />},
+      {path: 'organizations/:id', element: <OrganizationDetailsPage />},
     ],
   },
 ]);

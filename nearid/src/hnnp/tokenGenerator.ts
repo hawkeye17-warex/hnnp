@@ -1,3 +1,5 @@
+import 'react-native-get-random-values';
+import 'react-native-crypto';
 import {createHmac} from 'crypto';
 
 export const getCurrentTimeSlot = (intervalSeconds = 15): number => {

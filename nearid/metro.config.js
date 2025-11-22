@@ -1,35 +1,11 @@
-const { getDefaultConfig, mergeConfig } = require('@react-native/metro-config');
-const path = require('path');
-const exclusionList = require('metro-config/src/defaults/exclusionList');
+const {getDefaultConfig, mergeConfig} = require('@react-native/metro-config');
 
-const projectRoot = __dirname;
-const workspaceRoots = [
-  path.resolve(projectRoot, 'device-app'),
-  path.resolve(projectRoot, 'receiver'),
-  path.resolve(projectRoot, 'cloud-api'),
-  path.resolve(projectRoot, 'lib'),
-];
+/**
+ * Metro configuration
+ * https://facebook.github.io/metro/docs/configuration
+ *
+ * @type {import('metro-config').MetroConfig}
+ */
+const config = {};
 
-const config = {
-  watchFolders: [projectRoot, ...workspaceRoots],
-  resolver: {
-    blockList: exclusionList(
-      workspaceRoots.flatMap(workspaceRoot => [
-        new RegExp(`${workspaceRoot.replace(/\\/g, '\\\\')}/node_modules/.*`),
-      ])
-    ),
-    extraNodeModules: new Proxy(
-      {},
-      {
-        get: (target, name) => {
-          if (typeof name !== 'string') {
-            return undefined;
-          }
-          return path.join(projectRoot, `node_modules/${name}`);
-        },
-      }
-    ),
-  },
-};
-
-module.exports = mergeConfig(getDefaultConfig(projectRoot), config);
+module.exports = mergeConfig(getDefaultConfig(__dirname), config);

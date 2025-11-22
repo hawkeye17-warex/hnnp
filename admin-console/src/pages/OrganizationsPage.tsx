@@ -1,6 +1,7 @@
 import React, {useEffect, useMemo, useState} from 'react';
 
 import Card from '../components/Card';
+import {Link} from 'react-router-dom';
 import DataTable, {DataTableColumn} from '../components/DataTable';
 import ErrorState from '../components/ErrorState';
 import LoadingState from '../components/LoadingState';
@@ -54,7 +55,14 @@ const OrganizationsPage = () => {
 
   const columns = useMemo<DataTableColumn<OrgRow>[]>(
     () => [
-      {id: 'name', header: 'Name', field: 'name', sortable: true},
+      {
+        id: 'name',
+        header: 'Name',
+        accessor: row => (
+          <Link to={`/organizations/${row.id}`}>{row.name ?? '—'}</Link>
+        ),
+        sortable: true,
+      },
       {id: 'address', header: 'Address', field: 'address', sortable: true},
       {id: 'contact_email', header: 'Contact Email', field: 'contact_email', sortable: true},
       {id: 'timezone', header: 'Timezone', field: 'timezone', sortable: true},
