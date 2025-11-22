@@ -8,6 +8,7 @@ import {useApi} from '../api/client';
 import TextInput from '../components/form/TextInput';
 import SubmitButton from '../components/form/SubmitButton';
 import {useToast} from '../hooks/useToast';
+import Modal from '../components/Modal';
 
 type Props = { org?: any; onUpdate?: () => void };
 

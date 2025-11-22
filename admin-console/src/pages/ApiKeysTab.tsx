@@ -4,6 +4,7 @@ import LoadingState from '../components/LoadingState';
 import ErrorState from '../components/ErrorState';
 import {useApi} from '../api/client';
 import {useToast} from '../hooks/useToast';
+import Modal from '../components/Modal';
 
 type KeyInfo = {
   type: string;
@@ -80,27 +81,7 @@ const ApiKeysTab = ({org}: Props) => {
     }
   };
 
-  const doRotate = async (type: 'ADMIN_KEY' | 'RECEIVER_KEY') => {
-    const ok = window.confirm(`Rotate ${type}? This will replace the existing key.`);
-    if (!ok) return;
-    setBusy(true);
-    setGenerated(null);
-    try {
-      const res = await api.rotateApiKey(type);
-      const key = (res as any)?.key ?? (res as any)?.secret ?? null;
-      if (key) {
-        setGenerated({type, key});
-        toast.success(`${type} rotated — copy new key now`);
-      } else {
-        toast.success(`${type} rotated`);
-      }
-      await load();
-    } catch (err: any) {
-      toast.error(err?.message ?? 'Failed to rotate key');
-    } finally {
-      setBusy(false);
-    }
-  };
+  
 
   const copy = async (val: string) => {
     try {

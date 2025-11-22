@@ -112,9 +112,9 @@ const OrganizationDetailsPage = () => {
       </Card>
 
       <div style={{marginTop: 16}}>
-        {tab === 'overview' && <OverviewPage org={org} />}
-        {tab === 'receivers' && <ReceiversPage orgId={org?.id} />}
-        {tab === 'presence' && <PresencePage orgId={org?.id} />}
+        {tab === 'overview' && <OverviewPage />}
+        {tab === 'receivers' && <ReceiversPage />}
+        {tab === 'presence' && <PresencePage />}
         {tab === 'users' && <UsersTab orgId={org?.id} />}
         {tab === 'usage' && <UsageDashboard orgId={org?.id} />}
         {tab === 'settings' && <OrgSettingsPage org={org} onUpdate={() => {}} />}
