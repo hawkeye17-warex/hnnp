@@ -12,7 +12,9 @@ type KeyInfo = {
   // backend should NOT return raw key except on creation — handle accordingly
 };
 
-const ApiKeysTab = () => {
+type Props = { org?: any };
+
+const ApiKeysTab = ({org}: Props) => {
   const api = useApi();
   const toast = useToast();
   const [keys, setKeys] = useState<KeyInfo[] | null>(null);
@@ -25,7 +27,7 @@ const ApiKeysTab = () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await api.getApiKeys();
+      const res = await api.getApiKeys(org?.id);
       // expect array or {data: [...]} — be permissive
       const list = Array.isArray(res) ? res : (res as any)?.data ?? [];
       setKeys(list);
@@ -41,26 +43,40 @@ const ApiKeysTab = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [pendingAction, setPendingAction] = useState<null | {op: 'generate' | 'rotate'; type: 'ADMIN_KEY' | 'RECEIVER_KEY'}>(null);
+
   const doGenerate = async (type: 'ADMIN_KEY' | 'RECEIVER_KEY') => {
-    const ok = window.confirm(`Generate a new ${type}? The key will be shown once.`);
-    if (!ok) return;
+    setPendingAction({op: 'generate', type});
+    setConfirmOpen(true);
+  };
+
+  const doRotate = async (type: 'ADMIN_KEY' | 'RECEIVER_KEY') => {
+    setPendingAction({op: 'rotate', type});
+    setConfirmOpen(true);
+  };
+
+  const executePending = async () => {
+    if (!pendingAction) return;
+    const {op, type} = pendingAction;
+    setConfirmOpen(false);
     setBusy(true);
     setGenerated(null);
     try {
-      const res = await api.generateApiKey(type);
-      // expect {key: 'xxxx', type: 'ADMIN_KEY'}
+      const res = op === 'generate' ? await api.generateApiKey(type, org?.id) : await api.rotateApiKey(type, org?.id);
       const key = (res as any)?.key ?? (res as any)?.secret ?? null;
       if (key) {
         setGenerated({type, key});
-        toast.success(`${type} generated — copy it now`);
+        toast.success(`${type} ${op === 'generate' ? 'generated' : 'rotated'} — copy it now`);
       } else {
-        toast.success(`${type} generated`);
+        toast.success(`${type} ${op === 'generate' ? 'generated' : 'rotated'}`);
       }
       await load();
     } catch (err: any) {
-      toast.error(err?.message ?? 'Failed to generate key');
+      toast.error(err?.message ?? `Failed to ${op} key`);
     } finally {
       setBusy(false);
+      setPendingAction(null);
     }
   };
 
@@ -180,6 +196,15 @@ const ApiKeysTab = () => {
             </div>
           </div>
         ) : null}
+        <Modal open={confirmOpen} onClose={() => setConfirmOpen(false)} title="Confirm key action">
+          <div>
+            <p>Are you sure you want to {pendingAction?.op} the key {pendingAction?.type}?</p>
+            <div style={{display: 'flex', gap: 8}}>
+              <button className="secondary" onClick={() => setConfirmOpen(false)}>Cancel</button>
+              <button className="primary" onClick={executePending} disabled={busy}>{busy ? 'Working…' : 'Confirm'}</button>
+            </div>
+          </div>
+        </Modal>
       </Card>
     </div>
   );

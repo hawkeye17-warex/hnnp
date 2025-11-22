@@ -6,6 +6,7 @@ import EmptyState from '../components/EmptyState';
 import DataTable, {DataTableColumn} from '../components/DataTable';
 import Modal from '../components/Modal';
 import TextInput from '../components/form/TextInput';
+import SelectInput from '../components/form/SelectInput';
 import SubmitButton from '../components/form/SubmitButton';
 import {useApi} from '../api/client';
 import {useToast} from '../hooks/useToast';
@@ -34,11 +35,11 @@ const UsersTab = ({orgId}: Props) => {
   const [inviteRole, setInviteRole] = useState('member');
   const [inviteLoading, setInviteLoading] = useState(false);
 
-  const load = async () => {
+  const load = async (page = 1, perPage = 50) => {
     setLoading(true);
     setError(null);
     try {
-      const res = await api.getOrgUsers(orgId as any);
+      const res = await api.getOrgUsers(orgId as any, {page, perPage});
       const list = Array.isArray(res) ? res : (res as any)?.data ?? [];
       setMembers(list);
     } catch (err: any) {
@@ -51,10 +52,17 @@ const UsersTab = ({orgId}: Props) => {
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [orgId]);
+
+  const validateEmail = (val: string) => /
+^\S+@\S+\.\S+$/.test(val);
 
   const invite = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!validateEmail(inviteEmail)) {
+      toast.error('Please enter a valid email address');
+      return;
+    }
     setInviteLoading(true);
     try {
       await api.inviteOrgUser(inviteEmail, inviteRole, orgId as any);
@@ -109,7 +117,12 @@ const UsersTab = ({orgId}: Props) => {
       <Modal open={inviteOpen} onClose={() => setInviteOpen(false)} title="Invite member">
         <form className="form" onSubmit={invite}>
           <TextInput label="Email" type="email" value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} required />
-          <TextInput label="Role" value={inviteRole} onChange={e => setInviteRole(e.target.value)} hint="member/admin (optional)" />
+          <SelectInput
+            label="Role"
+            options={[{label: 'Member', value: 'member'}, {label: 'Admin', value: 'admin'}]}
+            value={inviteRole}
+            onChange={e => setInviteRole(e.target.value)}
+          />
           <div style={{marginTop: 8}}>
             <SubmitButton loading={inviteLoading} label="Send invite" />
           </div>

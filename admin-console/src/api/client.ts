@@ -152,9 +152,11 @@ export const createApiClient = (session: Session) => {
   };
 
   /* ---------------- Org Users ---------------- */
-  const getOrgUsers = async (orgId?: string) => {
+  const getOrgUsers = async (orgId?: string, params: Record<string, string | number> = {}) => {
     const id = orgId ?? session.orgId;
-    const res = await fetch(`${baseUrl}/v2/orgs/${encodeURIComponent(id)}/users`, {
+    const search = new URLSearchParams(Object.fromEntries(Object.entries(params).map(([k, v]) => [k, String(v)])));
+    const url = `${baseUrl}/v2/orgs/${encodeURIComponent(id)}/users${search.toString() ? `?${search.toString()}` : ''}`;
+    const res = await fetch(url, {
       headers: buildHeaders(session),
     });
     if (!res.ok) throw new Error('Failed to fetch organization users');

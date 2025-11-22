@@ -9,7 +9,9 @@ import TextInput from '../components/form/TextInput';
 import SubmitButton from '../components/form/SubmitButton';
 import {useToast} from '../hooks/useToast';
 
-const OrgSettingsPage = () => {
+type Props = { org?: any; onUpdate?: () => void };
+
+const OrgSettingsPage = ({org: initialOrg, onUpdate}: Props) => {
   const api = useApi();
   const toast = useToast();
   const [org, setOrg] = useState<any>(null);
@@ -30,7 +32,7 @@ const OrgSettingsPage = () => {
       setLoading(true);
       setError(null);
       try {
-        const data = await api.getOrg();
+        const data = initialOrg ?? (await api.getOrg());
         if (mounted) {
           setOrg(data);
           setName(data?.name ?? '');
@@ -48,7 +50,7 @@ const OrgSettingsPage = () => {
     return () => {
       mounted = false;
     };
-  }, [api]);
+  }, [api, initialOrg]);
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -61,10 +63,11 @@ const OrgSettingsPage = () => {
         address: address || undefined,
         timezone: timezone || undefined,
       };
-      await api.updateOrganization(payload);
+      await api.updateOrganization(payload, org?.id);
       toast.success('Organization updated');
       const updated = await api.getOrg();
       setOrg(updated);
+      if (onUpdate) onUpdate();
     } catch (err: any) {
       setSaveErr(err?.message ?? 'Failed to update organization');
       toast.error(saveErr ?? 'Failed to update organization');
@@ -73,37 +76,41 @@ const OrgSettingsPage = () => {
     }
   };
 
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [pendingAction, setPendingAction] = useState<null | 'archive' | 'restore'>(null);
+
   const archiveOrg = async () => {
     if (!org?.id) return;
-    const ok = window.confirm('Archive this organization? This will soft-delete (archive) it.');
-    if (!ok) return;
-    setActionLoading(true);
-    try {
-      await api.updateOrganization({status: 'archived'});
-      toast.success('Organization archived');
-      const updated = await api.getOrg();
-      setOrg(updated);
-    } catch (err: any) {
-      toast.error(err?.message ?? 'Failed to archive organization');
-    } finally {
-      setActionLoading(false);
-    }
+    setPendingAction('archive');
+    setConfirmOpen(true);
   };
 
   const restoreOrg = async () => {
     if (!org?.id) return;
-    const ok = window.confirm('Restore this archived organization?');
-    if (!ok) return;
+    setPendingAction('restore');
+    setConfirmOpen(true);
+  };
+
+  const executePending = async () => {
+    if (!pendingAction || !org?.id) return;
+    setConfirmOpen(false);
     setActionLoading(true);
     try {
-      await api.updateOrganization({status: 'active'});
-      toast.success('Organization restored');
+      if (pendingAction === 'archive') {
+        await api.updateOrganization({status: 'archived'}, org.id);
+        toast.success('Organization archived');
+      } else {
+        await api.updateOrganization({status: 'active'}, org.id);
+        toast.success('Organization restored');
+      }
       const updated = await api.getOrg();
       setOrg(updated);
+      if (onUpdate) onUpdate();
     } catch (err: any) {
-      toast.error(err?.message ?? 'Failed to restore organization');
+      toast.error(err?.message ?? 'Failed to update organization');
     } finally {
       setActionLoading(false);
+      setPendingAction(null);
     }
   };
 
@@ -185,6 +192,19 @@ const OrgSettingsPage = () => {
           <EmptyState message="No org info available." />
         ) : null}
       </Card>
+      <Modal open={confirmOpen} onClose={() => setConfirmOpen(false)} title="Confirm">
+        <div>
+          <p>
+            {pendingAction === 'archive'
+              ? 'Archive this organization? It will be soft-deleted and can be restored later.'
+              : 'Restore this archived organization?'}
+          </p>
+          <div style={{display: 'flex', gap: 8}}>
+            <button className="secondary" onClick={() => setConfirmOpen(false)}>Cancel</button>
+            <button className="primary" onClick={executePending} disabled={actionLoading}>{actionLoading ? 'Working…' : 'Confirm'}</button>
+          </div>
+        </div>
+      </Modal>
       <Card>
         <h3>Config (read-only)</h3>
         <p className="muted">

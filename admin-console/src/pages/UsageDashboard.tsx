@@ -49,8 +49,15 @@ const UsageDashboard = ({orgId}: Props) => {
         const since = keys[0];
         const until = keys[keys.length - 1];
 
-        // presence events (use v1 presence events endpoint)
-        const pe = await api.getPresenceEvents({since, until});
+        // run independent requests in parallel
+        const peP = api.getPresenceEvents({since, until});
+        const rP = api.getReceivers();
+        const metricsP = api.getOrgUsageMetrics({since, until}, orgId as any).catch(() => null);
+        const errsP = api.getOrgErrors({since, until}, orgId as any).catch(() => null);
+
+        const [pe, r, metrics, errs] = await Promise.all([peP, rP, metricsP, errsP]);
+
+        // presence
         const events = Array.isArray(pe) ? pe : (pe as any)?.data ?? [];
         const pBuckets = makeBuckets(keys);
         for (const ev of events) {
@@ -61,31 +68,23 @@ const UsageDashboard = ({orgId}: Props) => {
         }
 
         // active receivers
-        const r = await api.getReceivers();
         const receivers = Array.isArray(r) ? r : (r as any)?.data ?? [];
         const active = receivers.filter((x: any) => !x.archived && (x.status ? x.status === 'active' : true)).length;
 
-        // tokens processed - try metrics endpoint, fallback to presence totals
+        // tokens processed - prefer metrics endpoint response
         let tBuckets = makeBuckets(keys);
-        try {
-          const metrics = await api.getOrgUsageMetrics({since, until}, orgId as any);
-          const data = metrics?.data ?? metrics ?? {};
-          // expect data.daily = [{date:'YYYY-MM-DD', tokens: N, errors: N}]
-          if (Array.isArray(data.daily)) {
-            for (const row of data.daily) {
-              if (row.date in tBuckets) tBuckets[row.date] = row.tokens ?? row.count ?? 0;
-              if (row.date in errorsCounts) setErrorsCounts(prev => ({...prev, [row.date]: row.errors ?? prev[row.date] ?? 0}));
-            }
+        let eBuckets = makeBuckets(keys);
+        if (metrics && (metrics as any).data && Array.isArray((metrics as any).data.daily)) {
+          for (const row of (metrics as any).data.daily) {
+            if (row.date in tBuckets) tBuckets[row.date] = row.tokens ?? row.count ?? 0;
+            if (row.date in eBuckets) eBuckets[row.date] = row.errors ?? eBuckets[row.date] ?? 0;
           }
-        } catch (e) {
-          // fallback: use presence counts as tokens processed
+        } else {
           tBuckets = {...pBuckets};
         }
 
-        // errors - try dedicated endpoint
-        let eBuckets = makeBuckets(keys);
-        try {
-          const errs = await api.getOrgErrors({since, until}, orgId as any);
+        // errors - if dedicated endpoint returned a list of events
+        if (errs) {
           const list = Array.isArray(errs) ? errs : (errs as any)?.data ?? [];
           for (const err of list) {
             const d = new Date(err?.ts || err?.created_at || err?.time || err?.timestamp);
@@ -93,8 +92,6 @@ const UsageDashboard = ({orgId}: Props) => {
             const k = d.toISOString().slice(0, 10);
             if (k in eBuckets) eBuckets[k]++;
           }
-        } catch (e) {
-          // ignore — leave zeros
         }
 
         if (!mounted) return;
