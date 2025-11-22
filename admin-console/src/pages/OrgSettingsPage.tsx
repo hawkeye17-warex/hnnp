@@ -5,12 +5,23 @@ import EmptyState from '../components/EmptyState';
 import ErrorState from '../components/ErrorState';
 import LoadingState from '../components/LoadingState';
 import {useApi} from '../api/client';
+import TextInput from '../components/form/TextInput';
+import SubmitButton from '../components/form/SubmitButton';
+import {useToast} from '../hooks/useToast';
 
 const OrgSettingsPage = () => {
   const api = useApi();
+  const toast = useToast();
   const [org, setOrg] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [address, setAddress] = useState('');
+  const [timezone, setTimezone] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [saveErr, setSaveErr] = useState<string | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -19,7 +30,13 @@ const OrgSettingsPage = () => {
       setError(null);
       try {
         const data = await api.getOrg();
-        if (mounted) setOrg(data);
+        if (mounted) {
+          setOrg(data);
+          setName(data?.name ?? '');
+          setEmail(data?.contact_email ?? data?.contactEmail ?? '');
+          setAddress(data?.address ?? '');
+          setTimezone(data?.timezone ?? '');
+        }
       } catch (err: any) {
         if (mounted) setError(err?.message ?? 'Failed to load org');
       } finally {
@@ -32,6 +49,29 @@ const OrgSettingsPage = () => {
     };
   }, [api]);
 
+  const onSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaveErr(null);
+    setSaving(true);
+    try {
+      const payload: Record<string, unknown> = {
+        name: name || undefined,
+        contact_email: email || undefined,
+        address: address || undefined,
+        timezone: timezone || undefined,
+      };
+      await api.updateOrganization(payload);
+      toast.success('Organization updated');
+      const updated = await api.getOrg();
+      setOrg(updated);
+    } catch (err: any) {
+      setSaveErr(err?.message ?? 'Failed to update organization');
+      toast.error(saveErr ?? 'Failed to update organization');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <div className="overview">
       <Card>
@@ -39,32 +79,48 @@ const OrgSettingsPage = () => {
         {loading ? <LoadingState /> : null}
         {error ? <ErrorState message={error} onRetry={() => window.location.reload()} /> : null}
         {org ? (
-          <div className="org-grid">
-            <div>
-              <p className="muted">Org ID</p>
-              <p>{org.id ?? '—'}</p>
+          <form className="form" onSubmit={onSubmit}>
+            <div className="org-grid">
+              <div>
+                <p className="muted">Org ID</p>
+                <p>{org.id ?? '—'}</p>
+              </div>
+              <div>
+                <TextInput label="Name" value={name} onChange={e => setName(e.target.value)} required />
+              </div>
+              <div>
+                <p className="muted">Slug</p>
+                <p>{org.slug ?? '—'}</p>
+              </div>
+              <div>
+                <p className="muted">Status</p>
+                <p>{org.status ?? '—'}</p>
+              </div>
+              <div>
+                <p className="muted">Created</p>
+                <p>{formatTime(org.created_at || org.createdAt)}</p>
+              </div>
+              <div>
+                <p className="muted">Updated</p>
+                <p>{formatTime(org.updated_at || org.updatedAt)}</p>
+              </div>
             </div>
-            <div>
-              <p className="muted">Name</p>
-              <p>{org.name ?? '—'}</p>
+
+            <div style={{marginTop: 12}}>
+              <TextInput
+                label="Contact email"
+                type="email"
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+              />
+              <TextInput label="Address" value={address} onChange={e => setAddress(e.target.value)} />
+              <TextInput label="Timezone" value={timezone} onChange={e => setTimezone(e.target.value)} />
+              {saveErr ? <div className="form__error">{saveErr}</div> : null}
+              <div style={{marginTop: 8}}>
+                <SubmitButton loading={saving} label="Save changes" />
+              </div>
             </div>
-            <div>
-              <p className="muted">Slug</p>
-              <p>{org.slug ?? '—'}</p>
-            </div>
-            <div>
-              <p className="muted">Status</p>
-              <p>{org.status ?? '—'}</p>
-            </div>
-            <div>
-              <p className="muted">Created</p>
-              <p>{formatTime(org.created_at || org.createdAt)}</p>
-            </div>
-            <div>
-              <p className="muted">Updated</p>
-              <p>{formatTime(org.updated_at || org.updatedAt)}</p>
-            </div>
-          </div>
+          </form>
         ) : !loading && !error ? (
           <EmptyState message="No org info available." />
         ) : null}

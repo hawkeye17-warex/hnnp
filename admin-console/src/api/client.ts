@@ -48,6 +48,20 @@ export const createApiClient = (session: Session) => {
     return res.json();
   };
 
+  const updateOrganization = async (
+    payload: Record<string, unknown>,
+    orgId?: string,
+  ) => {
+    const id = orgId ?? session.orgId;
+    const res = await fetch(`${baseUrl}/v2/orgs/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      headers: buildHeaders(session),
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) throw new Error('Failed to update organization');
+    return res.json();
+  };
+
   const getReceivers = async () => {
     const res = await fetch(`${baseUrl}/v2/orgs/${encodeURIComponent(session.orgId)}/receivers`, {
       headers: buildHeaders(session),
@@ -135,6 +149,7 @@ export const createApiClient = (session: Session) => {
     getOrg,
     getOrganizations,
     createOrganization,
+    updateOrganization,
     getReceivers,
     createReceiver,
     updateReceiver,
