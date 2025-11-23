@@ -176,6 +176,16 @@ const clearFilters = () => {
   loadEvents();
 };
 
+  const replayKeys = useMemo(() => {
+    const map = new Map<string, number>();
+    tableEvents.forEach(ev => {
+      const key = getSignatureKey(ev);
+      if (!key) return;
+      map.set(key, (map.get(key) ?? 0) + 1);
+    });
+    return map;
+  }, [tableEvents]);
+
   return (
     <div className="overview">
       <Card>
@@ -298,7 +308,11 @@ const clearFilters = () => {
                   <span className="badge">{ev.status || 'unknown'}</span>
                 </div>
                 <div>
-                  <span className="badge">{getValidationLabel(ev)}</span>
+                  <span className="badge">
+                    {replayKeys.get(getSignatureKey(ev) ?? '') && (replayKeys.get(getSignatureKey(ev) ?? '') ?? 0) > 1
+                      ? 'Replay (duplicate signature)'
+                      : getValidationLabel(ev)}
+                  </span>
                 </div>
                 <div>
                   <button
@@ -505,5 +519,8 @@ const mapRecordToEvent = (rec: any): PresenceEvent => ({
   signature_valid: rec.signature_valid,
   validation_status: rec.validation_status,
 });
+
+const getSignatureKey = (ev: PresenceEvent) =>
+  (ev as any).token_signature || ev.token || ev.token_prefix || ev.id;
 
 export default PresencePage;
