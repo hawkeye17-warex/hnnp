@@ -38,7 +38,7 @@ const ReceiverDetailsPage = () => {
   const [errors, setErrors] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [tab, setTab] = useState<'overview' | 'logs' | 'status' | 'advanced'>('overview');
+  const [tab, setTab] = useState<'overview' | 'logs' | 'status' | 'env' | 'advanced'>('overview');
   const [actionLoading, setActionLoading] = useState(false);
 
   const load = async () => {
@@ -198,6 +198,9 @@ const ReceiverDetailsPage = () => {
           <button className={tab === 'status' ? 'primary' : 'secondary'} onClick={() => setTab('status')}>
             Status
           </button>
+          <button className={tab === 'env' ? 'primary' : 'secondary'} onClick={() => setTab('env')}>
+            Environment
+          </button>
           <button className={tab === 'advanced' ? 'primary' : 'secondary'} onClick={() => setTab('advanced')}>
             Advanced
           </button>
@@ -289,6 +292,30 @@ const ReceiverDetailsPage = () => {
           <p className="muted">Current status: {health}</p>
           <p className="muted">Raw status: {receiver.status || '�?"'}</p>
           <p className="muted">Last seen: {lastSeenDisplay}</p>
+        </Card>
+      ) : null}
+
+      {tab === 'env' ? (
+        <Card>
+          <h3>Environment / Config</h3>
+          <div className="card-grid metrics-grid">
+            <div>
+              <p className="muted">Device ID</p>
+              <p>{(receiver as any).device_id || (receiver as any).deviceId || '�?"'}</p>
+            </div>
+            <div>
+              <p className="muted">Token prefix</p>
+              <p>{(receiver as any).token_prefix || (receiver as any).tokenPrefix || '�?"'}</p>
+            </div>
+            <div>
+              <p className="muted">Firmware version</p>
+              <p>{(receiver as any).firmware_version || (receiver as any).firmwareVersion || '�?"'}</p>
+            </div>
+            <div>
+              <p className="muted">Last config update</p>
+              <p>{formatErrorTime({created_at: (receiver as any).config_updated_at || (receiver as any).configUpdatedAt})}</p>
+            </div>
+          </div>
         </Card>
       ) : null}
 
