@@ -66,7 +66,7 @@ const PresencePage = ({orgId}: Props) => {
       const res = await api.getPresenceEvents(params, orgId);
       setEvents(normalizeArray<PresenceEvent>(res));
     } catch (err: any) {
-      setError(err?.message ?? 'Failed to load events');
+      setError(err?.message ?? 'Failed to load events. Check API key/permissions.');
     } finally {
       setLoading(false);
     }
@@ -79,15 +79,20 @@ const PresencePage = ({orgId}: Props) => {
   useEffect(() => {
     loadEvents();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, orgId]);
-
-  useEffect(() => {
-    setPage(1);
-  }, [orgId]);
+  }, [page]);
 
   const tableEvents = useMemo(() => events ?? [], [events]);
 
   const applyFilters = () => {
+    setPage(1);
+    loadEvents();
+  };
+
+  const clearFilters = () => {
+    setFromDate('');
+    setToDate('');
+    setUserRef('');
+    setReceiverId('');
     setPage(1);
     loadEvents();
   };
@@ -130,6 +135,12 @@ const PresencePage = ({orgId}: Props) => {
           <button className="primary" onClick={applyFilters} disabled={loading}>
             {loading ? 'Loading…' : 'Apply filters'}
           </button>
+          <button className="secondary" type="button" onClick={clearFilters} disabled={loading}>
+            Clear filters
+          </button>
+        </div>
+        <div className="muted" style={{fontSize: 12}}>
+          Dates use your browser timezone; adjust if you expect UTC ranges.
         </div>
       </Card>
 
@@ -142,7 +153,7 @@ const PresencePage = ({orgId}: Props) => {
         ) : error ? (
           <ErrorState message={error} onRetry={loadEvents} />
         ) : tableEvents.length === 0 ? (
-          <EmptyState message="No events found." />
+          <EmptyState message="No events found. Try adjusting filters." />
         ) : (
           <div className="table">
             <div className="table__row table__head">
@@ -154,8 +165,8 @@ const PresencePage = ({orgId}: Props) => {
             {tableEvents.map(ev => (
               <div className="table__row" key={ev.id}>
                 <div>{formatTime(ev)}</div>
-                <div>{ev.userRef || '—'}</div>
-                <div>{ev.receiverName || ev.receiverId || '—'}</div>
+                <div>{ev.userRef || '�?"'}</div>
+                <div>{ev.receiverName || ev.receiverId || '�?"'}</div>
                 <div>
                   <span className="badge">{ev.status || 'unknown'}</span>
                 </div>
@@ -171,7 +182,10 @@ const PresencePage = ({orgId}: Props) => {
             Previous
           </button>
           <span className="muted">Page {page}</span>
-          <button className="secondary" onClick={() => setPage(p => p + 1)} disabled={loading}>
+          <button
+            className="secondary"
+            onClick={() => setPage(p => p + 1)}
+            disabled={loading || tableEvents.length < limit}>
             Next
           </button>
         </div>
@@ -187,9 +201,9 @@ const formatTime = (ev: PresenceEvent) => {
     ev.createdAt ||
     (ev as any).time ||
     (ev as any).at;
-  if (!ts) return '—';
+  if (!ts) return '�?"';
   const d = new Date(ts);
-  if (Number.isNaN(d.getTime())) return '—';
+  if (Number.isNaN(d.getTime())) return '�?"';
   return d.toLocaleString();
 };
 

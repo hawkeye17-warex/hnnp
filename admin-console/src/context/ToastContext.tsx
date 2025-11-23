@@ -22,7 +22,7 @@ const ToastItem = ({toast, onDismiss}: {toast: Toast; onDismiss: (id: number) =>
     <div className={`toast toast--${toast.kind}`}>
       <div className="toast__message">{toast.message}</div>
       <button className="toast__close" aria-label="Dismiss" onClick={() => onDismiss(toast.id)}>
-        ×
+        &times;
       </button>
     </div>
   );
@@ -38,7 +38,10 @@ export const ToastProvider = ({children}: {children: React.ReactNode}) => {
   const showToast = useCallback(
     (kind: ToastKind, message: string, durationMs = 3500) => {
       const id = ++toastId;
-      setToasts(prev => [...prev, {id, kind, message}]);
+      setToasts(prev => {
+        const next = [...prev, {id, kind, message}];
+        return next.slice(-3);
+      });
       if (durationMs > 0) {
         window.setTimeout(() => removeToast(id), durationMs);
       }
@@ -52,7 +55,7 @@ export const ToastProvider = ({children}: {children: React.ReactNode}) => {
     <ToastContext.Provider value={value}>
       {children}
       {createPortal(
-        <div className="toast-container">
+        <div className="toast-container" role="status" aria-live="polite">
           {toasts.map(t => (
             <ToastItem key={t.id} toast={t} onDismiss={removeToast} />
           ))}
@@ -70,4 +73,3 @@ export const useToastContext = () => {
   }
   return ctx;
 };
-

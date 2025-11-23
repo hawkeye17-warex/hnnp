@@ -1,13 +1,15 @@
 import React from 'react';
+import {useNavigate} from 'react-router-dom';
 
 import {useTheme} from '../theme/ThemeProvider';
 import {useAuth} from '../context/AuthContext';
-import {useNavigate} from 'react-router-dom';
+import {useSession} from '../hooks/useSession';
 
 const TopBar = () => {
   const {theme, mode, toggle} = useTheme();
   const {colors} = theme;
   const {logout} = useAuth();
+  const {session} = useSession();
   const navigate = useNavigate();
 
   return (
@@ -20,9 +22,12 @@ const TopBar = () => {
           background: `${colors.accentPrimary}15`,
           color: colors.accentPrimary,
         }}>
-        Org: NearID Labs
+        Org: {session?.orgId ?? 'Not set'}
       </div>
-      <button className="secondary" onClick={toggle}>
+      <button className="secondary" onClick={() => navigate('/organizations')}>
+        Switch org
+      </button>
+      <button className="secondary" onClick={toggle} aria-label="Toggle theme">
         {mode === 'dark' ? 'Light mode' : 'Dark mode'}
       </button>
       <button

@@ -87,6 +87,15 @@ const ReceiversPage = ({orgId}: Props) => {
               <option value="offline">Offline</option>
             </select>
             <button
+              className="secondary"
+              type="button"
+              onClick={() => {
+                setSearch('');
+                setStatusFilter('all');
+              }}>
+              Clear filters
+            </button>
+            <button
               className="primary"
               onClick={() => {
                 setCreateError(null);

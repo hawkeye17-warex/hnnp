@@ -176,7 +176,7 @@ const ApiKeysTab = ({org, orgId}: Props) => {
               <button className="secondary" onClick={() => copy(generated.key)}>Copy</button>
             </div>
             <div className="muted" style={{fontSize: 12, marginTop: 8}}>
-              This key will not be shown again. Store it securely.
+              This key will not be shown again. Store it securely. Avoid sharing in screenshots or screen shares.
             </div>
           </div>
         ) : null}

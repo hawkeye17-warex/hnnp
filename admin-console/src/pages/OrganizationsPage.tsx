@@ -56,7 +56,11 @@ const OrganizationsPage = () => {
         setRows(single ? [single] : []);
         setReadOnly(true);
       } catch (inner: any) {
-        setError(inner?.message ?? err?.message ?? 'Failed to load organizations.');
+        setError(
+          inner?.message ??
+            err?.message ??
+            'Failed to load organizations. Check that your API key can list orgs or try again.',
+        );
       }
     } finally {
       setLoading(false);
