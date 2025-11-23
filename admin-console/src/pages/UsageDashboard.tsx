@@ -46,14 +46,16 @@ const UsageDashboard = ({orgId}: Props) => {
       setLoading(true);
       setError(null);
       try {
-        const since = keys[0];
-        const until = keys[keys.length - 1];
+        const from = keys[0];
+        const to = keys[keys.length - 1];
+        const now = Date.now();
+        const twentyMinutes = 20 * 60 * 1000;
 
         // run independent requests in parallel
-        const peP = api.getPresenceEvents({since, until});
-        const rP = api.getReceivers();
-        const metricsP = api.getOrgUsageMetrics({since, until}, orgId as any).catch(() => null);
-        const errsP = api.getOrgErrors({since, until}, orgId as any).catch(() => null);
+        const peP = api.getPresenceEvents({from, to, sort: 'asc', limit: 1000}, orgId as any);
+        const rP = api.getReceivers(orgId as any);
+        const metricsP = api.getOrgUsageMetrics({since: from, until: to}, orgId as any).catch(() => null);
+        const errsP = api.getOrgErrors({since: from, until: to}, orgId as any).catch(() => null);
 
         const [pe, r, metrics, errs] = await Promise.all([peP, rP, metricsP, errsP]);
 
@@ -69,7 +71,15 @@ const UsageDashboard = ({orgId}: Props) => {
 
         // active receivers
         const receivers = Array.isArray(r) ? r : (r as any)?.data ?? [];
-        const active = receivers.filter((x: any) => !x.archived && (x.status ? x.status === 'active' : true)).length;
+        const active = receivers.filter((x: any) => {
+          if (x.archived) return false;
+          if (x.status === 'online' || x.status === 'active') return true;
+          if (x.last_seen_at) {
+            const t = new Date(x.last_seen_at).getTime();
+            if (!Number.isNaN(t) && now - t < twentyMinutes) return true;
+          }
+          return false;
+        }).length;
 
         // tokens processed - prefer metrics endpoint response
         let tBuckets = makeBuckets(keys);
