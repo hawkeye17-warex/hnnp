@@ -26,6 +26,7 @@ const OrganizationsPage = () => {
   const [rows, setRows] = useState<OrgRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [readOnly, setReadOnly] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [createLoading, setCreateLoading] = useState(false);
   const [createErr, setCreateErr] = useState<string | null>(null);
@@ -37,12 +38,20 @@ const OrganizationsPage = () => {
   const load = async () => {
     setLoading(true);
     setError(null);
+    setReadOnly(false);
     try {
       const data = await api.getOrganizations();
       const list = Array.isArray(data) ? data : data?.data ?? [];
       setRows(list);
     } catch (err: any) {
-      setError(err?.message ?? 'Failed to load organizations.');
+      // Most org-scoped keys cannot list all orgs. Fallback to current org so the page still works.
+      try {
+        const single = await api.getOrg();
+        setRows(single ? [single] : []);
+        setReadOnly(true);
+      } catch (inner: any) {
+        setError(inner?.message ?? err?.message ?? 'Failed to load organizations.');
+      }
     } finally {
       setLoading(false);
     }
@@ -101,10 +110,15 @@ const OrganizationsPage = () => {
       <Card>
         <h2>Organizations</h2>
         <div className="actions">
-          <button className="primary" onClick={() => setCreateOpen(true)}>
+          <button className="primary" onClick={() => setCreateOpen(true)} disabled={readOnly}>
             + New organization
           </button>
         </div>
+        {readOnly ? (
+          <div className="muted" style={{marginTop: 4}}>
+            This API key cannot list all organizations; showing the current org only. Creating orgs is disabled.
+          </div>
+        ) : null}
         <DataTable
           data={rows}
           columns={columns}
