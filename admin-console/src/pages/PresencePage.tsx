@@ -115,6 +115,23 @@ const PresencePage = ({orgId}: Props) => {
   }, [orgId]);
 
   const tableEvents = useMemo(() => events ?? [], [events]);
+  const dailyCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    tableEvents.forEach(ev => {
+      const d = formatDateKey(ev);
+      counts[d] = (counts[d] ?? 0) + 1;
+    });
+    return counts;
+  }, [tableEvents]);
+
+  const hourCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    tableEvents.forEach(ev => {
+      const h = formatHour(ev);
+      counts[h] = (counts[h] ?? 0) + 1;
+    });
+    return counts;
+  }, [tableEvents]);
 
   const applyFilters = () => {
     setPage(1);
@@ -204,6 +221,20 @@ const clearFilters = () => {
           </button>
           <button className="secondary" type="button" onClick={clearFilters} disabled={loading}>
             Clear filters
+          </button>
+          <button
+            className="secondary"
+            type="button"
+            onClick={() => exportCsv(tableEvents)}
+            disabled={tableEvents.length === 0 || loading}>
+            Export CSV
+          </button>
+          <button
+            className="secondary"
+            type="button"
+            onClick={() => exportJson(tableEvents)}
+            disabled={tableEvents.length === 0 || loading}>
+            Export JSON
           </button>
         </div>
         <div className="muted" style={{fontSize: 12}}>
@@ -302,6 +333,47 @@ const clearFilters = () => {
           </div>
         </Modal>
       ) : null}
+
+      {tableEvents.length > 0 ? (
+        <Card>
+          <h3>Daily presence (current results)</h3>
+          <div className="table">
+            <div className="table__row table__head">
+              <div>Date</div>
+              <div>Count</div>
+            </div>
+            {Object.entries(dailyCounts)
+              .sort((a, b) => a[0].localeCompare(b[0]))
+              .map(([day, count]) => (
+                <div className="table__row" key={day}>
+                  <div>{day}</div>
+                  <div>{count}</div>
+                </div>
+              ))}
+          </div>
+        </Card>
+      ) : null}
+
+      {tableEvents.length > 0 ? (
+        <Card>
+          <h3>Heatmap by hour (current results)</h3>
+          <div style={{display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 8}}>
+            {Array.from({length: 24}, (_, i) => String(i).padStart(2, '0')).map(hour => (
+              <div
+                key={hour}
+                style={{
+                  padding: 8,
+                  background: '#f3f4f6',
+                  borderRadius: 6,
+                  textAlign: 'center',
+                }}>
+                <div className="muted">{hour}:00</div>
+                <div style={{fontWeight: 600}}>{hourCounts[hour] ?? 0}</div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      ) : null}
     </div>
   );
 };
@@ -328,6 +400,67 @@ const getValidationLabel = (ev: PresenceEvent): string => {
   if (val.includes('fail')) return 'Failed';
   if (val.includes('verify') || val.includes('valid')) return 'Valid';
   return val || 'Unknown';
+};
+
+const exportCsv = (data: PresenceEvent[]) => {
+  const header = ['id', 'timestamp', 'user_ref', 'receiver', 'status', 'validation_status'];
+  const lines = [header.join(',')];
+  data.forEach(ev => {
+    const row = [
+      ev.id,
+      formatTime(ev),
+      ev.userRef ?? '',
+      ev.receiverName || ev.receiverId || '',
+      ev.status ?? '',
+      (ev as any).validation_status ?? '',
+    ]
+      .map(v => `"${String(v).replace(/"/g, '""')}"`)
+      .join(',');
+    lines.push(row);
+  });
+  const blob = new Blob([lines.join('\n')], {type: 'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'presence_logs.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+};
+
+const exportJson = (data: PresenceEvent[]) => {
+  const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'presence_logs.json';
+  a.click();
+  URL.revokeObjectURL(url);
+};
+
+const formatDateKey = (ev: PresenceEvent) => {
+  const ts =
+    ev.timestamp ||
+    ev.occurredAt ||
+    ev.createdAt ||
+    (ev as any).time ||
+    (ev as any).at;
+  if (!ts) return 'Unknown';
+  const d = new Date(ts);
+  if (Number.isNaN(d.getTime())) return 'Unknown';
+  return d.toISOString().slice(0, 10);
+};
+
+const formatHour = (ev: PresenceEvent) => {
+  const ts =
+    ev.timestamp ||
+    ev.occurredAt ||
+    ev.createdAt ||
+    (ev as any).time ||
+    (ev as any).at;
+  if (!ts) return '??';
+  const d = new Date(ts);
+  if (Number.isNaN(d.getTime())) return '??';
+  return String(d.getHours()).padStart(2, '0');
 };
 
 export default PresencePage;
