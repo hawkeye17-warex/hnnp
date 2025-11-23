@@ -5,6 +5,7 @@ import {useApi} from '../api/client';
 import LoadingState from '../components/LoadingState';
 import ErrorState from '../components/ErrorState';
 import EmptyState from '../components/EmptyState';
+import Modal from '../components/Modal';
 
 type PresenceEvent = {
   id: string;
@@ -15,6 +16,11 @@ type PresenceEvent = {
   receiverName?: string;
   receiverId?: string;
   status?: string;
+  token?: string;
+  token_prefix?: string;
+  raw?: any;
+  signature_valid?: boolean;
+  validation_status?: string;
 };
 
 type Receiver = {id: string; displayName?: string};
@@ -38,6 +44,8 @@ const PresencePage = ({orgId}: Props) => {
   const [toDate, setToDate] = useState('');
   const [page, setPage] = useState(1);
   const limit = 10;
+  const [selected, setSelected] = useState<PresenceEvent | null>(null);
+  const [detailOpen, setDetailOpen] = useState(false);
 
   const normalizeArray = <T,>(payload: any): T[] => {
     if (!payload) return [];
@@ -217,6 +225,7 @@ const PresencePage = ({orgId}: Props) => {
               <div>User ref</div>
               <div>Receiver</div>
               <div>Status</div>
+              <div>Details</div>
             </div>
             {tableEvents.map(ev => (
               <div className="table__row" key={ev.id}>
@@ -225,6 +234,16 @@ const PresencePage = ({orgId}: Props) => {
                 <div>{ev.receiverName || ev.receiverId || '�?"'}</div>
                 <div>
                   <span className="badge">{ev.status || 'unknown'}</span>
+                </div>
+                <div>
+                  <button
+                    className="secondary"
+                    onClick={() => {
+                      setSelected(ev);
+                      setDetailOpen(true);
+                    }}>
+                    View
+                  </button>
                 </div>
               </div>
             ))}
@@ -246,6 +265,36 @@ const PresencePage = ({orgId}: Props) => {
           </button>
         </div>
       </Card>
+      {selected ? (
+        <Modal open={detailOpen} onClose={() => setDetailOpen(false)} title="Presence event details">
+          <div style={{display: 'grid', gap: 8}}>
+            <div>
+              <p className="muted">Token prefix</p>
+              <p>{(selected as any).token_prefix ?? '�?"'}</p>
+            </div>
+            <div>
+              <p className="muted">Validity</p>
+              <p>{(selected as any).validation_status || selected.status || '�?"'}</p>
+            </div>
+            <div>
+              <p className="muted">Signature check</p>
+              <p>{(selected as any).signature_valid === false ? 'Invalid' : 'Valid/unknown'}</p>
+            </div>
+            <div>
+              <p className="muted">Decoded token</p>
+              <pre className="code-block">
+                {selected.token ? selected.token : (selected as any).token_body ?? '�?"'}
+              </pre>
+            </div>
+            <div>
+              <p className="muted">Raw payload</p>
+              <pre className="code-block">
+                {JSON.stringify(selected, null, 2)}
+              </pre>
+            </div>
+          </div>
+        </Modal>
+      ) : null}
     </div>
   );
 };
