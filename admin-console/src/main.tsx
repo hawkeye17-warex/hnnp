@@ -11,6 +11,7 @@ import {ToastProvider} from './context/ToastContext';
 
 const OverviewPage = React.lazy(() => import('./pages/OverviewPage'));
 const ReceiversPage = React.lazy(() => import('./pages/ReceiversPage'));
+const ReceiverDetailsPage = React.lazy(() => import('./pages/ReceiverDetailsPage'));
 const PresencePage = React.lazy(() => import('./pages/PresencePage'));
 const LinksPage = React.lazy(() => import('./pages/LinksPage'));
 const OrgSettingsPage = React.lazy(() => import('./pages/OrgSettingsPage'));
@@ -59,6 +60,7 @@ const router = createBrowserRouter([
     children: [
       {path: 'overview', element: withLoader(<OverviewPage />)},
       {path: 'receivers', element: withLoader(<ReceiversPage />)},
+      {path: 'receivers/:id', element: withLoader(<ReceiverDetailsPage />)},
       {path: 'presence', element: withLoader(<PresencePage />)},
       {path: 'links', element: withLoader(<LinksPage />)},
       {path: 'org-settings', element: withLoader(<OrgSettingsPage />)},

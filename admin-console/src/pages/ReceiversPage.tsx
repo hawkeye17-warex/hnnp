@@ -1,4 +1,5 @@
 import React, {useEffect, useMemo, useState} from 'react';
+import {Link} from 'react-router-dom';
 
 import Card from '../components/Card';
 import {useApi} from '../api/client';
@@ -136,9 +137,13 @@ const ReceiversPage = ({orgId}: Props) => {
             </div>
             {filtered.map(r => (
               <div className="table__row" key={r.id}>
-                <div>{r.id}</div>
+                <div>
+                  <Link to={`/receivers/${r.id}`}>{r.id}</Link>
+                </div>
                 <div>{r.org_id || orgId || '�?"'}</div>
-                <div>{r.displayName || '�?"'}</div>
+                <div>
+                  <Link to={`/receivers/${r.id}`}>{r.displayName || '�?"'}</Link>
+                </div>
                 <div>{r.location || '�?"'}</div>
                 <div>{r.authMode || '�?"'}</div>
                 <div>
