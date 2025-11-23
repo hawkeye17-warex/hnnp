@@ -4,6 +4,8 @@ export type ReceiverFormValues = {
   receiver_id: string;
   display_name: string;
   location_label: string;
+  org_id?: string;
+  description?: string;
   latitude?: string;
   longitude?: string;
   auth_mode: 'hmac_shared_secret' | 'public_key';
@@ -24,6 +26,8 @@ const ReceiverForm = ({initialValues, onSubmit, onCancel, loading, error}: Recei
     receiver_id: '',
     display_name: '',
     location_label: '',
+    org_id: '',
+    description: '',
     latitude: '',
     longitude: '',
     auth_mode: 'hmac_shared_secret',
@@ -70,6 +74,23 @@ const ReceiverForm = ({initialValues, onSubmit, onCancel, loading, error}: Recei
           value={values.location_label}
           onChange={handleChange('location_label')}
           placeholder="HQ / Lobby"
+        />
+      </label>
+      <label className="form__field">
+        <span>Organization ID (optional)</span>
+        <input
+          value={values.org_id ?? ''}
+          onChange={handleChange('org_id')}
+          placeholder="org_123"
+        />
+      </label>
+      <label className="form__field">
+        <span>Description (optional)</span>
+        <textarea
+          rows={3}
+          value={values.description ?? ''}
+          onChange={handleChange('description')}
+          placeholder="Notes or description for this receiver"
         />
       </label>
       <div className="form__row">

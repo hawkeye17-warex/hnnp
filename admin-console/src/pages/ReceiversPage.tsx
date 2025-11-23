@@ -149,6 +149,8 @@ const ReceiversPage = ({orgId}: Props) => {
                 receiver_id: vals.receiver_id,
                 display_name: vals.display_name,
                 location_label: vals.location_label,
+                org_id: vals.org_id || orgId,
+                description: vals.description || undefined,
                 auth_mode: vals.auth_mode,
               };
               if (vals.latitude) payload.latitude = Number(vals.latitude);
