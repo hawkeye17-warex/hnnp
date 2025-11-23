@@ -121,16 +121,16 @@ const PresencePage = ({orgId}: Props) => {
     loadEvents();
   };
 
-  const clearFilters = () => {
-    setFromDate('');
-    setToDate('');
-    setUserRef('');
-    setUserId('');
-    setReceiverId('');
-    setStatusFilter('all');
-    setPage(1);
-    loadEvents();
-  };
+const clearFilters = () => {
+  setFromDate('');
+  setToDate('');
+  setUserRef('');
+  setUserId('');
+  setReceiverId('');
+  setStatusFilter('all');
+  setPage(1);
+  loadEvents();
+};
 
   return (
     <div className="overview">
@@ -195,6 +195,9 @@ const PresencePage = ({orgId}: Props) => {
             <option value="failed">Failed</option>
             <option value="error">Error</option>
             <option value="unknown">Unknown</option>
+            <option value="replay">Replay</option>
+            <option value="out-of-window">Out of window</option>
+            <option value="wrong-prefix">Wrong prefix</option>
           </select>
           <button className="primary" onClick={applyFilters} disabled={loading}>
             {loading ? 'Loading…' : 'Apply filters'}
@@ -225,6 +228,7 @@ const PresencePage = ({orgId}: Props) => {
               <div>User ref</div>
               <div>Receiver</div>
               <div>Status</div>
+              <div>Validation</div>
               <div>Details</div>
             </div>
             {tableEvents.map(ev => (
@@ -234,6 +238,9 @@ const PresencePage = ({orgId}: Props) => {
                 <div>{ev.receiverName || ev.receiverId || '�?"'}</div>
                 <div>
                   <span className="badge">{ev.status || 'unknown'}</span>
+                </div>
+                <div>
+                  <span className="badge">{getValidationLabel(ev)}</span>
                 </div>
                 <div>
                   <button
@@ -274,7 +281,7 @@ const PresencePage = ({orgId}: Props) => {
             </div>
             <div>
               <p className="muted">Validity</p>
-              <p>{(selected as any).validation_status || selected.status || '�?"'}</p>
+              <p>{getValidationLabel(selected)}</p>
             </div>
             <div>
               <p className="muted">Signature check</p>
@@ -310,6 +317,17 @@ const formatTime = (ev: PresenceEvent) => {
   const d = new Date(ts);
   if (Number.isNaN(d.getTime())) return '�?"';
   return d.toLocaleString();
+};
+
+const getValidationLabel = (ev: PresenceEvent): string => {
+  const val = ((ev as any).validation_status || ev.status || '').toLowerCase();
+  if (val.includes('replay')) return 'Replay';
+  if (val.includes('out') && val.includes('window')) return 'Out-of-window';
+  if (val.includes('wrong') && val.includes('prefix')) return 'Wrong-prefix';
+  if (val.includes('invalid')) return 'Invalid';
+  if (val.includes('fail')) return 'Failed';
+  if (val.includes('verify') || val.includes('valid')) return 'Valid';
+  return val || 'Unknown';
 };
 
 export default PresencePage;
