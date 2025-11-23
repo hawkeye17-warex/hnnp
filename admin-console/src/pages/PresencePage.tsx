@@ -6,6 +6,7 @@ import LoadingState from '../components/LoadingState';
 import ErrorState from '../components/ErrorState';
 import EmptyState from '../components/EmptyState';
 import Modal from '../components/Modal';
+import {supabase} from '../api/api';
 
 type PresenceEvent = {
   id: string;
@@ -123,6 +124,32 @@ const PresencePage = ({orgId}: Props) => {
     });
     return counts;
   }, [tableEvents]);
+
+  useEffect(() => {
+    const channel = supabase.channel('presence-logs-stream');
+    channel
+      .on(
+        'postgres_changes',
+        {event: 'INSERT', schema: 'public', table: 'presence_logs'},
+        payload => {
+          const rec: any = payload.new;
+          if (!rec) return;
+          if (orgFilter && String(rec.org_id) !== String(orgFilter)) return;
+          if (receiverId && String(rec.receiver_id) !== String(receiverId)) return;
+          if (userId && String(rec.user_id || rec.userId) !== String(userId)) return;
+          if (userRef && String(rec.user_ref || rec.userRef || '') !== String(userRef)) return;
+          if (statusFilter !== 'all' && (rec.validation_status || rec.status || '').toLowerCase() !== statusFilter.toLowerCase()) return;
+          setEvents(prev => {
+            const mapped = mapRecordToEvent(rec);
+            return [mapped, ...prev].slice(0, 200);
+          });
+        },
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [orgFilter, receiverId, userId, userRef, statusFilter]);
 
   const hourCounts = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -462,5 +489,21 @@ const formatHour = (ev: PresenceEvent) => {
   if (Number.isNaN(d.getTime())) return '??';
   return String(d.getHours()).padStart(2, '0');
 };
+
+const mapRecordToEvent = (rec: any): PresenceEvent => ({
+  id: rec.id,
+  timestamp: rec.timestamp,
+  occurredAt: rec.timestamp,
+  createdAt: rec.created_at,
+  userRef: rec.user_ref || rec.user_id,
+  receiverName: rec.receiver_name,
+  receiverId: rec.receiver_id,
+  status: rec.status || rec.validation_status,
+  token: rec.token,
+  token_prefix: rec.token_prefix,
+  raw: rec,
+  signature_valid: rec.signature_valid,
+  validation_status: rec.validation_status,
+});
 
 export default PresencePage;
