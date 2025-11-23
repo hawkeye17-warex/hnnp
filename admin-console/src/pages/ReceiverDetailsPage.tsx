@@ -6,6 +6,7 @@ import LoadingState from '../components/LoadingState';
 import ErrorState from '../components/ErrorState';
 import EmptyState from '../components/EmptyState';
 import {useApi} from '../api/client';
+import {useToast} from '../hooks/useToast';
 
 type Receiver = {
   id: string;
@@ -31,11 +32,14 @@ type PresenceEvent = {
 const ReceiverDetailsPage = () => {
   const {id} = useParams<{id: string}>();
   const api = useApi();
+  const toast = useToast();
   const [receiver, setReceiver] = useState<Receiver | null>(null);
   const [events, setEvents] = useState<PresenceEvent[]>([]);
+  const [errors, setErrors] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<'overview' | 'logs' | 'status' | 'advanced'>('overview');
+  const [actionLoading, setActionLoading] = useState(false);
 
   const load = async () => {
     if (!id) return;
@@ -54,11 +58,15 @@ const ReceiverDetailsPage = () => {
         : Array.isArray((logs as any)?.data)
         ? (logs as any).data
         : [];
+      const errRes = await api.getOrgErrors({receiverId: id, limit: 50}).catch(() => []);
+      const errArr = Array.isArray(errRes) ? errRes : (errRes as any)?.data ?? [];
+      setErrors(errArr);
       setEvents(logsArr);
     } catch (err: any) {
       setError(err?.message ?? 'Failed to load receiver.');
       setReceiver(null);
       setEvents([]);
+      setErrors([]);
     } finally {
       setLoading(false);
     }
@@ -121,6 +129,63 @@ const ReceiverDetailsPage = () => {
             <h2>{receiver.displayName || receiver.id}</h2>
             <p className="muted">Receiver ID: {receiver.id}</p>
             <p className="muted">Org: {receiver.org_id || '�?"'}</p>
+          </div>
+          <div className="actions">
+            <button
+              className="secondary"
+              onClick={async () => {
+                if (!id) return;
+                setActionLoading(true);
+                try {
+                  await api.updateReceiver(id, {rotate_key: true}, receiver.org_id);
+                  toast.success('Receiver key rotated. Update device with new key.');
+                  await load();
+                } catch (err: any) {
+                  toast.error(err?.message ?? 'Failed to rotate key');
+                } finally {
+                  setActionLoading(false);
+                }
+              }}
+              disabled={actionLoading}>
+              {actionLoading ? 'Working…' : 'Rotate key'}
+            </button>
+            <button
+              className="secondary"
+              onClick={async () => {
+                if (!id) return;
+                setActionLoading(true);
+                try {
+                  await api.updateReceiver(id, {status: 'disabled'}, receiver.org_id);
+                  toast.success('Receiver disabled');
+                  await load();
+                } catch (err: any) {
+                  toast.error(err?.message ?? 'Failed to disable receiver');
+                } finally {
+                  setActionLoading(false);
+                }
+              }}
+              disabled={actionLoading}>
+              {actionLoading ? 'Working…' : 'Disable'}
+            </button>
+            <button
+              className="secondary"
+              onClick={async () => {
+                if (!id) return;
+                setActionLoading(true);
+                try {
+                  await api.updateReceiver(id, {status: 'deleted'}, receiver.org_id);
+                  toast.success('Receiver soft-deleted');
+                  await load();
+                } catch (err: any) {
+                  toast.error(err?.message ?? 'Failed to delete receiver');
+                } finally {
+                  setActionLoading(false);
+                }
+              }}
+              disabled={actionLoading}
+              style={{background: '#c0392b', color: '#fff'}}>
+              {actionLoading ? 'Working…' : 'Delete'}
+            </button>
           </div>
         </div>
         <div style={{display: 'flex', gap: 8}}>
@@ -196,6 +261,25 @@ const ReceiverDetailsPage = () => {
               ))}
             </div>
           )}
+          <div style={{marginTop: 16}}>
+            <h4>Recent error logs</h4>
+            {errors.length === 0 ? (
+              <EmptyState message="No recent errors for this receiver." />
+            ) : (
+              <div className="table">
+                <div className="table__row table__head">
+                  <div>Time</div>
+                  <div>Message</div>
+                </div>
+                {errors.map((err: any, idx) => (
+                  <div className="table__row" key={idx}>
+                    <div>{formatErrorTime(err)}</div>
+                    <div>{err.message || err.msg || JSON.stringify(err)}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </Card>
       ) : null}
 
@@ -225,6 +309,14 @@ const formatTime = (ev: PresenceEvent) => {
     ev.createdAt ||
     (ev as any).time ||
     (ev as any).at;
+  if (!ts) return '�?"';
+  const d = new Date(ts);
+  if (Number.isNaN(d.getTime())) return '�?"';
+  return d.toLocaleString();
+};
+
+const formatErrorTime = (err: any) => {
+  const ts = err?.created_at || err?.timestamp || err?.time;
   if (!ts) return '�?"';
   const d = new Date(ts);
   if (Number.isNaN(d.getTime())) return '�?"';
