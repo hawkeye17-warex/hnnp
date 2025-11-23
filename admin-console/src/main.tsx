@@ -54,12 +54,12 @@ const router = createBrowserRouter([
   {path: '/forget-password', element: <Navigate to="/forgot-password" replace />},
   {path: '/forgot-password', element: withLoader(<ForgotPasswordPage />)},
   {path: '/reset-password', element: withLoader(<ResetPasswordPage />)},
-  {path: '/dashboard', element: withLoader(<DashboardPage />)},
   {path: '/login', element: withLoader(<LoginPage />)},
   {
     path: '/',
     element: <ProtectedLayout />,
     children: [
+      {path: 'dashboard', element: withLoader(<DashboardPage />)},
       {path: 'overview', element: withLoader(<OverviewPage />)},
       {path: 'receivers', element: withLoader(<ReceiversPage />)},
       {path: 'receivers/:id', element: withLoader(<ReceiverDetailsPage />)},
