@@ -23,6 +23,7 @@ const OrgSettingsPage = ({org: initialOrg, orgId, onUpdate}: Props) => {
   const [email, setEmail] = useState('');
   const [address, setAddress] = useState('');
   const [timezone, setTimezone] = useState('');
+  const [retentionDays, setRetentionDays] = useState('');
   const [saving, setSaving] = useState(false);
   const [saveErr, setSaveErr] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
@@ -40,6 +41,13 @@ const OrgSettingsPage = ({org: initialOrg, orgId, onUpdate}: Props) => {
           setEmail(data?.contact_email ?? data?.contactEmail ?? '');
           setAddress(data?.address ?? '');
           setTimezone(data?.timezone ?? '');
+          setRetentionDays(
+            data?.log_retention_days !== undefined && data?.log_retention_days !== null
+              ? String(data.log_retention_days)
+              : data?.logRetentionDays !== undefined && data?.logRetentionDays !== null
+              ? String(data.logRetentionDays)
+              : '',
+          );
         }
       } catch (err: any) {
         if (mounted) setError(err?.message ?? 'Failed to load org');
@@ -63,6 +71,7 @@ const OrgSettingsPage = ({org: initialOrg, orgId, onUpdate}: Props) => {
         contact_email: email || undefined,
         address: address || undefined,
         timezone: timezone || undefined,
+        log_retention_days: retentionDays ? Number(retentionDays) : undefined,
       };
       await api.updateOrganization(payload, orgId ?? org?.id);
       toast.success('Organization updated');
@@ -162,6 +171,18 @@ const OrgSettingsPage = ({org: initialOrg, orgId, onUpdate}: Props) => {
               {saveErr ? <div className="form__error">{saveErr}</div> : null}
               <div style={{marginTop: 8}}>
                 <SubmitButton loading={saving} label="Save changes" />
+              </div>
+              <div style={{marginTop: 12}}>
+                <TextInput
+                  label="Log retention (days)"
+                  type="number"
+                  value={retentionDays}
+                  onChange={e => setRetentionDays(e.target.value)}
+                  placeholder="e.g. 30"
+                />
+                <div className="muted" style={{fontSize: 12, marginTop: 4}}>
+                  Auto-delete/archive presence logs after this many days (if supported by backend).
+                </div>
               </div>
               <div style={{marginTop: 12, display: 'flex', gap: 8, alignItems: 'center'}}>
                 {org?.status === 'archived' ? (
