@@ -19,6 +19,7 @@ const ApiDocsPage = React.lazy(() => import('./pages/ApiDocsPage'));
 const AdminAccountPage = React.lazy(() => import('./pages/AdminAccountPage'));
 const OrganizationsPage = React.lazy(() => import('./pages/OrganizationsPage'));
 const OrganizationDetailsPage = React.lazy(() => import('./pages/OrganizationDetailsPage'));
+const HealthPage = React.lazy(() => import('./pages/HealthPage'));
 const DashboardPage = React.lazy(() => import('./pages/DashboardPage'));
 const SupabaseLoginPage = React.lazy(() => import('./pages/SupabaseLoginPage'));
 const ForgotPasswordPage = React.lazy(() => import('./pages/ForgotPasswordPage'));
@@ -64,6 +65,7 @@ const router = createBrowserRouter([
       {path: 'presence', element: withLoader(<PresencePage />)},
       {path: 'links', element: withLoader(<LinksPage />)},
       {path: 'org-settings', element: withLoader(<OrgSettingsPage />)},
+      {path: 'health', element: withLoader(<HealthPage />)},
       {path: 'api', element: withLoader(<ApiDocsPage />)},
       {path: 'account', element: withLoader(<AdminAccountPage />)},
       {path: 'organizations', element: withLoader(<OrganizationsPage />)},
