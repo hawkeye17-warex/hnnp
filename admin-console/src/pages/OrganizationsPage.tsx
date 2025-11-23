@@ -1,4 +1,4 @@
-import React, {useEffect, useMemo, useState} from 'react';
+import React, {useEffect, useMemo, useRef, useState} from 'react';
 
 import Card from '../components/Card';
 import {Link} from 'react-router-dom';
@@ -34,6 +34,12 @@ const OrganizationsPage = () => {
   const [email, setEmail] = useState('');
   const [address, setAddress] = useState('');
   const [timezone, setTimezone] = useState('');
+  const [search, setSearch] = useState('');
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
+  const [importing, setImporting] = useState(false);
+  const [importMessage, setImportMessage] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -81,6 +87,105 @@ const OrganizationsPage = () => {
     [],
   );
 
+  const filteredRows = useMemo(() => {
+    const term = search.toLowerCase();
+    const from = fromDate ? new Date(fromDate).getTime() : null;
+    const to = toDate ? new Date(toDate).getTime() : null;
+    return rows.filter(r => {
+      const matchesTerm =
+        !term ||
+        (r.name ?? '').toLowerCase().includes(term) ||
+        (r.address ?? '').toLowerCase().includes(term) ||
+        (r.contact_email ?? '').toLowerCase().includes(term);
+      const created = r.created_at ? new Date(r.created_at).getTime() : null;
+      const matchesFrom = from === null || (created !== null && created >= from);
+      const matchesTo = to === null || (created !== null && created <= to);
+      return matchesTerm && matchesFrom && matchesTo;
+    });
+  }, [rows, search, fromDate, toDate]);
+
+  const exportCsv = (data: OrgRow[]) => {
+    const header = ['id', 'name', 'contact_email', 'address', 'timezone', 'created_at', 'updated_at'];
+    const lines = [header.join(',')];
+    data.forEach(r => {
+      lines.push(
+        [
+          r.id,
+          r.name ?? '',
+          r.contact_email ?? '',
+          r.address ?? '',
+          r.timezone ?? '',
+          r.created_at ?? '',
+          r.updated_at ?? '',
+        ]
+          .map(v => `"${String(v).replace(/"/g, '""')}"`)
+          .join(','),
+      );
+    });
+    const blob = new Blob([lines.join('\n')], {type: 'text/csv;charset=utf-8;'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'organizations.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const exportJson = (data: OrgRow[]) => {
+    const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'organizations.json';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleImportFile = async (file: File | null) => {
+    if (!file) return;
+    setImporting(true);
+    setImportMessage(null);
+    try {
+      const text = await file.text();
+      const lines = text.split(/\r?\n/).filter(Boolean);
+      if (lines.length < 2) throw new Error('CSV appears empty');
+      const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+      const nameIdx = headers.indexOf('name');
+      const emailIdx = headers.indexOf('contact_email');
+      const addressIdx = headers.indexOf('address');
+      const tzIdx = headers.indexOf('timezone');
+      if (nameIdx === -1 || emailIdx === -1) {
+        throw new Error('CSV must include name and contact_email columns');
+      }
+      let createdCount = 0;
+      let errors = 0;
+      for (let i = 1; i < lines.length; i++) {
+        const cols = lines[i].split(',');
+        if (!cols[nameIdx]) continue;
+        const payload: Record<string, unknown> = {
+          name: cols[nameIdx],
+          contact_email: cols[emailIdx] ?? '',
+        };
+        if (addressIdx !== -1) payload.address = cols[addressIdx] ?? '';
+        if (tzIdx !== -1) payload.timezone = cols[tzIdx] ?? '';
+        try {
+          await api.createOrganization(payload);
+          createdCount++;
+        } catch (err: any) {
+          errors++;
+          continue;
+        }
+      }
+      setImportMessage(`Imported ${createdCount}${errors ? `, ${errors} failed` : ''}`);
+      await load();
+    } catch (err: any) {
+      setImportMessage(err?.message ?? 'Failed to import CSV');
+    } finally {
+      setImporting(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
   if (loading) {
     return (
       <Card>
@@ -109,9 +214,38 @@ const OrganizationsPage = () => {
     <div className="overview">
       <Card>
         <h2>Organizations</h2>
+        <div className="filters" style={{display: 'flex', gap: 8, flexWrap: 'wrap'}}>
+          <input
+            className="input"
+            placeholder="Search by name/email/address"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
+          <input
+            className="input"
+            type="date"
+            value={fromDate}
+            onChange={e => setFromDate(e.target.value)}
+          />
+          <input
+            className="input"
+            type="date"
+            value={toDate}
+            onChange={e => setToDate(e.target.value)}
+          />
+        </div>
         <div className="actions">
           <button className="primary" onClick={() => setCreateOpen(true)} disabled={readOnly}>
             + New organization
+          </button>
+          <button className="secondary" onClick={() => fileInputRef.current?.click()} disabled={readOnly || importing}>
+            {importing ? 'Importing�?�' : 'Import CSV'}
+          </button>
+          <button className="secondary" onClick={() => exportCsv(filteredRows)} disabled={filteredRows.length === 0}>
+            Export CSV
+          </button>
+          <button className="secondary" onClick={() => exportJson(filteredRows)} disabled={filteredRows.length === 0}>
+            Export JSON
           </button>
         </div>
         {readOnly ? (
@@ -119,14 +253,26 @@ const OrganizationsPage = () => {
             This API key cannot list all organizations; showing the current org only. Creating orgs is disabled.
           </div>
         ) : null}
-        <DataTable
-          data={rows}
-          columns={columns}
-          getId={row => row.id}
-          searchPlaceholder="Search organizations"
-          pageSize={10}
-          searchable
+        {importMessage ? <div className="muted" style={{marginTop: 4}}>{importMessage}</div> : null}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".csv,text/csv"
+          style={{display: 'none'}}
+          onChange={e => handleImportFile(e.target.files?.[0] ?? null)}
         />
+        {filteredRows.length === 0 ? (
+          <EmptyState message="No organizations match the current filters." />
+        ) : (
+          <DataTable
+            data={filteredRows}
+            columns={columns}
+            getId={row => row.id}
+            searchPlaceholder="Search organizations"
+            pageSize={10}
+            searchable
+          />
+        )}
       </Card>
 
       <Modal open={createOpen} onClose={() => setCreateOpen(false)} title="New organization">
