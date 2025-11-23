@@ -29,7 +29,11 @@ const PresencePage = ({orgId}: Props) => {
   const [error, setError] = useState<string | null>(null);
 
   const [userRef, setUserRef] = useState('');
+  const [userId, setUserId] = useState('');
   const [receiverId, setReceiverId] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [orgFilter, setOrgFilter] = useState<string>(orgId ?? '');
+  const [orgOptions, setOrgOptions] = useState<{label: string; value: string}[]>([]);
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
   const [page, setPage] = useState(1);
@@ -47,7 +51,7 @@ const PresencePage = ({orgId}: Props) => {
 
   const loadReceivers = async () => {
     try {
-      const data = await api.getReceivers(orgId);
+      const data = await api.getReceivers(orgFilter || orgId);
       setReceivers(normalizeArray<Receiver>(data));
     } catch {
       // ignore receiver load errors for filters
@@ -60,10 +64,12 @@ const PresencePage = ({orgId}: Props) => {
     try {
       const params: Record<string, string | number> = {page, limit, sort: 'desc'};
       if (userRef) params.userRef = userRef;
+      if (userId) params.userId = userId;
       if (receiverId) params.receiverId = receiverId;
       if (fromDate) params.from = fromDate;
       if (toDate) params.to = toDate;
-      const res = await api.getPresenceEvents(params, orgId);
+      if (statusFilter !== 'all') params.status = statusFilter;
+      const res = await api.getPresenceEvents(params, orgFilter || orgId);
       setEvents(normalizeArray<PresenceEvent>(res));
     } catch (err: any) {
       setError(err?.message ?? 'Failed to load events. Check API key/permissions.');
@@ -74,12 +80,31 @@ const PresencePage = ({orgId}: Props) => {
 
   useEffect(() => {
     loadReceivers();
+    if (!orgId) {
+      const loadOrgs = async () => {
+        try {
+          const data = await api.getOrganizations();
+          const list = Array.isArray(data) ? data : (data as any)?.data ?? [];
+          setOrgOptions(list.map((o: any) => ({label: o.name ?? o.id, value: String(o.id)})));
+        } catch {
+          setOrgOptions([]);
+        }
+      };
+      loadOrgs();
+    } else {
+      setOrgOptions([]);
+      setOrgFilter(orgId);
+    }
   }, [orgId]);
 
   useEffect(() => {
     loadEvents();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page]);
+
+  useEffect(() => {
+    setOrgFilter(orgId ?? '');
+  }, [orgId]);
 
   const tableEvents = useMemo(() => events ?? [], [events]);
 
@@ -92,7 +117,9 @@ const PresencePage = ({orgId}: Props) => {
     setFromDate('');
     setToDate('');
     setUserRef('');
+    setUserId('');
     setReceiverId('');
+    setStatusFilter('all');
     setPage(1);
     loadEvents();
   };
@@ -101,6 +128,19 @@ const PresencePage = ({orgId}: Props) => {
     <div className="overview">
       <Card>
         <div className="filters">
+          {!orgId && (
+            <select
+              className="input"
+              value={orgFilter}
+              onChange={e => setOrgFilter(e.target.value)}>
+              <option value="">All orgs</option>
+              {orgOptions.map(o => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+          )}
           <input
             className="input"
             type="date"
@@ -121,6 +161,12 @@ const PresencePage = ({orgId}: Props) => {
             value={userRef}
             onChange={e => setUserRef(e.target.value)}
           />
+          <input
+            className="input"
+            placeholder="User ID"
+            value={userId}
+            onChange={e => setUserId(e.target.value)}
+          />
           <select
             className="input"
             value={receiverId}
@@ -131,6 +177,16 @@ const PresencePage = ({orgId}: Props) => {
                 {r.displayName || r.id}
               </option>
             ))}
+          </select>
+          <select
+            className="input"
+            value={statusFilter}
+            onChange={e => setStatusFilter(e.target.value)}>
+            <option value="all">All statuses</option>
+            <option value="verified">Verified</option>
+            <option value="failed">Failed</option>
+            <option value="error">Error</option>
+            <option value="unknown">Unknown</option>
           </select>
           <button className="primary" onClick={applyFilters} disabled={loading}>
             {loading ? 'Loading…' : 'Apply filters'}
