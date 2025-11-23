@@ -19,7 +19,9 @@ type PresenceEvent = {
 
 type Receiver = {id: string; displayName?: string};
 
-const PresencePage = () => {
+type Props = {orgId?: string};
+
+const PresencePage = ({orgId}: Props) => {
   const api = useApi();
   const [events, setEvents] = useState<PresenceEvent[]>([]);
   const [receivers, setReceivers] = useState<Receiver[]>([]);
@@ -45,7 +47,7 @@ const PresencePage = () => {
 
   const loadReceivers = async () => {
     try {
-      const data = await api.getReceivers();
+      const data = await api.getReceivers(orgId);
       setReceivers(normalizeArray<Receiver>(data));
     } catch {
       // ignore receiver load errors for filters
@@ -61,7 +63,7 @@ const PresencePage = () => {
       if (receiverId) params.receiverId = receiverId;
       if (fromDate) params.from = fromDate;
       if (toDate) params.to = toDate;
-      const res = await api.getPresenceEvents(params);
+      const res = await api.getPresenceEvents(params, orgId);
       setEvents(normalizeArray<PresenceEvent>(res));
     } catch (err: any) {
       setError(err?.message ?? 'Failed to load events');
@@ -72,12 +74,16 @@ const PresencePage = () => {
 
   useEffect(() => {
     loadReceivers();
-  }, []);
+  }, [orgId]);
 
   useEffect(() => {
     loadEvents();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page]);
+  }, [page, orgId]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [orgId]);
 
   const tableEvents = useMemo(() => events ?? [], [events]);
 

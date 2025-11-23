@@ -10,9 +10,9 @@ import SubmitButton from '../components/form/SubmitButton';
 import {useToast} from '../hooks/useToast';
 import Modal from '../components/Modal';
 
-type Props = { org?: any; onUpdate?: () => void };
+type Props = {org?: any; orgId?: string; onUpdate?: () => void};
 
-const OrgSettingsPage = ({org: initialOrg, onUpdate}: Props) => {
+const OrgSettingsPage = ({org: initialOrg, orgId, onUpdate}: Props) => {
   const api = useApi();
   const toast = useToast();
   const [org, setOrg] = useState<any>(null);
@@ -33,7 +33,7 @@ const OrgSettingsPage = ({org: initialOrg, onUpdate}: Props) => {
       setLoading(true);
       setError(null);
       try {
-        const data = initialOrg ?? (await api.getOrg());
+        const data = initialOrg ?? (await api.getOrg(orgId));
         if (mounted) {
           setOrg(data);
           setName(data?.name ?? '');
@@ -51,7 +51,7 @@ const OrgSettingsPage = ({org: initialOrg, onUpdate}: Props) => {
     return () => {
       mounted = false;
     };
-  }, [api, initialOrg]);
+  }, [api, initialOrg, orgId]);
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -64,14 +64,15 @@ const OrgSettingsPage = ({org: initialOrg, onUpdate}: Props) => {
         address: address || undefined,
         timezone: timezone || undefined,
       };
-      await api.updateOrganization(payload, org?.id);
+      await api.updateOrganization(payload, orgId ?? org?.id);
       toast.success('Organization updated');
-      const updated = await api.getOrg();
+      const updated = await api.getOrg(orgId ?? org?.id);
       setOrg(updated);
       if (onUpdate) onUpdate();
     } catch (err: any) {
-      setSaveErr(err?.message ?? 'Failed to update organization');
-      toast.error(saveErr ?? 'Failed to update organization');
+      const message = err?.message ?? 'Failed to update organization';
+      setSaveErr(message);
+      toast.error(message);
     } finally {
       setSaving(false);
     }
@@ -104,7 +105,7 @@ const OrgSettingsPage = ({org: initialOrg, onUpdate}: Props) => {
         await api.updateOrganization({status: 'active'}, org.id);
         toast.success('Organization restored');
       }
-      const updated = await api.getOrg();
+      const updated = await api.getOrg(orgId ?? org.id);
       setOrg(updated);
       if (onUpdate) onUpdate();
     } catch (err: any) {

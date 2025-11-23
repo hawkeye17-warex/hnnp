@@ -22,8 +22,9 @@ const buildHeaders = (session: Session) => ({
 export const createApiClient = (session: Session) => {
   const baseUrl = getBaseUrl();
 
-  const getOrg = async () => {
-    const res = await fetch(`${baseUrl}/v2/orgs/${encodeURIComponent(session.orgId)}`, {
+  const getOrg = async (orgId?: string) => {
+    const id = orgId ?? session.orgId;
+    const res = await fetch(`${baseUrl}/v2/orgs/${encodeURIComponent(id)}`, {
       headers: buildHeaders(session),
     });
     if (!res.ok) throw new Error('Failed to fetch org');
@@ -62,16 +63,18 @@ export const createApiClient = (session: Session) => {
     return res.json();
   };
 
-  const getReceivers = async () => {
-    const res = await fetch(`${baseUrl}/v2/orgs/${encodeURIComponent(session.orgId)}/receivers`, {
+  const getReceivers = async (orgId?: string) => {
+    const id = orgId ?? session.orgId;
+    const res = await fetch(`${baseUrl}/v2/orgs/${encodeURIComponent(id)}/receivers`, {
       headers: buildHeaders(session),
     });
     if (!res.ok) throw new Error('Failed to fetch receivers');
     return res.json();
   };
 
-  const createReceiver = async (payload: ReceiverPayload) => {
-    const res = await fetch(`${baseUrl}/v2/orgs/${encodeURIComponent(session.orgId)}/receivers`, {
+  const createReceiver = async (payload: ReceiverPayload, orgId?: string) => {
+    const id = orgId ?? session.orgId;
+    const res = await fetch(`${baseUrl}/v2/orgs/${encodeURIComponent(id)}/receivers`, {
       method: 'POST',
       headers: buildHeaders(session),
       body: JSON.stringify(payload),
@@ -80,9 +83,10 @@ export const createApiClient = (session: Session) => {
     return res.json();
   };
 
-  const updateReceiver = async (id: string, payload: ReceiverPayload) => {
+  const updateReceiver = async (id: string, payload: ReceiverPayload, orgId?: string) => {
+    const org = orgId ?? session.orgId;
     const res = await fetch(
-      `${baseUrl}/v2/orgs/${encodeURIComponent(session.orgId)}/receivers/${encodeURIComponent(id)}`,
+      `${baseUrl}/v2/orgs/${encodeURIComponent(org)}/receivers/${encodeURIComponent(id)}`,
       {
         method: 'PATCH',
         headers: buildHeaders(session),
@@ -93,9 +97,9 @@ export const createApiClient = (session: Session) => {
     return res.json();
   };
 
-  const getPresenceEvents = async (params: Record<string, string | number> = {}) => {
+  const getPresenceEvents = async (params: Record<string, string | number> = {}, orgId?: string) => {
     const search = new URLSearchParams({
-      orgId: session.orgId,
+      orgId: orgId ?? session.orgId,
       ...Object.fromEntries(Object.entries(params).map(([k, v]) => [k, String(v)])),
     });
     const res = await fetch(`${baseUrl}/v1/presence/events?${search.toString()}`, {

@@ -17,7 +17,9 @@ type Receiver = {
   last_seen_at?: string;
 };
 
-const ReceiversPage = () => {
+type Props = {orgId?: string};
+
+const ReceiversPage = ({orgId}: Props) => {
   const api = useApi();
   const [receivers, setReceivers] = useState<Receiver[]>([]);
   const [loading, setLoading] = useState(true);
@@ -32,7 +34,7 @@ const ReceiversPage = () => {
     setLoading(true);
     setError(null);
     try {
-      const data = await api.getReceivers();
+      const data = await api.getReceivers(orgId);
       setReceivers(Array.isArray(data) ? data : data?.data ?? []);
     } catch (err: any) {
       setError(err?.message ?? 'Failed to load receivers.');
@@ -43,8 +45,7 @@ const ReceiversPage = () => {
 
   useEffect(() => {
     loadReceivers();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [orgId]);
 
   const filtered = useMemo(() => {
     const term = search.toLowerCase();
@@ -148,7 +149,7 @@ const ReceiversPage = () => {
               } else {
                 payload.public_key_pem = vals.public_key_pem;
               }
-              await api.createReceiver(payload);
+              await api.createReceiver(payload, orgId);
               setCreateOpen(false);
               setCreating(false);
               await loadReceivers();

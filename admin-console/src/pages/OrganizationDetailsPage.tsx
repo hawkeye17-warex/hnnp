@@ -1,4 +1,4 @@
-import React, {useEffect, useState} from 'react';
+import React, {useCallback, useEffect, useState} from 'react';
 import {useParams} from 'react-router-dom';
 
 import Card from '../components/Card';
@@ -9,9 +9,6 @@ import OverviewPage from './OverviewPage';
 import ReceiversPage from './ReceiversPage';
 import PresencePage from './PresencePage';
 import OrgSettingsPage from './OrgSettingsPage';
-import ApiKeysTab from './ApiKeysTab';
-import UsersTab from './UsersTab';
-import UsageDashboard from './UsageDashboard';
 
 const OrganizationDetailsPage = () => {
   const {id} = useParams<{id: string}>();
@@ -19,31 +16,49 @@ const OrganizationDetailsPage = () => {
   const [org, setOrg] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [tab, setTab] = useState<'overview' | 'receivers' | 'presence' | 'users' | 'usage' | 'settings' | 'keys'>('overview');
+  const [tab, setTab] = useState<'overview' | 'receivers' | 'presence' | 'settings'>('overview');
+
+  const loadOrg = useCallback(async () => {
+    if (!id) {
+      throw new Error('Organization ID is missing.');
+    }
+    return api.getOrg(id);
+  }, [api, id]);
 
   useEffect(() => {
     let mounted = true;
-    const load = async () => {
+    const fetchOrg = async () => {
       setLoading(true);
       setError(null);
       try {
-        const list = await api.getOrganizations();
-        const orgList = Array.isArray(list) ? list : (list as any)?.data ?? [];
-        const found = orgList.find((o: any) => String(o.id) === String(id));
+        const data = await loadOrg();
         if (!mounted) return;
-        setOrg(found ?? null);
+        setOrg(data);
       } catch (err: any) {
         if (!mounted) return;
         setError(err?.message ?? 'Failed to load organization.');
+        setOrg(null);
       } finally {
         if (mounted) setLoading(false);
       }
     };
-    load();
+    fetchOrg();
     return () => {
       mounted = false;
     };
-  }, [api, id]);
+  }, [loadOrg]);
+
+  const refreshOrg = async () => {
+    try {
+      const data = await loadOrg();
+      setOrg(data);
+      setError(null);
+    } catch (err: any) {
+      setError(err?.message ?? 'Failed to load organization.');
+    }
+  };
+
+  const orgId = org?.id ?? id;
 
   if (loading) {
     return (
@@ -59,7 +74,7 @@ const OrganizationDetailsPage = () => {
     return (
       <div className="overview">
         <Card>
-          <ErrorState message={error} onRetry={() => window.location.reload()} />
+          <ErrorState message={error} onRetry={refreshOrg} />
         </Card>
       </div>
     );
@@ -69,8 +84,10 @@ const OrganizationDetailsPage = () => {
     <div className="overview">
       <Card>
         <div className="table__header">
-          <h2>{org?.name ?? `Organization ${id}`}</h2>
-          <p className="muted">ID: {org?.id ?? id}</p>
+          <div>
+            <h2>{org?.name ?? `Organization ${id}`}</h2>
+            <p className="muted">ID: {org?.id ?? id}</p>
+          </div>
         </div>
         <div style={{display: 'flex', gap: 8}}>
           <button
@@ -89,36 +106,18 @@ const OrganizationDetailsPage = () => {
             Presence Logs
           </button>
           <button
-            className={tab === 'users' ? 'primary' : 'secondary'}
-            onClick={() => setTab('users')}>
-            Users
-          </button>
-          <button
-            className={tab === 'usage' ? 'primary' : 'secondary'}
-            onClick={() => setTab('usage')}>
-            Usage
-          </button>
-          <button
             className={tab === 'settings' ? 'primary' : 'secondary'}
             onClick={() => setTab('settings')}>
             Settings
-          </button>
-          <button
-            className={tab === 'keys' ? 'primary' : 'secondary'}
-            onClick={() => setTab('keys')}>
-            API Keys
           </button>
         </div>
       </Card>
 
       <div style={{marginTop: 16}}>
-        {tab === 'overview' && <OverviewPage />}
-        {tab === 'receivers' && <ReceiversPage />}
-        {tab === 'presence' && <PresencePage />}
-        {tab === 'users' && <UsersTab orgId={org?.id} />}
-        {tab === 'usage' && <UsageDashboard orgId={org?.id} />}
-        {tab === 'settings' && <OrgSettingsPage org={org} onUpdate={() => {}} />}
-        {tab === 'keys' && <ApiKeysTab org={org} />}
+        {tab === 'overview' && <OverviewPage orgId={orgId} />}
+        {tab === 'receivers' && <ReceiversPage orgId={orgId} />}
+        {tab === 'presence' && <PresencePage orgId={orgId} />}
+        {tab === 'settings' && <OrgSettingsPage org={org} orgId={orgId} onUpdate={refreshOrg} />}
       </div>
     </div>
   );

@@ -23,7 +23,9 @@ type PresenceEvent = {
   status?: string;
 };
 
-const OverviewPage = () => {
+type Props = {orgId?: string};
+
+const OverviewPage = ({orgId}: Props) => {
   const api = useApi();
   const [org, setOrg] = useState<any>(null);
   const [receivers, setReceivers] = useState<Receiver[]>([]);
@@ -38,9 +40,9 @@ const OverviewPage = () => {
       setError(null);
       try {
         const [orgRes, receiversRes, eventsRes] = await Promise.all([
-          api.getOrg(),
-          api.getReceivers(),
-          api.getPresenceEvents({limit: 10, sort: 'desc'}),
+          api.getOrg(orgId),
+          api.getReceivers(orgId),
+          api.getPresenceEvents({limit: 10, sort: 'desc'}, orgId),
         ]);
         if (!mounted) return;
         setOrg(orgRes);
@@ -69,7 +71,7 @@ const OverviewPage = () => {
     return () => {
       mounted = false;
     };
-  }, [api]);
+  }, [api, orgId]);
 
   const {totalReceivers, onlineReceivers, eventsToday} = useMemo(() => {
     const now = new Date();
