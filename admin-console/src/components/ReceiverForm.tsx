@@ -19,9 +19,10 @@ type ReceiverFormProps = {
   onCancel: () => void;
   loading?: boolean;
   error?: string | null;
+  orgOptions?: {label: string; value: string}[];
 };
 
-const ReceiverForm = ({initialValues, onSubmit, onCancel, loading, error}: ReceiverFormProps) => {
+const ReceiverForm = ({initialValues, onSubmit, onCancel, loading, error, orgOptions}: ReceiverFormProps) => {
   const [values, setValues] = useState<ReceiverFormValues>({
     receiver_id: '',
     display_name: '',
@@ -76,14 +77,28 @@ const ReceiverForm = ({initialValues, onSubmit, onCancel, loading, error}: Recei
           placeholder="HQ / Lobby"
         />
       </label>
-      <label className="form__field">
-        <span>Organization ID (optional)</span>
-        <input
-          value={values.org_id ?? ''}
-          onChange={handleChange('org_id')}
-          placeholder="org_123"
-        />
-      </label>
+      {orgOptions && orgOptions.length > 0 ? (
+        <label className="form__field">
+          <span>Organization</span>
+          <select value={values.org_id ?? ''} onChange={handleChange('org_id')} required>
+            <option value="">Select organization</option>
+            {orgOptions.map(opt => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+        </label>
+      ) : (
+        <label className="form__field">
+          <span>Organization ID (optional)</span>
+          <input
+            value={values.org_id ?? ''}
+            onChange={handleChange('org_id')}
+            placeholder="org_123"
+          />
+        </label>
+      )}
       <label className="form__field">
         <span>Description (optional)</span>
         <textarea

@@ -10,6 +10,7 @@ import EmptyState from '../components/EmptyState';
 
 type Receiver = {
   id: string;
+  org_id?: string;
   displayName?: string;
   location?: string;
   authMode?: string;
@@ -22,6 +23,7 @@ type Props = {orgId?: string};
 const ReceiversPage = ({orgId}: Props) => {
   const api = useApi();
   const [receivers, setReceivers] = useState<Receiver[]>([]);
+  const [orgOptions, setOrgOptions] = useState<{label: string; value: string}[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
@@ -45,6 +47,16 @@ const ReceiversPage = ({orgId}: Props) => {
 
   useEffect(() => {
     loadReceivers();
+    const loadOrgs = async () => {
+      try {
+        const data = await api.getOrganizations();
+        const list = Array.isArray(data) ? data : (data as any)?.data ?? [];
+        setOrgOptions(list.map((o: any) => ({label: o.name ?? o.id, value: String(o.id)})));
+      } catch {
+        setOrgOptions([]);
+      }
+    };
+    loadOrgs();
   }, [orgId]);
 
   const filtered = useMemo(() => {
@@ -115,6 +127,7 @@ const ReceiversPage = ({orgId}: Props) => {
           <div className="table">
             <div className="table__row table__head">
               <div>Receiver ID</div>
+              <div>Org</div>
               <div>Name</div>
               <div>Location</div>
               <div>Auth Mode</div>
@@ -124,9 +137,10 @@ const ReceiversPage = ({orgId}: Props) => {
             {filtered.map(r => (
               <div className="table__row" key={r.id}>
                 <div>{r.id}</div>
-                <div>{r.displayName || '—'}</div>
-                <div>{r.location || '—'}</div>
-                <div>{r.authMode || '—'}</div>
+                <div>{r.org_id || orgId || '�?"'}</div>
+                <div>{r.displayName || '�?"'}</div>
+                <div>{r.location || '�?"'}</div>
+                <div>{r.authMode || '�?"'}</div>
                 <div>
                   <span className="badge">{r.status || 'unknown'}</span>
                 </div>
@@ -140,6 +154,7 @@ const ReceiversPage = ({orgId}: Props) => {
         <ReceiverForm
           loading={creating}
           error={createError ?? undefined}
+          orgOptions={orgOptions}
           onCancel={() => setCreateOpen(false)}
           onSubmit={async vals => {
             setCreateError(null);
@@ -176,9 +191,9 @@ const ReceiversPage = ({orgId}: Props) => {
 };
 
 const formatTime = (ts?: string) => {
-  if (!ts) return '—';
+  if (!ts) return '�?"';
   const d = new Date(ts);
-  if (Number.isNaN(d.getTime())) return '—';
+  if (Number.isNaN(d.getTime())) return '�?"';
   return d.toLocaleString();
 };
 
