@@ -13,9 +13,9 @@ type KeyInfo = {
   // backend should NOT return raw key except on creation — handle accordingly
 };
 
-type Props = { org?: any };
+type Props = {org?: any; orgId?: string};
 
-const ApiKeysTab = ({org}: Props) => {
+const ApiKeysTab = ({org, orgId}: Props) => {
   const api = useApi();
   const toast = useToast();
   const [keys, setKeys] = useState<KeyInfo[] | null>(null);
@@ -28,7 +28,7 @@ const ApiKeysTab = ({org}: Props) => {
     setLoading(true);
     setError(null);
     try {
-      const res = await api.getApiKeys(org?.id);
+      const res = await api.getApiKeys(orgId ?? org?.id);
       // expect array or {data: [...]} — be permissive
       const list = Array.isArray(res) ? res : (res as any)?.data ?? [];
       setKeys(list);
@@ -42,7 +42,7 @@ const ApiKeysTab = ({org}: Props) => {
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [orgId, org?.id]);
 
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [pendingAction, setPendingAction] = useState<null | {op: 'generate' | 'rotate'; type: 'ADMIN_KEY' | 'RECEIVER_KEY'}>(null);
@@ -64,7 +64,10 @@ const ApiKeysTab = ({org}: Props) => {
     setBusy(true);
     setGenerated(null);
     try {
-      const res = op === 'generate' ? await api.generateApiKey(type, org?.id) : await api.rotateApiKey(type, org?.id);
+      const res =
+        op === 'generate'
+          ? await api.generateApiKey(type, orgId ?? org?.id)
+          : await api.rotateApiKey(type, orgId ?? org?.id);
       const key = (res as any)?.key ?? (res as any)?.secret ?? null;
       if (key) {
         setGenerated({type, key});
