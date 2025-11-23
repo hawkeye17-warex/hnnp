@@ -71,8 +71,8 @@ const ReceiversPage = ({orgId}: Props) => {
         statusFilter === 'all'
           ? true
           : statusFilter === 'online'
-          ? r.status === 'online'
-          : r.status && r.status !== 'online';
+          ? computeStatus(r) === 'Active'
+          : computeStatus(r) !== 'Active';
       return matchesText && matchesStatus;
     });
   }, [receivers, search, statusFilter]);
@@ -147,7 +147,7 @@ const ReceiversPage = ({orgId}: Props) => {
                 <div>{r.location || '�?"'}</div>
                 <div>{r.authMode || '�?"'}</div>
                 <div>
-                  <span className="badge">{r.status || 'unknown'}</span>
+                  <span className="badge">{computeStatus(r)}</span>
                 </div>
                 <div>{formatTime(r.last_seen_at)}</div>
               </div>
@@ -200,6 +200,23 @@ const formatTime = (ts?: string) => {
   const d = new Date(ts);
   if (Number.isNaN(d.getTime())) return '�?"';
   return d.toLocaleString();
+};
+
+const computeStatus = (r: Receiver): 'Active' | 'Idle' | 'Offline' | 'Misconfigured' | 'Key expired' | 'Unknown' => {
+  const raw = (r.status || '').toLowerCase();
+  if (raw.includes('misconfig')) return 'Misconfigured';
+  if (raw.includes('expired')) return 'Key expired';
+  const last = r.last_seen_at ? new Date(r.last_seen_at).getTime() : null;
+  const now = Date.now();
+  if (last && !Number.isNaN(last)) {
+    if (now - last < 5 * 60 * 1000) return 'Active';
+    if (now - last < 30 * 60 * 1000) return 'Idle';
+    return 'Offline';
+  }
+  if (raw === 'online' || raw === 'active') return 'Active';
+  if (raw === 'idle') return 'Idle';
+  if (raw === 'offline') return 'Offline';
+  return 'Unknown';
 };
 
 export default ReceiversPage;

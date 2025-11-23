@@ -72,13 +72,10 @@ const ReceiverDetailsPage = () => {
   const {health, lastSeenDisplay, errorCount} = useMemo(() => {
     const last = receiver?.last_seen_at ? new Date(receiver.last_seen_at) : null;
     const now = Date.now();
-    const online =
-      receiver?.status === 'online' ||
-      receiver?.status === 'active' ||
-      (last && !Number.isNaN(last.getTime()) && now - last.getTime() < 20 * 60 * 1000);
+    const statusLabel = computeStatus(receiver, now);
     const errs = events.filter(ev => (ev.status || '').toLowerCase() === 'error' || (ev.status || '').toLowerCase() === 'failed').length;
     return {
-      health: online ? 'Healthy' : 'Unreachable',
+      health: statusLabel,
       lastSeenDisplay: last && !Number.isNaN(last.getTime()) ? last.toLocaleString() : '�?"',
       errorCount: errs,
     };
@@ -205,9 +202,9 @@ const ReceiverDetailsPage = () => {
       {tab === 'status' ? (
         <Card>
           <h3>Status</h3>
-          <p className="muted">Current status: {receiver.status || '�?"'}</p>
+          <p className="muted">Current status: {health}</p>
+          <p className="muted">Raw status: {receiver.status || '�?"'}</p>
           <p className="muted">Last seen: {lastSeenDisplay}</p>
-          <p className="muted">Health: {health}</p>
         </Card>
       ) : null}
 
@@ -232,6 +229,26 @@ const formatTime = (ev: PresenceEvent) => {
   const d = new Date(ts);
   if (Number.isNaN(d.getTime())) return '�?"';
   return d.toLocaleString();
+};
+
+const computeStatus = (
+  r: Receiver | null,
+  now: number,
+): 'Active' | 'Idle' | 'Offline' | 'Misconfigured' | 'Key expired' | 'Unknown' => {
+  if (!r) return 'Unknown';
+  const raw = (r.status || '').toLowerCase();
+  if (raw.includes('misconfig')) return 'Misconfigured';
+  if (raw.includes('expired')) return 'Key expired';
+  const last = r.last_seen_at ? new Date(r.last_seen_at).getTime() : null;
+  if (last && !Number.isNaN(last)) {
+    if (now - last < 5 * 60 * 1000) return 'Active';
+    if (now - last < 30 * 60 * 1000) return 'Idle';
+    return 'Offline';
+  }
+  if (raw === 'online' || raw === 'active') return 'Active';
+  if (raw === 'idle') return 'Idle';
+  if (raw === 'offline' || raw === 'unreachable') return 'Offline';
+  return 'Unknown';
 };
 
 export default ReceiverDetailsPage;
