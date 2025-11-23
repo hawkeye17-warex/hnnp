@@ -1,52 +1,76 @@
-import React from 'react';
+import React, {Suspense} from 'react';
 import ReactDOM from 'react-dom/client';
 import {createBrowserRouter, RouterProvider, Navigate} from 'react-router-dom';
 
 import './styles.css';
-import ApiDocsPage from './pages/ApiDocsPage';
-import LinksPage from './pages/LinksPage';
-import LoginPage from './pages/LoginPage';
-import OrgSettingsPage from './pages/OrgSettingsPage';
-import OverviewPage from './pages/OverviewPage';
-import PresencePage from './pages/PresencePage';
-import ReceiversPage from './pages/ReceiversPage';
-import OrganizationDetailsPage from './pages/OrganizationDetailsPage';
-import DashboardPage from './pages/DashboardPage';
-import SupabaseLoginPage from './pages/SupabaseLoginPage';
-import ForgotPasswordPage from './pages/ForgotPasswordPage';
-import ResetPasswordPage from './pages/ResetPasswordPage';
-import AdminAccountPage from './pages/AdminAccountPage';
-import OrganizationsPage from './pages/OrganizationsPage';
+import LoadingState from './components/LoadingState';
 import MainLayout from './layout/MainLayout';
 import {ThemeProvider} from './theme/ThemeProvider';
 import {AuthProvider, ProtectedRoute} from './context/AuthContext';
 import {ToastProvider} from './context/ToastContext';
 
+const OverviewPage = React.lazy(() => import('./pages/OverviewPage'));
+const ReceiversPage = React.lazy(() => import('./pages/ReceiversPage'));
+const PresencePage = React.lazy(() => import('./pages/PresencePage'));
+const LinksPage = React.lazy(() => import('./pages/LinksPage'));
+const OrgSettingsPage = React.lazy(() => import('./pages/OrgSettingsPage'));
+const ApiDocsPage = React.lazy(() => import('./pages/ApiDocsPage'));
+const AdminAccountPage = React.lazy(() => import('./pages/AdminAccountPage'));
+const OrganizationsPage = React.lazy(() => import('./pages/OrganizationsPage'));
+const OrganizationDetailsPage = React.lazy(() => import('./pages/OrganizationDetailsPage'));
+const DashboardPage = React.lazy(() => import('./pages/DashboardPage'));
+const SupabaseLoginPage = React.lazy(() => import('./pages/SupabaseLoginPage'));
+const ForgotPasswordPage = React.lazy(() => import('./pages/ForgotPasswordPage'));
+const ResetPasswordPage = React.lazy(() => import('./pages/ResetPasswordPage'));
+const LoginPage = React.lazy(() => import('./pages/LoginPage'));
+
 const ProtectedLayout = ProtectedRoute(MainLayout);
 
+const withLoader = (element: React.ReactNode) => (
+  <Suspense
+    fallback={
+      <div className="overview">
+        <LoadingState message="Loading..." />
+      </div>
+    }>
+    {element}
+  </Suspense>
+);
+
+// Support static hosting without SPA rewrites: if redirected with ?redirect=, restore path before router mounts.
+const url = new URL(window.location.href);
+const redirect = url.searchParams.get('redirect');
+if (redirect) {
+  window.history.replaceState({}, '', redirect);
+}
+
+const basename = import.meta.env.BASE_URL || '/';
+
 const router = createBrowserRouter([
-  {path: '/supabase-login', element: <SupabaseLoginPage />},
+  {path: '/supabase-login', element: withLoader(<SupabaseLoginPage />)},
   {path: '/forget-password', element: <Navigate to="/forgot-password" replace />},
-  {path: '/forgot-password', element: <ForgotPasswordPage />},
-  {path: '/reset-password', element: <ResetPasswordPage />},
-  {path: '/dashboard', element: <DashboardPage />},
-  {path: '/login', element: <LoginPage />},
+  {path: '/forgot-password', element: withLoader(<ForgotPasswordPage />)},
+  {path: '/reset-password', element: withLoader(<ResetPasswordPage />)},
+  {path: '/dashboard', element: withLoader(<DashboardPage />)},
+  {path: '/login', element: withLoader(<LoginPage />)},
   {
     path: '/',
     element: <ProtectedLayout />,
     children: [
-      {path: 'overview', element: <OverviewPage />},
-      {path: 'receivers', element: <ReceiversPage />},
-      {path: 'presence', element: <PresencePage />},
-      {path: 'links', element: <LinksPage />},
-      {path: 'org-settings', element: <OrgSettingsPage />},
-      {path: 'api', element: <ApiDocsPage />},
-      {path: 'account', element: <AdminAccountPage />},
-      {path: 'organizations', element: <OrganizationsPage />},
-      {path: 'organizations/:id', element: <OrganizationDetailsPage />},
+      {path: 'overview', element: withLoader(<OverviewPage />)},
+      {path: 'receivers', element: withLoader(<ReceiversPage />)},
+      {path: 'presence', element: withLoader(<PresencePage />)},
+      {path: 'links', element: withLoader(<LinksPage />)},
+      {path: 'org-settings', element: withLoader(<OrgSettingsPage />)},
+      {path: 'api', element: withLoader(<ApiDocsPage />)},
+      {path: 'account', element: withLoader(<AdminAccountPage />)},
+      {path: 'organizations', element: withLoader(<OrganizationsPage />)},
+      {path: 'organizations/:id', element: withLoader(<OrganizationDetailsPage />)},
+      {path: '*', element: <Navigate to="/overview" replace />},
     ],
   },
-]);
+  {path: '*', element: <Navigate to="/overview" replace />},
+], {basename});
 
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
   <React.StrictMode>

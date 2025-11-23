@@ -233,6 +233,16 @@ const OrganizationsPage = () => {
             value={toDate}
             onChange={e => setToDate(e.target.value)}
           />
+          <button
+            className="secondary"
+            type="button"
+            onClick={() => {
+              setSearch('');
+              setFromDate('');
+              setToDate('');
+            }}>
+            Clear filters
+          </button>
         </div>
         <div className="actions">
           <button className="primary" onClick={() => setCreateOpen(true)} disabled={readOnly}>
