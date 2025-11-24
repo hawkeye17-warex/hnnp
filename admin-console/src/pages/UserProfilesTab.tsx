@@ -32,6 +32,14 @@ const UserProfilesTab = ({orgId}: Props) => {
   const [formCaps, setFormCaps] = useState('');
   const [saving, setSaving] = useState(false);
   const [formErr, setFormErr] = useState<string | null>(null);
+  const presets = useMemo(
+    () => [
+      {label: 'Student (attendance + quiz)', caps: ['attendance', 'quiz']},
+      {label: 'Worker (attendance + shift + breaks)', caps: ['attendance', 'shift', 'breaks']},
+      {label: 'Viewer (view-only attendance)', caps: ['attendance:view']},
+    ],
+    [],
+  );
 
   const load = async () => {
     setLoading(true);
@@ -160,6 +168,20 @@ const UserProfilesTab = ({orgId}: Props) => {
               />
             </label>
             {formErr ? <div className="form__error">{formErr}</div> : null}
+            <div className="form__field" style={{display: 'flex', gap: 8, flexWrap: 'wrap'}}>
+              {presets.map(preset => (
+                <button
+                  key={preset.label}
+                  type="button"
+                  className="secondary"
+                  onClick={() => {
+                    setFormCaps(preset.caps.join(', '));
+                    if (!formType) setFormType(preset.label.split(' ')[0].toLowerCase());
+                  }}>
+                  Use {preset.label}
+                </button>
+              ))}
+            </div>
             <div style={{display: 'flex', gap: 8}}>
               <button className="primary" type="button" disabled={saving} onClick={async () => {
                 setSaving(true);
