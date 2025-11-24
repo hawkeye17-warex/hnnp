@@ -8,6 +8,7 @@ import { orgsRouter } from "./routes/orgs";
 import { linksRouter } from "./routes/links";
 import { presenceReadRouter } from "./routes/presenceRead";
 import { adminAuthLogRouter } from "./routes/adminAuthLog";
+import { adminUsersRouter } from "./routes/adminUsers";
 import { prisma } from "./db/prisma";
 import cors from "cors";
 
@@ -34,6 +35,7 @@ app.use(orgsRouter);
 app.use(linksRouter);
 app.use(presenceReadRouter);
 app.use(adminAuthLogRouter);
+app.use(adminUsersRouter);
 
 const server = http.createServer(app);
 

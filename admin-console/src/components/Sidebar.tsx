@@ -10,6 +10,7 @@ const navItems = [
   {to: '/links', label: 'Links'},
   {to: '/org-settings', label: 'Org Settings'},
   {to: '/organizations', label: 'Organizations'},
+  {to: '/admin-users', label: 'Admin Users'},
   {to: '/account', label: 'Account'},
   {to: '/api', label: 'API'},
 ];

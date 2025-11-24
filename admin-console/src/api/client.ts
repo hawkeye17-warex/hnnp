@@ -224,6 +224,44 @@ export const createApiClient = (session: Session) => {
     return res.json();
   };
 
+  /* ---------------- Admin Users ---------------- */
+  const getAdminUsers = async () => {
+    const res = await fetch(`${baseUrl}/internal/admin-users`, {
+      headers: buildHeaders(session),
+    });
+    if (!res.ok) throw new Error('Failed to fetch admin users');
+    return res.json();
+  };
+
+  const createAdminUser = async (payload: Record<string, unknown>) => {
+    const res = await fetch(`${baseUrl}/internal/admin-users`, {
+      method: 'POST',
+      headers: buildHeaders(session),
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) throw new Error('Failed to create admin user');
+    return res.json();
+  };
+
+  const updateAdminUser = async (id: string, payload: Record<string, unknown>) => {
+    const res = await fetch(`${baseUrl}/internal/admin-users/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      headers: buildHeaders(session),
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) throw new Error('Failed to update admin user');
+    return res.json();
+  };
+
+  const deleteAdminUser = async (id: string) => {
+    const res = await fetch(`${baseUrl}/internal/admin-users/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+      headers: buildHeaders(session),
+    });
+    if (!res.ok) throw new Error('Failed to delete admin user');
+    return true;
+  };
+
   const createLink = async (payload: LinkPayload) => {
     const res = await fetch(`${baseUrl}/v1/links`, {
       method: 'POST',
@@ -273,6 +311,10 @@ export const createApiClient = (session: Session) => {
     inviteOrgUser,
     getOrgUsageMetrics,
     getOrgErrors,
+    getAdminUsers,
+    createAdminUser,
+    updateAdminUser,
+    deleteAdminUser,
   };
 };
 
