@@ -1176,6 +1176,7 @@ router.post("/v2/orgs/:org_id/quizzes/:quiz_id/submit", requireRole("read-only")
 
 router.get("/v2/orgs/:org_id/quizzes/:quiz_id/submissions", requireRole("auditor"), async (req: Request, res: Response) => {
   const { org_id, quiz_id } = req.params;
+  const exportType = req.query.export;
   try {
     const quiz = await prisma.quizSession.findFirst({ where: { id: quiz_id, orgId: org_id } });
     if (!quiz) return res.status(404).json({ error: "Quiz not found" });
@@ -1185,6 +1186,25 @@ router.get("/v2/orgs/:org_id/quizzes/:quiz_id/submissions", requireRole("auditor
       orderBy: { submittedAt: "desc" },
       take: 200,
     });
+
+    if (exportType === "csv") {
+      const header = ["id", "profile_id", "submitted_at", "score", "status"];
+      const lines = submissions.map((s) =>
+        [
+          s.id,
+          s.profileId,
+          s.submittedAt.toISOString(),
+          s.score ?? "",
+          s.status,
+        ]
+          .map((v) => `"${String(v).replace(/"/g, '""')}"`)
+          .join(","),
+      );
+      const csv = [header.join(","), ...lines].join("\n");
+      res.setHeader("Content-Type", "text/csv");
+      res.setHeader("Content-Disposition", `attachment; filename="quiz_${quiz_id}_submissions.csv"`);
+      return res.send(csv);
+    }
 
     const avgScore =
       submissions.length > 0

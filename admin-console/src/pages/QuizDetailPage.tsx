@@ -166,22 +166,44 @@ const QuizDetailPage = () => {
                 </div>
               </div>
               <div className="table">
-                <div className="table__row table__head">
-                  <div>Profile</div>
-                  <div>Submitted at</div>
-                  <div>Score</div>
-                  <div>Status</div>
+            <div className="table__row table__head">
+              <div>Profile</div>
+              <div>Submitted at</div>
+              <div>Score</div>
+              <div>Status</div>
+            </div>
+            {subs.map(s => (
+              <div className="table__row" key={s.id}>
+                <div>{s.profile_id}</div>
+                <div className="muted">{formatDate(s.submitted_at)}</div>
+                <div>{s.score ?? '—'}</div>
+                <div>
+                  <span className="badge">{s.status}</span>
                 </div>
-                {subs.map(s => (
-                  <div className="table__row" key={s.id}>
-                    <div>{s.profile_id}</div>
-                    <div className="muted">{formatDate(s.submitted_at)}</div>
-                    <div>{s.score ?? '—'}</div>
-                    <div>
-                      <span className="badge">{s.status}</span>
-                    </div>
-                  </div>
-                ))}
+              </div>
+            ))}
+            </div>
+              <div className="actions" style={{marginTop: 12}}>
+                <button
+                  className="secondary"
+                  type="button"
+                  onClick={async () => {
+                    if (!orgId || !quizId) return;
+                    try {
+                      const csv = await api.exportQuizSubmissionsCsv(orgId, quizId);
+                      const blob = new Blob([csv], {type: 'text/csv'});
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = url;
+                      a.download = `quiz_${quizId}_submissions.csv`;
+                      a.click();
+                      URL.revokeObjectURL(url);
+                    } catch (err: any) {
+                      toast.error(err?.message ?? 'Failed to export CSV');
+                    }
+                  }}>
+                  Export CSV
+                </button>
               </div>
             </>
           ) : (
