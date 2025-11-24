@@ -1,7 +1,8 @@
 import { Router, Request, Response } from "express";
 import argon2 from "argon2";
 import crypto from "crypto";
-import type { Org, Prisma, Receiver } from "@prisma/client";
+import type { Org, Receiver } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import { prisma } from "../db/prisma";
 import { apiKeyAuth } from "../middleware/apiKeyAuth";
 import { computeApiKeyHash } from "../security/apiKeys";
@@ -514,13 +515,14 @@ router.get("/v2/orgs/:org_id/metrics/realtime", requireRole("read-only"), async 
     const sinceEvents = new Date(Date.now() - windowSeconds * 1000);
     const sinceReceivers = new Date(Date.now() - receiversMinutes * 60 * 1000);
 
-    const [eventsCount, activeReceivers, onlineUsers] = await Promise.all([
+    const [eventsCount, activeReceiversList, onlineUsers] = await Promise.all([
       prisma.presenceEvent.count({
         where: { orgId: org_id, serverTimestamp: { gte: sinceEvents } },
       }),
-      prisma.presenceEvent.count({
+      prisma.presenceEvent.findMany({
         where: { orgId: org_id, serverTimestamp: { gte: sinceReceivers } },
-        distinct: [Prisma.PresenceEventScalarFieldEnum.receiverId],
+        distinct: ["receiverId"],
+        select: { receiverId: true },
       }),
       prisma.presenceSession.count({
         where: { orgId: org_id, endedAt: null },
@@ -533,7 +535,7 @@ router.get("/v2/orgs/:org_id/metrics/realtime", requireRole("read-only"), async 
       org_id,
       events_per_sec: eventsPerSec,
       events_window_seconds: windowSeconds,
-      active_receivers: activeReceivers,
+      active_receivers: activeReceiversList.length,
       receivers_window_minutes: receiversMinutes,
       online_users: onlineUsers,
       updated_at: new Date().toISOString(),
