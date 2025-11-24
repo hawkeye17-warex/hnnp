@@ -65,6 +65,14 @@ router.post("/internal/orgs/create", async (req: Request, res: Response) => {
 
 router.use(apiKeyAuth);
 
+router.get("/internal/test-auth", async (req: Request, res: Response) => {
+  if (!req.org) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+  const { id, name, slug } = req.org;
+  return res.json({ ok: true, org: { id, name, slug } });
+});
+
 function serializeOrg(org: Org) {
   return {
     org_id: org.id,
