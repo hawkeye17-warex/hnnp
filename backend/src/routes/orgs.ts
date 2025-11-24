@@ -129,6 +129,53 @@ function generateRawKey() {
   return { rawKey, keyPrefix };
 }
 
+type SystemSettings = {
+  presence_expiry_seconds: number;
+  rate_limit_per_minute: number;
+  log_retention_days: number;
+  email_from: string;
+  email_template_subject: string;
+  email_template_body: string;
+};
+
+const defaultSystemSettings: SystemSettings = {
+  presence_expiry_seconds: 60 * 5,
+  rate_limit_per_minute: 120,
+  log_retention_days: 30,
+  email_from: "hnnp.nearid@gmail.com",
+  email_template_subject: "NearID notification",
+  email_template_body: "Hello {{org_name}},\n\nThis is a message from NearID.\n\nThank you,\nNearID Team",
+};
+
+function normalizeSettings(partial: Partial<SystemSettings> | null | undefined): SystemSettings {
+  return {
+    presence_expiry_seconds:
+      typeof partial?.presence_expiry_seconds === "number" && partial.presence_expiry_seconds > 0
+        ? partial.presence_expiry_seconds
+        : defaultSystemSettings.presence_expiry_seconds,
+    rate_limit_per_minute:
+      typeof partial?.rate_limit_per_minute === "number" && partial.rate_limit_per_minute > 0
+        ? partial.rate_limit_per_minute
+        : defaultSystemSettings.rate_limit_per_minute,
+    log_retention_days:
+      typeof partial?.log_retention_days === "number" && partial.log_retention_days > 0
+        ? partial.log_retention_days
+        : defaultSystemSettings.log_retention_days,
+    email_from:
+      typeof partial?.email_from === "string" && partial.email_from.trim().length > 0
+        ? partial.email_from.trim()
+        : defaultSystemSettings.email_from,
+    email_template_subject:
+      typeof partial?.email_template_subject === "string" && partial.email_template_subject.trim().length > 0
+        ? partial.email_template_subject.trim()
+        : defaultSystemSettings.email_template_subject,
+    email_template_body:
+      typeof partial?.email_template_body === "string" && partial.email_template_body.trim().length > 0
+        ? partial.email_template_body
+        : defaultSystemSettings.email_template_body,
+  };
+}
+
 router.get("/v2/orgs/:org_id", requireRole("read-only"), async (req: Request, res: Response) => {
   const { org_id } = req.params;
 
@@ -537,6 +584,58 @@ router.post(
     }
   },
 );
+
+router.get("/v2/orgs/:org_id/settings", requireRole("read-only"), async (req: Request, res: Response) => {
+  const { org_id } = req.params;
+  try {
+    const org = await prisma.org.findUnique({ where: { id: org_id } });
+    if (!org) return res.status(404).json({ error: "Org not found" });
+    const config = (org.config ?? {}) as any;
+    const settings = normalizeSettings(config.systemSettings as Partial<SystemSettings> | undefined);
+    return res.json({ system_settings: settings });
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error("Error fetching system settings", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.patch("/v2/orgs/:org_id/settings", requireRole("admin"), async (req: Request, res: Response) => {
+  const { org_id } = req.params;
+  const body = (req.body ?? {}) as Partial<SystemSettings>;
+
+  try {
+    const org = await prisma.org.findUnique({ where: { id: org_id } });
+    if (!org) return res.status(404).json({ error: "Org not found" });
+
+    const currentConfig = (org.config ?? {}) as any;
+    const merged = normalizeSettings({ ...(currentConfig.systemSettings as any), ...body });
+
+    const updated = await prisma.org.update({
+      where: { id: org_id },
+      data: {
+        config: {
+          ...(currentConfig || {}),
+          systemSettings: merged,
+        },
+      },
+    });
+
+    await logAudit({
+      action: "system_settings_update",
+      entityType: "system_settings",
+      entityId: org_id,
+      details: merged,
+      ...buildAuditContext(req),
+    });
+
+    return res.json({ system_settings: normalizeSettings((updated.config as any)?.systemSettings) });
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error("Error updating system settings", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
 
 router.get("/v2/orgs/:org_id/presence", requireRole("auditor"), async (req: Request, res: Response) => {
   const { org_id } = req.params;

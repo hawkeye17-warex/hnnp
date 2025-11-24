@@ -174,6 +174,26 @@ export const createApiClient = (session: Session) => {
     return res.json();
   };
 
+  const getSystemSettings = async (orgId?: string) => {
+    const id = orgId ?? session.orgId;
+    const res = await fetch(`${baseUrl}/v2/orgs/${encodeURIComponent(id)}/settings`, {
+      headers: buildHeaders(session),
+    });
+    if (!res.ok) throw new Error('Failed to load system settings');
+    return res.json();
+  };
+
+  const updateSystemSettings = async (payload: Record<string, unknown>, orgId?: string) => {
+    const id = orgId ?? session.orgId;
+    const res = await fetch(`${baseUrl}/v2/orgs/${encodeURIComponent(id)}/settings`, {
+      method: 'PATCH',
+      headers: buildHeaders(session),
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) throw new Error('Failed to update system settings');
+    return res.json();
+  };
+
   /* ---------------- Org Users ---------------- */
   const getOrgUsers = async (orgId?: string, params: Record<string, string | number> = {}) => {
     const id = orgId ?? session.orgId;
@@ -307,6 +327,8 @@ export const createApiClient = (session: Session) => {
     getApiKeys,
     generateApiKey,
     rotateApiKey,
+    getSystemSettings,
+    updateSystemSettings,
     getOrgUsers,
     inviteOrgUser,
     getOrgUsageMetrics,

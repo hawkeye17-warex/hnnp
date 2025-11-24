@@ -9,6 +9,7 @@ const navItems = [
   {to: '/presence', label: 'Presence Events'},
   {to: '/links', label: 'Links'},
   {to: '/org-settings', label: 'Org Settings'},
+  {to: '/system-settings', label: 'System Settings'},
   {to: '/organizations', label: 'Organizations'},
   {to: '/admin-users', label: 'Admin Users'},
   {to: '/audit-logs', label: 'Audit Logs'},
