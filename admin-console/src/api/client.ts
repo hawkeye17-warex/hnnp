@@ -239,6 +239,16 @@ export const createApiClient = (session: Session) => {
     return res.json();
   };
 
+  const deleteOrgProfile = async (orgId: string, profileId: string) => {
+    const url = `${baseUrl}/v2/orgs/${encodeURIComponent(orgId)}/profiles/${encodeURIComponent(profileId)}`;
+    const res = await fetch(url, {
+      method: 'DELETE',
+      headers: buildHeaders(session),
+    });
+    if (!res.ok) throw new Error('Failed to delete user profile');
+    return true;
+  };
+
   /* ---------------- Org Metrics / Errors ---------------- */
   const getOrgUsageMetrics = async (params: Record<string, string | number> = {}, orgId?: string) => {
     const id = orgId ?? session.orgId;
@@ -366,6 +376,7 @@ export const createApiClient = (session: Session) => {
     getOrgProfiles,
     createOrgProfile,
     updateOrgProfile,
+    deleteOrgProfile,
     getOrgProfileActivity: async (orgId: string, profileId: string) => {
       const url = `${baseUrl}/v2/orgs/${encodeURIComponent(orgId)}/profiles/${encodeURIComponent(profileId)}/activity`;
       const res = await fetch(url, {

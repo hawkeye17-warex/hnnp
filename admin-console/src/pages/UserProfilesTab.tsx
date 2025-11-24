@@ -13,6 +13,8 @@ type Profile = {
   type: string;
   capabilities: string[];
   created_at?: string;
+  org_status?: string;
+  user_missing?: boolean;
 };
 
 type Props = {
@@ -122,11 +124,18 @@ const UserProfilesTab = ({orgId}: Props) => {
           </div>
           {filtered.map(p => (
             <div className="table__row" key={p.id}>
-              <div>{p.user_id}</div>
+              <div>
+                {p.user_id}{' '}
+                {(p.user_missing || (p.org_status && p.org_status.toLowerCase() !== 'active')) && (
+                  <span className="badge" style={{background: '#ffd7d7', color: '#a00'}}>
+                    {p.user_missing ? 'User missing/inactive' : 'Org disabled'}
+                  </span>
+                )}
+              </div>
               <div>{p.type}</div>
               <div>{(p.capabilities || []).join(', ') || '—'}</div>
               <div className="muted">{formatDate(p.created_at)}</div>
-              <div className="table__actions">
+              <div className="table__actions" style={{display: 'flex', gap: 6}}>
                 <button
                   className="secondary"
                   type="button"
@@ -139,6 +148,23 @@ const UserProfilesTab = ({orgId}: Props) => {
                     setFormOpen(true);
                   }}>
                   Edit
+                </button>
+                <button
+                  className="secondary"
+                  type="button"
+                  onClick={async () => {
+                    if (!window.confirm('Remove this profile?')) return;
+                    setSaving(true);
+                    try {
+                      await api.deleteOrgProfile(orgId, p.id);
+                      await load();
+                    } catch (err: any) {
+                      setFormErr(err?.message ?? 'Failed to delete profile.');
+                    } finally {
+                      setSaving(false);
+                    }
+                  }}>
+                  Remove
                 </button>
                 <button
                   className="secondary"

@@ -115,7 +115,7 @@ function serializeReceiver(receiver: Receiver) {
   };
 }
 
-function serializeProfile(profile: UserProfile) {
+function serializeProfile(profile: UserProfile, opts?: { orgStatus?: string; userMissing?: boolean }) {
   const capsRaw = profile.capabilities;
   let capabilities: string[] = [];
   if (Array.isArray(capsRaw)) {
@@ -130,6 +130,8 @@ function serializeProfile(profile: UserProfile) {
     type: profile.type,
     capabilities,
     created_at: profile.createdAt.toISOString(),
+    org_status: opts?.orgStatus,
+    user_missing: opts?.userMissing ?? false,
   };
 }
 
@@ -719,7 +721,22 @@ router.get("/v2/orgs/:org_id/profiles", requireRole("read-only"), async (req: Re
       take: 200,
     });
 
-    return res.json(profiles.map(serializeProfile));
+    const orgStatus = org.status;
+    const userIds = profiles.map((p) => p.userId);
+    const users = await prisma.adminUser.findMany({
+      where: {
+        OR: [{ id: { in: userIds } }, { email: { in: userIds } }],
+      },
+      select: { id: true, email: true, status: true },
+    });
+
+    const profilesWithFlags = profiles.map((p) => {
+      const match = users.find((u) => u.id === p.userId || u.email === p.userId);
+      const userMissing = !match || (match.status && match.status.toLowerCase() !== "active");
+      return serializeProfile(p, { orgStatus, userMissing });
+    });
+
+    return res.json(profilesWithFlags);
   } catch (err) {
     // eslint-disable-next-line no-console
     console.error("Error listing profiles", err);
@@ -816,6 +833,37 @@ router.patch("/v2/orgs/:org_id/profiles/:profile_id", requireRole("admin"), asyn
     return res.status(500).json({ error: "Internal server error" });
   }
 });
+
+router.delete(
+  "/v2/orgs/:org_id/profiles/:profile_id",
+  requireRole("admin"),
+  async (req: Request, res: Response) => {
+    const { org_id, profile_id } = req.params;
+    try {
+      const org = await prisma.org.findUnique({ where: { id: org_id } });
+      if (!org) return res.status(404).json({ error: "Org not found" });
+
+      await prisma.userProfile.delete({ where: { id: profile_id } });
+
+      await logAudit({
+        action: "user_profile_delete",
+        entityType: "user_profile",
+        entityId: profile_id,
+        details: null,
+        ...buildAuditContext(req),
+      });
+
+      return res.status(204).send();
+    } catch (err: any) {
+      // eslint-disable-next-line no-console
+      console.error("Error deleting profile", err);
+      if (err?.code === "P2025") {
+        return res.status(404).json({ error: "User profile not found" });
+      }
+      return res.status(500).json({ error: "Internal server error" });
+    }
+  },
+);
 
 router.get(
   "/v2/orgs/:org_id/profiles/:profile_id/activity",
