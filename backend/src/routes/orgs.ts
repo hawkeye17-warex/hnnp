@@ -115,6 +115,20 @@ function serializeReceiver(receiver: Receiver) {
   };
 }
 
+type KeyType = "ADMIN_KEY" | "RECEIVER_KEY";
+
+function mapKeyType(type: KeyType) {
+  return type === "RECEIVER_KEY" ? { name: "RECEIVER_KEY", scopes: "receiver" } : { name: "ADMIN_KEY", scopes: "admin" };
+}
+
+function generateRawKey() {
+  const randomPart = crypto.randomBytes(10).toString("hex"); // 20 chars
+  const suffix = crypto.randomBytes(16).toString("hex");
+  const rawKey = `hnnp_live_${randomPart}${suffix}`;
+  const keyPrefix = `hnnp_live_${randomPart.slice(0, 10)}`;
+  return { rawKey, keyPrefix };
+}
+
 router.get("/v2/orgs/:org_id", requireRole("read-only"), async (req: Request, res: Response) => {
   const { org_id } = req.params;
 
@@ -411,6 +425,114 @@ router.patch(
     } catch (err) {
       // eslint-disable-next-line no-console
       console.error("Error updating receiver", err);
+      return res.status(500).json({ error: "Internal server error" });
+    }
+  },
+);
+
+router.get("/v2/orgs/:org_id/keys", requireRole("admin"), async (req: Request, res: Response) => {
+  const { org_id } = req.params;
+  try {
+    const org = await prisma.org.findUnique({ where: { id: org_id } });
+    if (!org) return res.status(404).json({ error: "Org not found" });
+
+    const keys = await prisma.apiKey.findMany({
+      where: { orgId: org_id },
+      orderBy: { createdAt: "desc" },
+    });
+    return res.json(
+      keys.map((k) => ({
+        type: k.name,
+        key_prefix: k.keyPrefix,
+        created_at: k.createdAt.toISOString(),
+        last_rotated_at: k.revokedAt ? k.revokedAt.toISOString() : undefined,
+        revoked_at: k.revokedAt ? k.revokedAt.toISOString() : undefined,
+        scopes: k.scopes,
+      })),
+    );
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error("Error listing api keys", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.post("/v2/orgs/:org_id/keys", requireRole("admin"), async (req: Request, res: Response) => {
+  const { org_id } = req.params;
+  const { type } = (req.body ?? {}) as { type?: KeyType };
+  const keyType: KeyType = type === "RECEIVER_KEY" ? "RECEIVER_KEY" : "ADMIN_KEY";
+
+  try {
+    const org = await prisma.org.findUnique({ where: { id: org_id } });
+    if (!org) return res.status(404).json({ error: "Org not found" });
+
+    const { name, scopes } = mapKeyType(keyType);
+    const { rawKey, keyPrefix } = generateRawKey();
+    const keyHash = computeApiKeyHash(rawKey, API_KEY_SECRET);
+
+    await prisma.apiKey.create({
+      data: {
+        orgId: org_id,
+        name,
+        scopes,
+        keyPrefix,
+        keyHash,
+      },
+    });
+
+    await logAudit({
+      action: "api_key_generate",
+      entityType: "api_key",
+      entityId: keyPrefix,
+      details: { type: name, scopes },
+      ...buildAuditContext(req),
+    });
+
+    return res.status(201).json({ key: rawKey, type: name });
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error("Error generating api key", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.post(
+  "/v2/orgs/:org_id/keys/:type/rotate",
+  requireRole("admin"),
+  async (req: Request, res: Response) => {
+    const { org_id, type } = req.params;
+    const keyType: KeyType = type === "RECEIVER_KEY" ? "RECEIVER_KEY" : "ADMIN_KEY";
+
+    try {
+      const org = await prisma.org.findUnique({ where: { id: org_id } });
+      if (!org) return res.status(404).json({ error: "Org not found" });
+
+      const { name, scopes } = mapKeyType(keyType);
+      const { rawKey, keyPrefix } = generateRawKey();
+      const keyHash = computeApiKeyHash(rawKey, API_KEY_SECRET);
+
+      await prisma.$transaction([
+        prisma.apiKey.updateMany({
+          where: { orgId: org_id, name },
+          data: { revokedAt: new Date() },
+        }),
+        prisma.apiKey.create({
+          data: { orgId: org_id, name, scopes, keyPrefix, keyHash },
+        }),
+      ]);
+
+      await logAudit({
+        action: "api_key_rotate",
+        entityType: "api_key",
+        entityId: keyPrefix,
+        details: { type: name, scopes },
+        ...buildAuditContext(req),
+      });
+
+      return res.status(201).json({ key: rawKey, type: name });
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error("Error rotating api key", err);
       return res.status(500).json({ error: "Internal server error" });
     }
   },
