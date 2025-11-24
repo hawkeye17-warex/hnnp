@@ -2,6 +2,7 @@ import React, {useState} from 'react';
 import {useParams, useNavigate} from 'react-router-dom';
 
 import Card from '../components/Card';
+import EmptyState from '../components/EmptyState';
 import {useApi} from '../api/client';
 import {useToast} from '../hooks/useToast';
 import {QuizQuestion} from '../types/quiz';
