@@ -450,6 +450,29 @@ export const createApiClient = (session: Session) => {
       if (!res.ok) throw new Error('Failed to create quiz');
       return res.json();
     },
+    getQuiz: async (orgId: string, quizId: string) => {
+      const res = await fetch(`${baseUrl}/v2/orgs/${encodeURIComponent(orgId)}/quizzes/${encodeURIComponent(quizId)}`, {
+        headers: buildHeaders(session),
+      });
+      if (!res.ok) throw new Error('Failed to fetch quiz');
+      return res.json();
+    },
+    startQuiz: async (orgId: string, quizId: string) => {
+      const res = await fetch(`${baseUrl}/v2/orgs/${encodeURIComponent(orgId)}/quizzes/${encodeURIComponent(quizId)}/start`, {
+        method: 'POST',
+        headers: buildHeaders(session),
+      });
+      if (!res.ok) throw new Error('Failed to start quiz');
+      return res.json();
+    },
+    endQuiz: async (orgId: string, quizId: string) => {
+      const res = await fetch(`${baseUrl}/v2/orgs/${encodeURIComponent(orgId)}/quizzes/${encodeURIComponent(quizId)}/end`, {
+        method: 'POST',
+        headers: buildHeaders(session),
+      });
+      if (!res.ok) throw new Error('Failed to end quiz');
+      return res.json();
+    },
   };
 };
 

@@ -1045,6 +1045,81 @@ router.post("/v2/orgs/:org_id/quizzes", requireRole("admin"), async (req: Reques
   }
 });
 
+router.get("/v2/orgs/:org_id/quizzes/:quiz_id", requireRole("read-only"), async (req: Request, res: Response) => {
+  const { org_id, quiz_id } = req.params;
+  try {
+    const quiz = await prisma.quizSession.findFirst({ where: { id: quiz_id, orgId: org_id } });
+    if (!quiz) return res.status(404).json({ error: "Quiz not found" });
+    return res.json(serializeQuiz(quiz));
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error("Error fetching quiz", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.post("/v2/orgs/:org_id/quizzes/:quiz_id/start", requireRole("admin"), async (req: Request, res: Response) => {
+  const { org_id, quiz_id } = req.params;
+  try {
+    const quiz = await prisma.quizSession.findFirst({ where: { id: quiz_id, orgId: org_id } });
+    if (!quiz) return res.status(404).json({ error: "Quiz not found" });
+
+    const now = new Date();
+    const updated = await prisma.quizSession.update({
+      where: { id: quiz_id },
+      data: {
+        status: "running",
+        startTime: quiz.startTime > now ? now : quiz.startTime,
+      },
+    });
+
+    await logAudit({
+      action: "quiz_start",
+      entityType: "quiz",
+      entityId: quiz_id,
+      details: { start_time: updated.startTime, status: updated.status },
+      ...buildAuditContext(req),
+    });
+
+    return res.json(serializeQuiz(updated));
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error("Error starting quiz", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.post("/v2/orgs/:org_id/quizzes/:quiz_id/end", requireRole("admin"), async (req: Request, res: Response) => {
+  const { org_id, quiz_id } = req.params;
+  try {
+    const quiz = await prisma.quizSession.findFirst({ where: { id: quiz_id, orgId: org_id } });
+    if (!quiz) return res.status(404).json({ error: "Quiz not found" });
+
+    const now = new Date();
+    const updated = await prisma.quizSession.update({
+      where: { id: quiz_id },
+      data: {
+        status: "closed",
+        endTime: now,
+      },
+    });
+
+    await logAudit({
+      action: "quiz_end",
+      entityType: "quiz",
+      entityId: quiz_id,
+      details: { end_time: updated.endTime, status: updated.status },
+      ...buildAuditContext(req),
+    });
+
+    return res.json(serializeQuiz(updated));
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error("Error ending quiz", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 router.get("/v2/orgs/:org_id/presence", requireRole("auditor"), async (req: Request, res: Response) => {
   const { org_id } = req.params;
   const receiverIdParam = req.query.receiver_id;

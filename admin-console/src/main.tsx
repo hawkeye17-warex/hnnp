@@ -32,6 +32,7 @@ const AuditLogsPage = React.lazy(() => import('./pages/AuditLogsPage'));
 const SystemSettingsPage = React.lazy(() => import('./pages/SystemSettingsPage'));
 const GlobalSearchPage = React.lazy(() => import('./pages/GlobalSearchPage'));
 const QuizBuilderPage = React.lazy(() => import('./pages/QuizBuilderPage'));
+const QuizDetailPage = React.lazy(() => import('./pages/QuizDetailPage'));
 
 const ProtectedLayout = ProtectedRoute(MainLayout);
 
@@ -82,6 +83,7 @@ const router = createBrowserRouter([
       {path: 'organizations', element: withLoader(<OrganizationsPage />)},
       {path: 'organizations/:id', element: withLoader(<OrganizationDetailsPage />)},
       {path: 'organizations/:id/quizzes/new', element: withLoader(<QuizBuilderPage />)},
+      {path: 'organizations/:id/quizzes/:quizId', element: withLoader(<QuizDetailPage />)},
       {path: 'admin-users', element: withLoader(<AdminUsersPage />)},
       {path: 'audit-logs', element: withLoader(<AuditLogsPage />)},
       {path: '*', element: <Navigate to="/overview" replace />},

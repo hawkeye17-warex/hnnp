@@ -121,8 +121,11 @@ const QuizzesTab = ({orgId}: Props) => {
               <div>{q.course_id || '—'}</div>
               <div className="muted">{formatDate(q.start_time)}</div>
               <div className="muted">{formatDate(q.end_time)}</div>
-              <div>
+              <div className="table__actions" style={{display: 'flex', gap: 8, alignItems: 'center'}}>
                 <span className="badge">{q.status}</span>
+                <button className="secondary" type="button" onClick={() => navigate(`/organizations/${orgId}/quizzes/${q.id}`)}>
+                  View
+                </button>
               </div>
             </div>
           ))}
