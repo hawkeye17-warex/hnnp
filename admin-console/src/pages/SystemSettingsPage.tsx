@@ -138,7 +138,9 @@ const SystemSettingsPage = () => {
             />
           </label>
           <label className="form__field">
-            <span>Email body (supports basic placeholders like {{org_name}})</span>
+            <span>
+              Email body (supports basic placeholders like {'{{org_name}}'})
+            </span>
             <textarea
               rows={6}
               value={settings.email_template_body}
