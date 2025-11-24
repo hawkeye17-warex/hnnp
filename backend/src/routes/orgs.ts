@@ -482,4 +482,65 @@ router.get("/v2/orgs/:org_id/presence", async (req: Request, res: Response) => {
   }
 });
 
+router.get("/v2/orgs/:org_id/metrics/realtime", async (req: Request, res: Response) => {
+  const { org_id } = req.params;
+  const windowSecondsParam = req.query.window_seconds;
+  const receiverWindowParam = req.query.receivers_minutes;
+
+  let windowSeconds = 60;
+  if (typeof windowSecondsParam === "string") {
+    const parsed = Number.parseInt(windowSecondsParam, 10);
+    if (Number.isFinite(parsed) && parsed >= 10 && parsed <= 300) {
+      windowSeconds = parsed;
+    }
+  }
+
+  let receiversMinutes = 5;
+  if (typeof receiverWindowParam === "string") {
+    const parsed = Number.parseInt(receiverWindowParam, 10);
+    if (Number.isFinite(parsed) && parsed >= 1 && parsed <= 60) {
+      receiversMinutes = parsed;
+    }
+  }
+
+  try {
+    const org = await prisma.org.findUnique({ where: { id: org_id } });
+    if (!org) {
+      return res.status(404).json({ error: "Org not found" });
+    }
+
+    const sinceEvents = new Date(Date.now() - windowSeconds * 1000);
+    const sinceReceivers = new Date(Date.now() - receiversMinutes * 60 * 1000);
+
+    const [eventsCount, activeReceivers, onlineUsers] = await Promise.all([
+      prisma.presenceEvent.count({
+        where: { orgId: org_id, serverTimestamp: { gte: sinceEvents } },
+      }),
+      prisma.presenceEvent.count({
+        where: { orgId: org_id, serverTimestamp: { gte: sinceReceivers } },
+        distinct: ["receiverId"],
+      }),
+      prisma.presenceSession.count({
+        where: { orgId: org_id, endedAt: null },
+      }),
+    ]);
+
+    const eventsPerSec = Number((eventsCount / windowSeconds).toFixed(2));
+
+    return res.json({
+      org_id,
+      events_per_sec: eventsPerSec,
+      events_window_seconds: windowSeconds,
+      active_receivers: activeReceivers,
+      receivers_window_minutes: receiversMinutes,
+      online_users: onlineUsers,
+      updated_at: new Date().toISOString(),
+    });
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error("Error fetching realtime metrics", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 export { router as orgsRouter };

@@ -31,6 +31,21 @@ export const createApiClient = (session: Session) => {
     return res.json();
   };
 
+  const getRealtimeMetrics = async (
+    orgId?: string,
+    params: {windowSeconds?: number; receiversMinutes?: number} = {},
+  ) => {
+    const id = orgId ?? session.orgId;
+    const url = new URL(`${baseUrl}/v2/orgs/${encodeURIComponent(id)}/metrics/realtime`);
+    if (params.windowSeconds) url.searchParams.set('window_seconds', String(params.windowSeconds));
+    if (params.receiversMinutes) url.searchParams.set('receivers_minutes', String(params.receiversMinutes));
+    const res = await fetch(url.toString(), {
+      headers: buildHeaders(session),
+    });
+    if (!res.ok) throw new Error('Failed to load realtime metrics');
+    return res.json();
+  };
+
   const getOrganizations = async (includeKeys = false) => {
     const url = new URL(`${baseUrl}/v2/orgs`);
     if (includeKeys) {
@@ -239,6 +254,7 @@ export const createApiClient = (session: Session) => {
 
   return {
     getOrg,
+    getRealtimeMetrics,
     getOrganizations,
     createOrganization,
     updateOrganization,

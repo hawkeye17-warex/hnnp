@@ -30,6 +30,13 @@ const OverviewPage = ({orgId}: Props) => {
   const [org, setOrg] = useState<any>(null);
   const [receivers, setReceivers] = useState<Receiver[]>([]);
   const [events, setEvents] = useState<PresenceEvent[]>([]);
+  const [realtime, setRealtime] = useState<{
+    eventsPerSec: number;
+    activeReceivers: number;
+    onlineUsers: number;
+    updatedAt?: string;
+  } | null>(null);
+  const [realtimeError, setRealtimeError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -70,6 +77,36 @@ const OverviewPage = ({orgId}: Props) => {
     load();
     return () => {
       mounted = false;
+    };
+  }, [api, orgId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    let timer: ReturnType<typeof setInterval> | null = null;
+
+    const loadRealtime = async () => {
+      try {
+        const data = await api.getRealtimeMetrics(orgId, {windowSeconds: 60, receiversMinutes: 5});
+        if (cancelled) return;
+        setRealtime({
+          eventsPerSec: Number(data?.events_per_sec ?? 0),
+          activeReceivers: Number(data?.active_receivers ?? 0),
+          onlineUsers: Number(data?.online_users ?? 0),
+          updatedAt: data?.updated_at,
+        });
+        setRealtimeError(null);
+      } catch (err: any) {
+        if (cancelled) return;
+        setRealtimeError(err?.message ?? 'Failed to load live counters.');
+      }
+    };
+
+    loadRealtime();
+    timer = setInterval(loadRealtime, 7000);
+
+    return () => {
+      cancelled = true;
+      if (timer) clearInterval(timer);
     };
   }, [api, orgId]);
 
@@ -143,6 +180,30 @@ const OverviewPage = ({orgId}: Props) => {
           <p className="muted">Events today</p>
           <h2>{eventsToday}</h2>
           <p className="muted">Last 10 shown below</p>
+        </Card>
+        <Card>
+          <p className="muted">Real-time</p>
+          {realtimeError ? (
+            <div className="form__error">{realtimeError}</div>
+          ) : (
+            <>
+              <div className="metric-row">
+                <span>Events/sec</span>
+                <strong>{realtime ? realtime.eventsPerSec.toFixed(2) : '—'}</strong>
+              </div>
+              <div className="metric-row">
+                <span>Active receivers</span>
+                <strong>{realtime ? realtime.activeReceivers : '—'}</strong>
+              </div>
+              <div className="metric-row">
+                <span>Online users</span>
+                <strong>{realtime ? realtime.onlineUsers : '—'}</strong>
+              </div>
+              <div className="muted" style={{fontSize: 12}}>
+                Auto-refreshing every few seconds
+              </div>
+            </>
+          )}
         </Card>
       </div>
 
