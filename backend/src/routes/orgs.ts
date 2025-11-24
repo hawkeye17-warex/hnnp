@@ -1,7 +1,7 @@
 import { Router, Request, Response } from "express";
 import argon2 from "argon2";
 import crypto from "crypto";
-import type { Org, Receiver, UserProfile } from "@prisma/client";
+import type { Org, Receiver, UserProfile, PresenceEvent } from "@prisma/client";
 import { Prisma } from "@prisma/client";
 import { prisma } from "../db/prisma";
 import { apiKeyAuth } from "../middleware/apiKeyAuth";
@@ -130,6 +130,21 @@ function serializeProfile(profile: UserProfile) {
     type: profile.type,
     capabilities,
     created_at: profile.createdAt.toISOString(),
+  };
+}
+
+function serializePresence(evt: PresenceEvent) {
+  return {
+    id: evt.id,
+    org_id: evt.orgId,
+    receiver_id: evt.receiverId,
+    token_prefix: evt.tokenPrefix,
+    auth_result: evt.authResult,
+    server_timestamp: evt.serverTimestamp.toISOString(),
+    client_timestamp_ms: Number(evt.clientTimestampMs),
+    flags: evt.flags,
+    user_ref: evt.userRef,
+    meta: evt.meta ?? null,
   };
 }
 
@@ -801,6 +816,36 @@ router.patch("/v2/orgs/:org_id/profiles/:profile_id", requireRole("admin"), asyn
     return res.status(500).json({ error: "Internal server error" });
   }
 });
+
+router.get(
+  "/v2/orgs/:org_id/profiles/:profile_id/activity",
+  requireRole("auditor"),
+  async (req: Request, res: Response) => {
+    const { org_id, profile_id } = req.params;
+    try {
+      const profile = await prisma.userProfile.findFirst({ where: { id: profile_id, orgId: org_id } });
+      if (!profile) return res.status(404).json({ error: "User profile not found" });
+
+      const presence = await prisma.presenceEvent.findMany({
+        where: { orgId: org_id, userRef: profile.userId },
+        orderBy: { serverTimestamp: "desc" },
+        take: 20,
+      });
+
+      return res.json({
+        profile: serializeProfile(profile),
+        presence_logs: presence.map(serializePresence),
+        student_attendance: profile.type.toLowerCase().includes("student") ? [] : undefined,
+        worker_shifts: profile.type.toLowerCase().includes("worker") ? [] : undefined,
+        worker_breaks: profile.type.toLowerCase().includes("worker") ? [] : undefined,
+      });
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error("Error fetching profile activity", err);
+      return res.status(500).json({ error: "Internal server error" });
+    }
+  },
+);
 
 router.get("/v2/orgs/:org_id/presence", requireRole("auditor"), async (req: Request, res: Response) => {
   const { org_id } = req.params;

@@ -40,6 +40,10 @@ const UserProfilesTab = ({orgId}: Props) => {
     ],
     [],
   );
+  const [activityProfile, setActivityProfile] = useState<Profile | null>(null);
+  const [activity, setActivity] = useState<any | null>(null);
+  const [activityLoading, setActivityLoading] = useState(false);
+  const [activityError, setActivityError] = useState<string | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -136,6 +140,25 @@ const UserProfilesTab = ({orgId}: Props) => {
                   }}>
                   Edit
                 </button>
+                <button
+                  className="secondary"
+                  type="button"
+                  onClick={async () => {
+                    setActivityProfile(p);
+                    setActivity(null);
+                    setActivityError(null);
+                    setActivityLoading(true);
+                    try {
+                      const res = await api.getOrgProfileActivity(orgId, p.id);
+                      setActivity(res);
+                    } catch (err: any) {
+                      setActivityError(err?.message ?? 'Failed to load activity.');
+                    } finally {
+                      setActivityLoading(false);
+                    }
+                  }}>
+                  View activity
+                </button>
               </div>
             </div>
           ))}
@@ -218,6 +241,68 @@ const UserProfilesTab = ({orgId}: Props) => {
               </button>
             </div>
           </div>
+        </div>
+      ) : null}
+
+      {activityProfile ? (
+        <div className="card" style={{marginTop: 12}}>
+          <h4>
+            Activity for {activityProfile.user_id} ({activityProfile.type})
+          </h4>
+          {activityLoading ? (
+            <LoadingState message="Loading activity..." />
+          ) : activityError ? (
+            <ErrorState message={activityError} onRetry={() => setActivityProfile(null)} />
+          ) : activity ? (
+            <div className="stack" style={{display: 'grid', gap: 12}}>
+              <div>
+                <h5>Recent presence logs</h5>
+                {activity.presence_logs && activity.presence_logs.length > 0 ? (
+                  <div className="table">
+                    <div className="table__row table__head">
+                      <div>Time</div>
+                      <div>Receiver</div>
+                      <div>Result</div>
+                      <div>Token prefix</div>
+                    </div>
+                    {activity.presence_logs.map((log: any) => (
+                      <div className="table__row" key={log.id}>
+                        <div className="muted">{formatDate(log.server_timestamp)}</div>
+                        <div>{log.receiver_id}</div>
+                        <div>{log.auth_result}</div>
+                        <div>{log.token_prefix}</div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="muted">No presence logs.</div>
+                )}
+              </div>
+              {activity.student_attendance ? (
+                <div>
+                  <h5>Recent course attendance</h5>
+                  <div className="muted">No course attendance data yet.</div>
+                </div>
+              ) : null}
+              {activity.worker_shifts ? (
+                <div>
+                  <h5>Recent shifts</h5>
+                  <div className="muted">Shift tracking not implemented yet.</div>
+                </div>
+              ) : null}
+              {activity.worker_breaks ? (
+                <div>
+                  <h5>Recent breaks</h5>
+                  <div className="muted">Break tracking not implemented yet.</div>
+                </div>
+              ) : null}
+              <button className="secondary" type="button" onClick={() => setActivityProfile(null)}>
+                Close
+              </button>
+            </div>
+          ) : (
+            <div className="muted">Select a profile to load activity.</div>
+          )}
         </div>
       ) : null}
     </Card>

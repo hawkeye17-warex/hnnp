@@ -366,6 +366,14 @@ export const createApiClient = (session: Session) => {
     getOrgProfiles,
     createOrgProfile,
     updateOrgProfile,
+    getOrgProfileActivity: async (orgId: string, profileId: string) => {
+      const url = `${baseUrl}/v2/orgs/${encodeURIComponent(orgId)}/profiles/${encodeURIComponent(profileId)}/activity`;
+      const res = await fetch(url, {
+        headers: buildHeaders(session),
+      });
+      if (!res.ok) throw new Error('Failed to load profile activity');
+      return res.json();
+    },
     inviteOrgUser,
     getOrgUsageMetrics,
     getOrgErrors,
