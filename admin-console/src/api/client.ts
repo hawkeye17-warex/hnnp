@@ -206,6 +206,17 @@ export const createApiClient = (session: Session) => {
     return res.json();
   };
 
+  const getOrgProfiles = async (orgId?: string, search?: string) => {
+    const id = orgId ?? session.orgId;
+    const url = new URL(`${baseUrl}/v2/orgs/${encodeURIComponent(id)}/profiles`);
+    if (search) url.searchParams.set('q', search);
+    const res = await fetch(url.toString(), {
+      headers: buildHeaders(session),
+    });
+    if (!res.ok) throw new Error('Failed to fetch user profiles');
+    return res.json();
+  };
+
   /* ---------------- Org Metrics / Errors ---------------- */
   const getOrgUsageMetrics = async (params: Record<string, string | number> = {}, orgId?: string) => {
     const id = orgId ?? session.orgId;
@@ -330,6 +341,7 @@ export const createApiClient = (session: Session) => {
     getSystemSettings,
     updateSystemSettings,
     getOrgUsers,
+    getOrgProfiles,
     inviteOrgUser,
     getOrgUsageMetrics,
     getOrgErrors,

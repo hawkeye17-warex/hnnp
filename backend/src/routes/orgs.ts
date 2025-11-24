@@ -1,7 +1,7 @@
 import { Router, Request, Response } from "express";
 import argon2 from "argon2";
 import crypto from "crypto";
-import type { Org, Receiver } from "@prisma/client";
+import type { Org, Receiver, UserProfile } from "@prisma/client";
 import { Prisma } from "@prisma/client";
 import { prisma } from "../db/prisma";
 import { apiKeyAuth } from "../middleware/apiKeyAuth";
@@ -112,6 +112,24 @@ function serializeReceiver(receiver: Receiver) {
     last_seen_at: receiver.lastSeenAt ? receiver.lastSeenAt.toISOString() : null,
     created_at: receiver.createdAt.toISOString(),
     updated_at: receiver.updatedAt.toISOString(),
+  };
+}
+
+function serializeProfile(profile: UserProfile) {
+  const capsRaw = profile.capabilities;
+  let capabilities: string[] = [];
+  if (Array.isArray(capsRaw)) {
+    capabilities = capsRaw.map((c) => String(c));
+  } else if (typeof capsRaw === "string") {
+    capabilities = [capsRaw];
+  }
+  return {
+    id: profile.id,
+    user_id: profile.userId,
+    org_id: profile.orgId,
+    type: profile.type,
+    capabilities,
+    created_at: profile.createdAt.toISOString(),
   };
 }
 
@@ -657,6 +675,39 @@ router.patch("/v2/orgs/:org_id/settings", requireRole("admin"), async (req: Requ
   } catch (err) {
     // eslint-disable-next-line no-console
     console.error("Error updating system settings", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.get("/v2/orgs/:org_id/profiles", requireRole("read-only"), async (req: Request, res: Response) => {
+  const { org_id } = req.params;
+  const qParam = req.query.q;
+  const search = typeof qParam === "string" ? qParam.trim() : "";
+
+  try {
+    const org = await prisma.org.findUnique({ where: { id: org_id } });
+    if (!org) {
+      return res.status(404).json({ error: "Org not found" });
+    }
+
+    const where: Prisma.UserProfileWhereInput = { orgId: org_id };
+    if (search) {
+      where.OR = [
+        { userId: { contains: search, mode: "insensitive" } },
+        { type: { contains: search, mode: "insensitive" } },
+      ];
+    }
+
+    const profiles = await prisma.userProfile.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      take: 200,
+    });
+
+    return res.json(profiles.map(serializeProfile));
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error("Error listing profiles", err);
     return res.status(500).json({ error: "Internal server error" });
   }
 });
