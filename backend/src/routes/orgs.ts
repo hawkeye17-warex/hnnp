@@ -744,7 +744,7 @@ router.get("/v2/orgs/:org_id/profiles", requireRole("read-only"), async (req: Re
 
     const profilesWithFlags = profiles.map((p) => {
       const match = users.find((u) => u.id === p.userId || u.email === p.userId);
-      const userMissing = !match || (match.status && match.status.toLowerCase() !== "active");
+      const userMissing = !match || (typeof match.status === "string" && match.status.toLowerCase() !== "active");
       return serializeProfile(p, { orgStatus, userMissing });
     });
 
