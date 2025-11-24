@@ -239,6 +239,8 @@ model UserProfile {
   capabilities Json?
   createdAt    DateTime @default(now())
 
+  org Org @relation(fields: [orgId], references: [id])
+
   @@index([userId])
   @@index([orgId])
 }
@@ -257,6 +259,11 @@ model QuizSession {
   testMode      Boolean  @default(false)
   createdAt     DateTime @default(now())
 
+  org      Org      @relation(fields: [orgId], references: [id])
+  receiver Receiver? @relation(fields: [receiverId], references: [id])
+  questions   QuizQuestion[]
+  submissions QuizSubmission[]
+
   @@index([orgId])
   @@index([receiverId])
   @@index([createdBy])
@@ -272,6 +279,8 @@ model QuizQuestion {
   timeLimitSec  Int?
   createdAt     DateTime @default(now())
 
+  quiz QuizSession @relation(fields: [quizId], references: [id])
+
   @@index([quizId])
 }
 
@@ -284,6 +293,9 @@ model QuizSubmission {
   score        Float?
   status       String
   createdAt    DateTime @default(now())
+
+  quiz    QuizSession @relation(fields: [quizId], references: [id])
+  profile UserProfile @relation(fields: [profileId], references: [id])
 
   @@index([quizId])
   @@index([profileId])
