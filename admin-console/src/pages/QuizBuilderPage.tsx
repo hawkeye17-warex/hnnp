@@ -43,6 +43,9 @@ const QuizBuilderPage = () => {
   const [questions, setQuestions] = useState<QuestionDraft[]>([{...defaultQuestion}]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [requirePresence, setRequirePresence] = useState(false);
+  const [presenceWindow, setPresenceWindow] = useState(10);
+  const [lateJoinAllowed, setLateJoinAllowed] = useState(false);
 
   const addQuestion = () => {
     setQuestions(qs => [...qs, {...defaultQuestion, id: crypto.randomUUID()}]);
@@ -83,6 +86,11 @@ const QuizBuilderPage = () => {
           correct_option: q.correct_option,
           time_limit_sec: q.time_limit_sec,
         })),
+        settings_json: {
+          require_presence: requirePresence,
+          presence_window_minutes: presenceWindow,
+          late_join_allowed: lateJoinAllowed,
+        },
       };
       await api.createQuiz(orgId, payload);
       toast.success('Quiz saved as draft');
@@ -142,6 +150,29 @@ const QuizBuilderPage = () => {
               <option value="live">Live</option>
               <option value="closed">Closed</option>
             </select>
+          </label>
+          <div className="form__field" style={{display: 'flex', gap: 12, flexWrap: 'wrap'}}>
+            <label style={{display: 'flex', alignItems: 'center', gap: 6}}>
+              <input type="checkbox" checked={requirePresence} onChange={e => setRequirePresence(e.target.checked)} />
+              <span>Require valid presence</span>
+            </label>
+            <label style={{display: 'flex', alignItems: 'center', gap: 6}}>
+              <input
+                type="checkbox"
+                checked={lateJoinAllowed}
+                onChange={e => setLateJoinAllowed(e.target.checked)}
+              />
+              <span>Late join allowed</span>
+            </label>
+          </div>
+          <label className="form__field">
+            <span>Presence validity window (minutes)</span>
+            <input
+              type="number"
+              min={1}
+              value={presenceWindow}
+              onChange={e => setPresenceWindow(Number(e.target.value) || 0)}
+            />
           </label>
         </div>
       </Card>

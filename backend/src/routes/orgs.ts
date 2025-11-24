@@ -983,11 +983,11 @@ router.post("/v2/orgs/:org_id/quizzes", requireRole("admin"), async (req: Reques
   if (Number.isNaN(start.getTime())) {
     return res.status(400).json({ error: "Invalid start_time" });
   }
-  const durationMs =
-    typeof duration_minutes === "number" && duration_minutes > 0
-      ? duration_minutes * 60 * 1000
-      : 30 * 60 * 1000;
-  const end = new Date(start.getTime() + durationMs);
+    const durationMs =
+      typeof duration_minutes === "number" && duration_minutes > 0
+        ? duration_minutes * 60 * 1000
+        : 30 * 60 * 1000;
+    const end = new Date(start.getTime() + durationMs);
 
   const quizStatus = typeof status === "string" && status.trim().length > 0 ? status : "draft";
 
@@ -1005,7 +1005,13 @@ router.post("/v2/orgs/:org_id/quizzes", requireRole("admin"), async (req: Reques
         endTime: end,
         status: quizStatus,
         createdBy: req.apiKey?.keyPrefix ?? "unknown",
-        settingsJson: settings_json ?? { duration_minutes: duration_minutes ?? 30 },
+        settingsJson: {
+          duration_minutes: duration_minutes ?? 30,
+          require_presence: settings_json?.require_presence ?? false,
+          presence_window_minutes: settings_json?.presence_window_minutes ?? 10,
+          late_join_allowed: settings_json?.late_join_allowed ?? false,
+          ...settings_json,
+        },
       },
     });
 
@@ -1116,6 +1122,54 @@ router.post("/v2/orgs/:org_id/quizzes/:quiz_id/end", requireRole("admin"), async
   } catch (err) {
     // eslint-disable-next-line no-console
     console.error("Error ending quiz", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.post("/v2/orgs/:org_id/quizzes/:quiz_id/submit", requireRole("read-only"), async (req: Request, res: Response) => {
+  const { org_id, quiz_id } = req.params;
+  const { profile_id, user_ref } = req.body ?? {};
+
+  try {
+    const quiz = await prisma.quizSession.findFirst({ where: { id: quiz_id, orgId: org_id } });
+    if (!quiz) return res.status(404).json({ error: "Quiz not found" });
+
+    const settings = (quiz.settingsJson ?? {}) as any;
+    const requirePresence = Boolean(settings.require_presence);
+    const presenceWindowMinutes = typeof settings.presence_window_minutes === "number" ? settings.presence_window_minutes : 10;
+    const lateJoinAllowed = Boolean(settings.late_join_allowed);
+
+    const now = new Date();
+    if (!lateJoinAllowed && quiz.startTime > now) {
+      return res.status(400).json({ error: "Quiz not started yet" });
+    }
+    if (quiz.endTime < now) {
+      return res.status(400).json({ error: "Quiz closed" });
+    }
+
+    if (requirePresence) {
+      const profile =
+        typeof profile_id === "string"
+          ? await prisma.userProfile.findUnique({ where: { id: profile_id } })
+          : null;
+      const userRef = typeof user_ref === "string" && user_ref.length > 0 ? user_ref : profile?.userId;
+      if (!userRef) {
+        return res.status(400).json({ error: "Presence required: missing user reference" });
+      }
+      const since = new Date(now.getTime() - presenceWindowMinutes * 60 * 1000);
+      const presence = await prisma.presenceEvent.findFirst({
+        where: { orgId: org_id, userRef, serverTimestamp: { gte: since } },
+        orderBy: { serverTimestamp: "desc" },
+      });
+      if (!presence) {
+        return res.status(403).json({ error: "Presence validation failed" });
+      }
+    }
+
+    return res.json({ ok: true, quiz: serializeQuiz(quiz) });
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error("Error submitting quiz", err);
     return res.status(500).json({ error: "Internal server error" });
   }
 });
