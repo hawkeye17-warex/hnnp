@@ -7,6 +7,7 @@ import ErrorState from '../components/ErrorState';
 import {useApi} from '../api/client';
 import {QuizSession} from '../types/quiz';
 import {useToast} from '../hooks/useToast';
+import EmptyState from '../components/EmptyState';
 
 const QuizDetailPage = () => {
   const {id: orgId, quizId} = useParams<{id: string; quizId: string}>();
@@ -17,6 +18,11 @@ const QuizDetailPage = () => {
   const [quiz, setQuiz] = useState<QuizSession | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [tab, setTab] = useState<'details' | 'submissions'>('details');
+  const [subs, setSubs] = useState<any[] | null>(null);
+  const [subsStats, setSubsStats] = useState<any | null>(null);
+  const [subsError, setSubsError] = useState<string | null>(null);
+  const [subsLoading, setSubsLoading] = useState(false);
 
   const load = async () => {
     if (!orgId || !quizId) return;
@@ -35,6 +41,24 @@ const QuizDetailPage = () => {
   useEffect(() => {
     void load();
   }, [orgId, quizId]);
+
+  const loadSubs = async () => {
+    if (!orgId || !quizId) return;
+    setSubsLoading(true);
+    setSubsError(null);
+    try {
+      const res = await api.getQuizSubmissions(orgId, quizId);
+      const subsList = (res as any)?.submissions ?? [];
+      setSubs(subsList);
+      setSubsStats((res as any)?.stats ?? null);
+    } catch (err: any) {
+      setSubsError(err?.message ?? 'Failed to load submissions');
+      setSubs(null);
+      setSubsStats(null);
+    } finally {
+      setSubsLoading(false);
+    }
+  };
 
   const startNow = async () => {
     if (!orgId || !quizId) return;
@@ -110,7 +134,61 @@ const QuizDetailPage = () => {
             </button>
           </div>
         </div>
+        <div style={{display: 'flex', gap: 8, marginTop: 8}}>
+          <button className={tab === 'details' ? 'primary' : 'secondary'} onClick={() => setTab('details')}>
+            Details
+          </button>
+          <button
+            className={tab === 'submissions' ? 'primary' : 'secondary'}
+            onClick={() => {
+              setTab('submissions');
+              void loadSubs();
+            }}>
+            Submissions
+          </button>
+        </div>
       </Card>
+
+      {tab === 'submissions' ? (
+        <Card>
+          {subsLoading ? (
+            <LoadingState message="Loading submissions..." />
+          ) : subsError ? (
+            <ErrorState message={subsError} onRetry={loadSubs} />
+          ) : subs && subs.length > 0 ? (
+            <>
+              <div className="table__header">
+                <div>
+                  <h3>Submissions</h3>
+                  <p className="muted">
+                    Avg score: {subsStats?.average_score?.toFixed?.(2) ?? '—'} | Total: {subsStats?.submission_count ?? subs.length}
+                  </p>
+                </div>
+              </div>
+              <div className="table">
+                <div className="table__row table__head">
+                  <div>Profile</div>
+                  <div>Submitted at</div>
+                  <div>Score</div>
+                  <div>Status</div>
+                </div>
+                {subs.map(s => (
+                  <div className="table__row" key={s.id}>
+                    <div>{s.profile_id}</div>
+                    <div className="muted">{formatDate(s.submitted_at)}</div>
+                    <div>{s.score ?? '—'}</div>
+                    <div>
+                      <span className="badge">{s.status}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          ) : (
+            <EmptyState message="No submissions yet." />
+          )}
+        </Card>
+      ) : null}
     </div>
   );
 };

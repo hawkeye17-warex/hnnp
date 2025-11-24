@@ -1174,6 +1174,46 @@ router.post("/v2/orgs/:org_id/quizzes/:quiz_id/submit", requireRole("read-only")
   }
 });
 
+router.get("/v2/orgs/:org_id/quizzes/:quiz_id/submissions", requireRole("auditor"), async (req: Request, res: Response) => {
+  const { org_id, quiz_id } = req.params;
+  try {
+    const quiz = await prisma.quizSession.findFirst({ where: { id: quiz_id, orgId: org_id } });
+    if (!quiz) return res.status(404).json({ error: "Quiz not found" });
+
+    const submissions = await prisma.quizSubmission.findMany({
+      where: { quizId: quiz_id },
+      orderBy: { submittedAt: "desc" },
+      take: 200,
+    });
+
+    const avgScore =
+      submissions.length > 0
+        ? submissions.reduce((sum, s) => sum + (s.score ?? 0), 0) / submissions.length
+        : 0;
+
+    return res.json({
+      submissions: submissions.map((s) => ({
+        id: s.id,
+        quiz_id: s.quizId,
+        profile_id: s.profileId,
+        submitted_at: s.submittedAt.toISOString(),
+        answers_json: s.answersJson,
+        score: s.score,
+        status: s.status,
+        created_at: s.createdAt.toISOString(),
+      })),
+      stats: {
+        average_score: avgScore,
+        submission_count: submissions.length,
+      },
+    });
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error("Error fetching submissions", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 router.get("/v2/orgs/:org_id/presence", requireRole("auditor"), async (req: Request, res: Response) => {
   const { org_id } = req.params;
   const receiverIdParam = req.query.receiver_id;
