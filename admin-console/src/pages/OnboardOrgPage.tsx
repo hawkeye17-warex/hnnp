@@ -9,6 +9,7 @@ const OnboardOrgPage = () => {
   const [error, setError] = useState<string | null>(null);
   const [orgId, setOrgId] = useState<string | null>(null);
   const [apiKey, setApiKey] = useState<string | null>(null);
+  const [confirmed, setConfirmed] = useState(false);
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -20,6 +21,7 @@ const OnboardOrgPage = () => {
     setError(null);
     setOrgId(null);
     setApiKey(null);
+    setConfirmed(false);
     try {
       const res = await fetch(`${backendBaseUrl}/internal/orgs/create`, {
         method: 'POST',
@@ -92,7 +94,17 @@ const OnboardOrgPage = () => {
               </button>
             </div>
             <div className="muted" style={{fontSize: 12, marginTop: 4}}>
-              Store this key securely. It will not be shown again.
+              This key will not be shown again. Store it securely. If you lose it, generate a new
+              one later.
+            </div>
+            <div style={{marginTop: 12}}>
+              <button
+                className="primary"
+                type="button"
+                onClick={() => setConfirmed(true)}
+                disabled={confirmed}>
+                {confirmed ? 'Saved' : 'I have copied this key'}
+              </button>
             </div>
           </div>
         ) : null}
