@@ -217,6 +217,28 @@ export const createApiClient = (session: Session) => {
     return res.json();
   };
 
+  const createOrgProfile = async (orgId: string, payload: Record<string, unknown>) => {
+    const url = `${baseUrl}/v2/orgs/${encodeURIComponent(orgId)}/profiles`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: buildHeaders(session),
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) throw new Error('Failed to create user profile');
+    return res.json();
+  };
+
+  const updateOrgProfile = async (orgId: string, profileId: string, payload: Record<string, unknown>) => {
+    const url = `${baseUrl}/v2/orgs/${encodeURIComponent(orgId)}/profiles/${encodeURIComponent(profileId)}`;
+    const res = await fetch(url, {
+      method: 'PATCH',
+      headers: buildHeaders(session),
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) throw new Error('Failed to update user profile');
+    return res.json();
+  };
+
   /* ---------------- Org Metrics / Errors ---------------- */
   const getOrgUsageMetrics = async (params: Record<string, string | number> = {}, orgId?: string) => {
     const id = orgId ?? session.orgId;
@@ -342,6 +364,8 @@ export const createApiClient = (session: Session) => {
     updateSystemSettings,
     getOrgUsers,
     getOrgProfiles,
+    createOrgProfile,
+    updateOrgProfile,
     inviteOrgUser,
     getOrgUsageMetrics,
     getOrgErrors,

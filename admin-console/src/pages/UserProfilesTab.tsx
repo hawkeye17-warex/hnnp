@@ -25,6 +25,13 @@ const UserProfilesTab = ({orgId}: Props) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+  const [formOpen, setFormOpen] = useState(false);
+  const [editing, setEditing] = useState<Profile | null>(null);
+  const [formUser, setFormUser] = useState('');
+  const [formType, setFormType] = useState('');
+  const [formCaps, setFormCaps] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [formErr, setFormErr] = useState<string | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -71,6 +78,19 @@ const UserProfilesTab = ({orgId}: Props) => {
           <button className="primary" type="button" onClick={load} disabled={loading}>
             {loading ? 'Loading…' : 'Refresh'}
           </button>
+          <button
+            className="primary"
+            type="button"
+            onClick={() => {
+              setEditing(null);
+              setFormUser('');
+              setFormType('');
+              setFormCaps('');
+              setFormErr(null);
+              setFormOpen(true);
+            }}>
+            + New profile
+          </button>
         </div>
       </div>
 
@@ -94,10 +114,90 @@ const UserProfilesTab = ({orgId}: Props) => {
               <div>{p.type}</div>
               <div>{(p.capabilities || []).join(', ') || '—'}</div>
               <div className="muted">{formatDate(p.created_at)}</div>
+              <div className="table__actions">
+                <button
+                  className="secondary"
+                  type="button"
+                  onClick={() => {
+                    setEditing(p);
+                    setFormUser(p.user_id);
+                    setFormType(p.type);
+                    setFormCaps((p.capabilities || []).join(', '));
+                    setFormErr(null);
+                    setFormOpen(true);
+                  }}>
+                  Edit
+                </button>
+              </div>
             </div>
           ))}
         </div>
       )}
+
+      {formOpen ? (
+        <div className="card" style={{marginTop: 12}}>
+          <h4>{editing ? 'Edit profile' : 'New profile'}</h4>
+          <div className="form">
+            <label className="form__field">
+              <span>User email / ID</span>
+              <input
+                value={formUser}
+                onChange={e => setFormUser(e.target.value)}
+                disabled={!!editing}
+                placeholder="user@example.com"
+              />
+            </label>
+            <label className="form__field">
+              <span>Profile type</span>
+              <input value={formType} onChange={e => setFormType(e.target.value)} placeholder="admin, auditor, etc." />
+            </label>
+            <label className="form__field">
+              <span>Capabilities (comma-separated)</span>
+              <input
+                value={formCaps}
+                onChange={e => setFormCaps(e.target.value)}
+                placeholder="read,write,manage_receivers"
+              />
+            </label>
+            {formErr ? <div className="form__error">{formErr}</div> : null}
+            <div style={{display: 'flex', gap: 8}}>
+              <button className="primary" type="button" disabled={saving} onClick={async () => {
+                setSaving(true);
+                setFormErr(null);
+                const caps = formCaps
+                  .split(',')
+                  .map(c => c.trim())
+                  .filter(Boolean);
+                try {
+                  if (editing) {
+                    await api.updateOrgProfile(orgId, editing.id, {
+                      type: formType,
+                      capabilities: caps,
+                    });
+                  } else {
+                    await api.createOrgProfile(orgId, {
+                      user_id: formUser,
+                      type: formType,
+                      capabilities: caps,
+                    });
+                  }
+                  setFormOpen(false);
+                  await load();
+                } catch (err: any) {
+                  setFormErr(err?.message ?? 'Failed to save profile.');
+                } finally {
+                  setSaving(false);
+                }
+              }}>
+                {saving ? 'Saving…' : 'Save'}
+              </button>
+              <button className="secondary" type="button" onClick={() => setFormOpen(false)} disabled={saving}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </Card>
   );
 };

@@ -712,6 +712,96 @@ router.get("/v2/orgs/:org_id/profiles", requireRole("read-only"), async (req: Re
   }
 });
 
+router.post("/v2/orgs/:org_id/profiles", requireRole("admin"), async (req: Request, res: Response) => {
+  const { org_id } = req.params;
+  const { user_id, type, capabilities } = req.body ?? {};
+
+  if (typeof user_id !== "string" || user_id.trim().length === 0) {
+    return res.status(400).json({ error: "user_id is required" });
+  }
+  if (typeof type !== "string" || type.trim().length === 0) {
+    return res.status(400).json({ error: "type is required" });
+  }
+
+  const capsArray =
+    Array.isArray(capabilities) && capabilities.every((c) => typeof c === "string")
+      ? capabilities
+      : typeof capabilities === "string"
+        ? capabilities.split(",").map((c: string) => c.trim()).filter(Boolean)
+        : [];
+
+  try {
+    const org = await prisma.org.findUnique({ where: { id: org_id } });
+    if (!org) return res.status(404).json({ error: "Org not found" });
+
+    const profile = await prisma.userProfile.create({
+      data: {
+        userId: user_id,
+        orgId: org_id,
+        type: type.trim(),
+        capabilities: capsArray,
+      },
+    });
+
+    await logAudit({
+      action: "user_profile_create",
+      entityType: "user_profile",
+      entityId: profile.id,
+      details: { user_id, type, capabilities: capsArray },
+      ...buildAuditContext(req),
+    });
+
+    return res.status(201).json(serializeProfile(profile));
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error("Error creating profile", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.patch("/v2/orgs/:org_id/profiles/:profile_id", requireRole("admin"), async (req: Request, res: Response) => {
+  const { org_id, profile_id } = req.params;
+  const { type, capabilities } = req.body ?? {};
+
+  const capsArray =
+    Array.isArray(capabilities) && capabilities.every((c) => typeof c === "string")
+      ? capabilities
+      : typeof capabilities === "string"
+        ? capabilities.split(",").map((c: string) => c.trim()).filter(Boolean)
+        : undefined;
+
+  const data: Prisma.UserProfileUpdateInput = {};
+  if (typeof type === "string" && type.trim().length > 0) data.type = type.trim();
+  if (capsArray !== undefined) data.capabilities = capsArray;
+
+  try {
+    const org = await prisma.org.findUnique({ where: { id: org_id } });
+    if (!org) return res.status(404).json({ error: "Org not found" });
+
+    const updated = await prisma.userProfile.update({
+      where: { id: profile_id },
+      data,
+    });
+
+    await logAudit({
+      action: "user_profile_update",
+      entityType: "user_profile",
+      entityId: profile_id,
+      details: data as Record<string, unknown>,
+      ...buildAuditContext(req),
+    });
+
+    return res.json(serializeProfile(updated));
+  } catch (err: any) {
+    // eslint-disable-next-line no-console
+    console.error("Error updating profile", err);
+    if (err?.code === "P2025") {
+      return res.status(404).json({ error: "User profile not found" });
+    }
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 router.get("/v2/orgs/:org_id/presence", requireRole("auditor"), async (req: Request, res: Response) => {
   const { org_id } = req.params;
   const receiverIdParam = req.query.receiver_id;
