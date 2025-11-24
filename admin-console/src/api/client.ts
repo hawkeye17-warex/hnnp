@@ -31,8 +31,12 @@ export const createApiClient = (session: Session) => {
     return res.json();
   };
 
-  const getOrganizations = async () => {
-    const res = await fetch(`${baseUrl}/v2/orgs`, {
+  const getOrganizations = async (includeKeys = false) => {
+    const url = new URL(`${baseUrl}/v2/orgs`);
+    if (includeKeys) {
+      url.searchParams.set('include_keys', 'true');
+    }
+    const res = await fetch(url.toString(), {
       headers: buildHeaders(session),
     });
     if (!res.ok) throw new Error('Failed to fetch organizations');

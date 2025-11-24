@@ -120,6 +120,26 @@ router.get("/v2/orgs/:org_id", async (req: Request, res: Response) => {
   }
 });
 
+router.get("/v2/orgs", async (req: Request, res: Response) => {
+  const includeKeys = req.query.include_keys === "true";
+  try {
+    const orgs = await prisma.org.findMany({
+      orderBy: { createdAt: "desc" },
+      include: includeKeys ? { apiKeys: true } : undefined,
+    });
+    return res.status(200).json(
+      orgs.map((org: any) => ({
+        ...serializeOrg(org),
+        key_prefixes: includeKeys && org.apiKeys ? org.apiKeys.map((k: any) => k.keyPrefix) : undefined,
+      })),
+    );
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error("Error listing orgs", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 router.get("/v2/orgs/:org_id/receivers", async (req: Request, res: Response) => {
   const { org_id } = req.params;
 

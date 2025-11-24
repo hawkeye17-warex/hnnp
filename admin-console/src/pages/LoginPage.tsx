@@ -93,6 +93,16 @@ const LoginPage = () => {
           <button className="primary auth-button" type="submit" disabled={loading}>
             {loading ? 'Signing in...' : 'Sign in'}
           </button>
+          <div style={{marginTop: 8, textAlign: 'center'}}>
+            <span className="muted">Need an account? </span>
+            <button
+              type="button"
+              className="secondary"
+              style={{padding: '6px 10px'}}
+              onClick={() => navigate('/admin/onboard-org')}>
+              Onboard an organization
+            </button>
+          </div>
         </form>
       </div>
     </div>
