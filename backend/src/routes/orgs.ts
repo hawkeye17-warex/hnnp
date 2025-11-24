@@ -285,7 +285,6 @@ router.post("/v2/orgs/:org_id/receivers", requireRole("admin"), async (req: Requ
       action: "receiver_create",
       entityType: "receiver",
       entityId: receiver.id,
-      orgId: org_id,
       details: {
         display_name,
         location_label,
@@ -404,7 +403,6 @@ router.patch(
         action: "receiver_update",
         entityType: "receiver",
         entityId: receiver_id,
-        orgId: org_id,
         details: data as Record<string, unknown>,
         ...buildAuditContext(req),
       });
