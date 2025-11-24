@@ -1,7 +1,7 @@
 import { Router, Request, Response } from "express";
 import argon2 from "argon2";
 import crypto from "crypto";
-import type { Org, Receiver, UserProfile, PresenceEvent } from "@prisma/client";
+import type { Org, Receiver, UserProfile, PresenceEvent, QuizSession, QuizQuestion } from "@prisma/client";
 import { Prisma } from "@prisma/client";
 import { prisma } from "../db/prisma";
 import { apiKeyAuth } from "../middleware/apiKeyAuth";
@@ -147,6 +147,22 @@ function serializePresence(evt: PresenceEvent) {
     flags: evt.flags,
     user_ref: evt.userRef,
     meta: evt.meta ?? null,
+  };
+}
+
+function serializeQuiz(session: QuizSession) {
+  return {
+    id: session.id,
+    org_id: session.orgId,
+    course_id: session.courseId ?? null,
+    receiver_id: session.receiverId ?? null,
+    title: session.title,
+    start_time: session.startTime.toISOString(),
+    end_time: session.endTime.toISOString(),
+    status: session.status,
+    created_by: session.createdBy,
+    settings_json: session.settingsJson ?? null,
+    created_at: session.createdAt.toISOString(),
   };
 }
 
@@ -914,6 +930,120 @@ router.get(
     }
   },
 );
+
+router.get("/v2/orgs/:org_id/quizzes", requireRole("read-only"), async (req: Request, res: Response) => {
+  const { org_id } = req.params;
+  const statusParam = req.query.status;
+  const courseParam = req.query.course_id;
+
+  try {
+    const org = await prisma.org.findUnique({ where: { id: org_id } });
+    if (!org) return res.status(404).json({ error: "Org not found" });
+
+    const where: Prisma.QuizSessionWhereInput = { orgId: org_id };
+    if (typeof statusParam === "string" && statusParam.length > 0) {
+      where.status = statusParam;
+    }
+    if (typeof courseParam === "string" && courseParam.length > 0) {
+      where.courseId = courseParam;
+    }
+
+    const quizzes = await prisma.quizSession.findMany({
+      where,
+      orderBy: { startTime: "desc" },
+      take: 200,
+    });
+
+    return res.json(quizzes.map(serializeQuiz));
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error("Error listing quizzes", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.post("/v2/orgs/:org_id/quizzes", requireRole("admin"), async (req: Request, res: Response) => {
+  const { org_id } = req.params;
+  const {
+    title,
+    course_id,
+    receiver_id,
+    start_time,
+    duration_minutes,
+    status,
+    questions,
+    settings_json,
+  } = req.body ?? {};
+
+  if (typeof title !== "string" || title.trim().length === 0) {
+    return res.status(400).json({ error: "title is required" });
+  }
+
+  const start = typeof start_time === "string" ? new Date(start_time) : new Date();
+  if (Number.isNaN(start.getTime())) {
+    return res.status(400).json({ error: "Invalid start_time" });
+  }
+  const durationMs =
+    typeof duration_minutes === "number" && duration_minutes > 0
+      ? duration_minutes * 60 * 1000
+      : 30 * 60 * 1000;
+  const end = new Date(start.getTime() + durationMs);
+
+  const quizStatus = typeof status === "string" && status.trim().length > 0 ? status : "draft";
+
+  try {
+    const org = await prisma.org.findUnique({ where: { id: org_id } });
+    if (!org) return res.status(404).json({ error: "Org not found" });
+
+    const quiz = await prisma.quizSession.create({
+      data: {
+        orgId: org_id,
+        courseId: typeof course_id === "string" && course_id.length > 0 ? course_id : undefined,
+        receiverId: typeof receiver_id === "string" && receiver_id.length > 0 ? receiver_id : undefined,
+        title: title.trim(),
+        startTime: start,
+        endTime: end,
+        status: quizStatus,
+        createdBy: req.apiKey?.keyPrefix ?? "unknown",
+        settingsJson: settings_json ?? { duration_minutes: duration_minutes ?? 30 },
+      },
+    });
+
+    const quizQuestions: Prisma.QuizQuestionCreateManyInput[] = Array.isArray(questions)
+      ? questions
+          .filter((q: any) => q && typeof q.text === "string")
+          .map((q: any) => ({
+            quizId: quiz.id,
+            type: typeof q.type === "string" ? q.type : "mcq",
+            text: q.text,
+            optionsJson: q.options_json ?? q.options ?? null,
+            correctOption: typeof q.correct_option === "string" ? q.correct_option : null,
+            timeLimitSec:
+              typeof q.time_limit_sec === "number" && Number.isFinite(q.time_limit_sec)
+                ? q.time_limit_sec
+                : null,
+          }))
+      : [];
+
+    if (quizQuestions.length > 0) {
+      await prisma.quizQuestion.createMany({ data: quizQuestions });
+    }
+
+    await logAudit({
+      action: "quiz_create",
+      entityType: "quiz",
+      entityId: quiz.id,
+      details: { title, status: quizStatus, question_count: quizQuestions.length },
+      ...buildAuditContext(req),
+    });
+
+    return res.status(201).json(serializeQuiz(quiz));
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error("Error creating quiz", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
 
 router.get("/v2/orgs/:org_id/presence", requireRole("auditor"), async (req: Request, res: Response) => {
   const { org_id } = req.params;

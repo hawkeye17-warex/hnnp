@@ -441,6 +441,15 @@ export const createApiClient = (session: Session) => {
       if (!res.ok) throw new Error("Failed to fetch quiz sessions");
       return res.json();
     },
+    createQuiz: async (orgId: string, payload: Record<string, unknown>) => {
+      const res = await fetch(`${baseUrl}/v2/orgs/${encodeURIComponent(orgId)}/quizzes`, {
+        method: 'POST',
+        headers: buildHeaders(session),
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) throw new Error('Failed to create quiz');
+      return res.json();
+    },
   };
 };
 

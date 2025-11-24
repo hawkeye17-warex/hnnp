@@ -1,4 +1,5 @@
 import React, {useEffect, useMemo, useState} from 'react';
+import {useNavigate} from 'react-router-dom';
 
 import Card from '../components/Card';
 import LoadingState from '../components/LoadingState';
@@ -11,6 +12,7 @@ type Props = {orgId: string};
 
 const QuizzesTab = ({orgId}: Props) => {
   const api = useApi();
+  const navigate = useNavigate();
   const [quizzes, setQuizzes] = useState<QuizSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -89,6 +91,9 @@ const QuizzesTab = ({orgId}: Props) => {
           </button>
           <button className="primary" type="button" onClick={load} disabled={loading}>
             {loading ? 'Loading…' : 'Refresh'}
+          </button>
+          <button className="primary" type="button" onClick={() => navigate(`/organizations/${orgId}/quizzes/new`)}>
+            + New quiz
           </button>
         </div>
       </div>
