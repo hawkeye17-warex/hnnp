@@ -254,6 +254,7 @@ model QuizSession {
   status        String
   createdBy     String
   settingsJson  Json?
+  testMode      Boolean  @default(false)
   createdAt     DateTime @default(now())
 
   @@index([orgId])
