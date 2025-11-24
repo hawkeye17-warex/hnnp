@@ -17,6 +17,8 @@ type Settings = {
   alert_receiver_offline: boolean;
   alert_key_rotation: boolean;
   alert_suspicious_activity: boolean;
+  default_student_capabilities: string[];
+  default_worker_capabilities: string[];
 };
 
 const SystemSettingsPage = () => {
@@ -160,6 +162,38 @@ const SystemSettingsPage = () => {
               onChange={e => setSettings({...settings, email_template_body: e.target.value})}
             />
           </label>
+          <div className="form__field">
+            <span>Default capabilities for new student profiles</span>
+            <input
+              value={(settings.default_student_capabilities || []).join(', ')}
+              onChange={e =>
+                setSettings({
+                  ...settings,
+                  default_student_capabilities: e.target.value
+                    .split(',')
+                    .map(v => v.trim())
+                    .filter(Boolean),
+                })
+              }
+              placeholder="attendance, quiz"
+            />
+          </div>
+          <div className="form__field">
+            <span>Default capabilities for new worker profiles</span>
+            <input
+              value={(settings.default_worker_capabilities || []).join(', ')}
+              onChange={e =>
+                setSettings({
+                  ...settings,
+                  default_worker_capabilities: e.target.value
+                    .split(',')
+                    .map(v => v.trim())
+                    .filter(Boolean),
+                })
+              }
+              placeholder="attendance, shift, breaks"
+            />
+          </div>
           <div className="muted" style={{fontSize: 12}}>
             Alerts will be delivered to hnnp.nearid@gmail.com by default. You can also set a per-organization
             notification email above. Toggle alert types below.

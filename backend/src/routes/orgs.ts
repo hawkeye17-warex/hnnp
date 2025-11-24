@@ -175,6 +175,8 @@ type SystemSettings = {
   alert_receiver_offline: boolean;
   alert_key_rotation: boolean;
   alert_suspicious_activity: boolean;
+  default_student_capabilities: string[];
+  default_worker_capabilities: string[];
 };
 
 const defaultSystemSettings: SystemSettings = {
@@ -188,6 +190,8 @@ const defaultSystemSettings: SystemSettings = {
   alert_receiver_offline: true,
   alert_key_rotation: true,
   alert_suspicious_activity: true,
+  default_student_capabilities: ["attendance", "quiz"],
+  default_worker_capabilities: ["attendance", "shift", "breaks"],
 };
 
 function normalizeSettings(partial: Partial<SystemSettings> | null | undefined): SystemSettings {
@@ -232,6 +236,14 @@ function normalizeSettings(partial: Partial<SystemSettings> | null | undefined):
       typeof partial?.alert_suspicious_activity === "boolean"
         ? partial.alert_suspicious_activity
         : defaultSystemSettings.alert_suspicious_activity,
+    default_student_capabilities:
+      Array.isArray(partial?.default_student_capabilities) && partial.default_student_capabilities.every((c) => typeof c === "string")
+        ? partial.default_student_capabilities
+        : defaultSystemSettings.default_student_capabilities,
+    default_worker_capabilities:
+      Array.isArray(partial?.default_worker_capabilities) && partial.default_worker_capabilities.every((c) => typeof c === "string")
+        ? partial.default_worker_capabilities
+        : defaultSystemSettings.default_worker_capabilities,
   };
 }
 
@@ -765,13 +777,21 @@ router.post("/v2/orgs/:org_id/profiles", requireRole("admin"), async (req: Reque
   try {
     const org = await prisma.org.findUnique({ where: { id: org_id } });
     if (!org) return res.status(404).json({ error: "Org not found" });
+    const settings = normalizeSettings((org.config as any)?.systemSettings);
+    const typeLower = type.trim().toLowerCase();
+    const defaults =
+      typeLower.includes("student")
+        ? settings.default_student_capabilities
+        : typeLower.includes("worker")
+          ? settings.default_worker_capabilities
+          : [];
 
     const profile = await prisma.userProfile.create({
       data: {
         userId: user_id,
         orgId: org_id,
         type: type.trim(),
-        capabilities: capsArray,
+        capabilities: capsArray.length > 0 ? capsArray : defaults,
       },
     });
 
