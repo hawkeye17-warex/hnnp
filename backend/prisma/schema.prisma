@@ -230,3 +230,15 @@ model AuditLog {
   @@index([orgId, createdAt])
   @@index([entityType, entityId])
 }
+
+model UserProfile {
+  id           String   @id @default(cuid())
+  userId       String
+  orgId        String
+  type         String
+  capabilities Json?
+  createdAt    DateTime @default(now())
+
+  @@index([userId])
+  @@index([orgId])
+}

@@ -371,6 +371,13 @@ export const createApiClient = (session: Session) => {
       if (!res.ok) throw new Error("Failed to update maintenance state");
       return res.json();
     },
+    getMe: async () => {
+      const res = await fetch(`${baseUrl}/v2/me`, {
+        headers: buildHeaders(session),
+      });
+      if (!res.ok) throw new Error("Failed to load profile");
+      return res.json();
+    },
   };
 };
 
