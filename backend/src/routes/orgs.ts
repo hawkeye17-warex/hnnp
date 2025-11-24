@@ -1,12 +1,68 @@
 import { Router, Request, Response } from "express";
 import argon2 from "argon2";
+import crypto from "crypto";
 import type { Org, Prisma, Receiver } from "@prisma/client";
 import { prisma } from "../db/prisma";
 import { apiKeyAuth } from "../middleware/apiKeyAuth";
+import { computeApiKeyHash } from "../security/apiKeys";
 
 const router = Router();
 
+const API_KEY_SECRET = process.env.API_KEY_SECRET || "hnnp_api_key_secret";
+
 // Protect all org/receiver admin routes with API key auth.
+// NOTE: internal org creation endpoint is defined before auth middleware.
+
+router.post("/internal/orgs/create", async (req: Request, res: Response) => {
+  const { name, slug } = (req.body ?? {}) as { name?: unknown; slug?: unknown };
+
+  if (typeof name !== "string" || name.trim().length === 0) {
+    return res.status(400).json({ error: "name is required" });
+  }
+  if (typeof slug !== "string" || slug.trim().length === 0) {
+    return res.status(400).json({ error: "slug is required" });
+  }
+
+  try {
+    const existing = await prisma.org.findUnique({ where: { slug } });
+    if (existing) {
+      return res.status(409).json({ error: "slug already exists" });
+    }
+
+    const orgId = crypto.randomUUID();
+    const prefix = `hnnp_live_${crypto.randomBytes(5).toString("hex")}`;
+    const rawKey = `${prefix}${crypto.randomBytes(16).toString("hex")}`;
+    const keyPrefix = `hnnp_live_${rawKey.split("_")[2]?.slice(0, 10) ?? ""}`;
+    const keyHash = computeApiKeyHash(rawKey, API_KEY_SECRET);
+
+    await prisma.$transaction([
+      prisma.org.create({
+        data: {
+          id: orgId,
+          name: name.trim(),
+          slug: slug.trim(),
+          status: "active",
+        },
+      }),
+      prisma.apiKey.create({
+        data: {
+          orgId,
+          name: "Admin key",
+          keyPrefix,
+          keyHash,
+          scopes: "admin",
+        },
+      }),
+    ]);
+
+    return res.status(201).json({ orgId, apiKey: rawKey });
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error("Error creating org", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 router.use(apiKeyAuth);
 
 function serializeOrg(org: Org) {
