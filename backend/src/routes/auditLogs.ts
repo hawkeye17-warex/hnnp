@@ -51,6 +51,11 @@ router.get("/internal/audit-logs", async (req: Request, res: Response) => {
   } catch (err) {
     // eslint-disable-next-line no-console
     console.error("Error listing audit logs", err);
+    // If the table is missing (e.g., migration not applied), return empty list instead of blocking UI
+    // Prisma error code P2021 = table or column not found.
+    if ((err as any)?.code === "P2021") {
+      return res.json({ data: [], warning: "AuditLog table missing; apply latest migration." });
+    }
     return res.status(500).json({ error: "Internal server error" });
   }
 });
