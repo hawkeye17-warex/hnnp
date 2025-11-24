@@ -520,7 +520,7 @@ router.get("/v2/orgs/:org_id/metrics/realtime", requireRole("read-only"), async 
       }),
       prisma.presenceEvent.count({
         where: { orgId: org_id, serverTimestamp: { gte: sinceReceivers } },
-        distinct: ["receiverId"],
+        distinct: [Prisma.PresenceEventScalarFieldEnum.receiverId],
       }),
       prisma.presenceSession.count({
         where: { orgId: org_id, endedAt: null },
