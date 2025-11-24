@@ -10,8 +10,11 @@ import { presenceReadRouter } from "./routes/presenceRead";
 import { adminAuthLogRouter } from "./routes/adminAuthLog";
 import { adminUsersRouter } from "./routes/adminUsers";
 import { auditLogsRouter } from "./routes/auditLogs";
+import { maintenanceRouter } from "./routes/maintenance";
+import { searchRouter } from "./routes/search";
 import { prisma } from "./db/prisma";
 import cors from "cors";
+import { maintenanceGuard } from "./middleware/maintenance";
 
 const config = loadConfig();
 const app = express();
@@ -24,6 +27,8 @@ app.use(
     allowedHeaders: ["Content-Type", "x-hnnp-api-key"],
   }),
 );
+
+app.use(maintenanceGuard);
 
 app.get("/health", (_req: Request, res: Response) => {
   res.status(200).json({ status: "ok" });
@@ -38,6 +43,8 @@ app.use(presenceReadRouter);
 app.use(adminAuthLogRouter);
 app.use(adminUsersRouter);
 app.use(auditLogsRouter);
+app.use(maintenanceRouter);
+app.use(searchRouter);
 
 const server = http.createServer(app);
 

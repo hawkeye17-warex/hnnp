@@ -349,6 +349,28 @@ export const createApiClient = (session: Session) => {
       if (!res.ok) throw new Error("Failed to fetch audit logs");
       return res.json();
     },
+    globalSearch: async (query: string) => {
+      const search = new URLSearchParams({ q: query });
+      const res = await fetch(`${baseUrl}/internal/search?${search.toString()}`, {
+        headers: buildHeaders(session),
+      });
+      if (!res.ok) throw new Error("Failed to search");
+      return res.json();
+    },
+    getMaintenance: async () => {
+      const res = await fetch(`${baseUrl}/internal/maintenance`);
+      if (!res.ok) throw new Error("Failed to load maintenance state");
+      return res.json();
+    },
+    setMaintenance: async (enabled: boolean, message?: string) => {
+      const res = await fetch(`${baseUrl}/internal/maintenance`, {
+        method: "POST",
+        headers: buildHeaders(session),
+        body: JSON.stringify({ enabled, message }),
+      });
+      if (!res.ok) throw new Error("Failed to update maintenance state");
+      return res.json();
+    },
   };
 };
 

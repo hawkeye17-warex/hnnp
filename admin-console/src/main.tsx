@@ -30,6 +30,7 @@ const OnboardOrgPage = React.lazy(() => import('./pages/OnboardOrgPage'));
 const AdminUsersPage = React.lazy(() => import('./pages/AdminUsersPage'));
 const AuditLogsPage = React.lazy(() => import('./pages/AuditLogsPage'));
 const SystemSettingsPage = React.lazy(() => import('./pages/SystemSettingsPage'));
+const GlobalSearchPage = React.lazy(() => import('./pages/GlobalSearchPage'));
 
 const ProtectedLayout = ProtectedRoute(MainLayout);
 
@@ -71,6 +72,7 @@ const router = createBrowserRouter([
       {path: 'presence', element: withLoader(<PresencePage />)},
       {path: 'links', element: withLoader(<LinksPage />)},
       {path: 'org-settings', element: withLoader(<OrgSettingsPage />)},
+      {path: 'search', element: withLoader(<GlobalSearchPage />)},
       {path: 'system-settings', element: withLoader(<SystemSettingsPage />)},
       {path: 'health', element: withLoader(<HealthPage />)},
       {path: 'error-logs', element: withLoader(<ErrorLogsPage />)},

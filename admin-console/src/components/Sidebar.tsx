@@ -8,6 +8,7 @@ const navItems = [
   {to: '/receivers', label: 'Receivers'},
   {to: '/presence', label: 'Presence Events'},
   {to: '/links', label: 'Links'},
+  {to: '/search', label: 'Search'},
   {to: '/org-settings', label: 'Org Settings'},
   {to: '/system-settings', label: 'System Settings'},
   {to: '/organizations', label: 'Organizations'},

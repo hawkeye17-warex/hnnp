@@ -190,8 +190,81 @@ const SystemSettingsPage = () => {
               <span>Suspicious activity alerts</span>
             </label>
           </div>
+          <MaintenanceSection />
         </div>
       </Card>
+    </div>
+  );
+};
+
+const MaintenanceSection = () => {
+  const api = useApi();
+  const toast = useToast();
+  const [state, setState] = useState<{enabled: boolean; message?: string} | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const res = await api.getMaintenance();
+      setState(res);
+    } catch (err: any) {
+      toast.error(err?.message ?? 'Failed to load maintenance state');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void load();
+  }, []);
+
+  if (!state) return null;
+
+  return (
+    <div className="card" style={{marginTop: 16, padding: 12}}>
+      <h4>Maintenance mode</h4>
+      <p className="muted">Toggle Cloud API maintenance. Requires superadmin key.</p>
+      <label style={{display: 'flex', alignItems: 'center', gap: 8}}>
+        <input
+          type="checkbox"
+          checked={state.enabled}
+          onChange={async e => {
+            setLoading(true);
+            try {
+              const res = await api.setMaintenance(e.target.checked, state.message);
+              setState(res);
+              toast.success('Maintenance state updated');
+            } catch (err: any) {
+              toast.error(err?.message ?? 'Failed to update maintenance');
+            } finally {
+              setLoading(false);
+            }
+          }}
+        />
+        <span>{state.enabled ? 'Enabled' : 'Disabled'}</span>
+      </label>
+      <label className="form__field">
+        <span>Message</span>
+        <input
+          value={state.message ?? ''}
+          onChange={e => setState({...state, message: e.target.value})}
+          onBlur={async e => {
+            try {
+              const res = await api.setMaintenance(state.enabled, e.target.value);
+              setState(res);
+            } catch (err: any) {
+              toast.error(err?.message ?? 'Failed to update message');
+            }
+          }}
+        />
+      </label>
+      <div className="muted" style={{fontSize: 12}}>
+        When enabled, all API calls (except health/maintenance) return 503.
+      </div>
+      <button className="secondary" type="button" onClick={load} disabled={loading} style={{marginTop: 8}}>
+        Refresh maintenance state
+      </button>
     </div>
   );
 };
