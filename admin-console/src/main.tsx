@@ -26,6 +26,7 @@ const SupabaseLoginPage = React.lazy(() => import('./pages/SupabaseLoginPage'));
 const ForgotPasswordPage = React.lazy(() => import('./pages/ForgotPasswordPage'));
 const ResetPasswordPage = React.lazy(() => import('./pages/ResetPasswordPage'));
 const LoginPage = React.lazy(() => import('./pages/LoginPage'));
+const OnboardOrgPage = React.lazy(() => import('./pages/OnboardOrgPage'));
 
 const ProtectedLayout = ProtectedRoute(MainLayout);
 
@@ -54,6 +55,7 @@ const router = createBrowserRouter([
   {path: '/forget-password', element: <Navigate to="/forgot-password" replace />},
   {path: '/forgot-password', element: withLoader(<ForgotPasswordPage />)},
   {path: '/reset-password', element: withLoader(<ResetPasswordPage />)},
+  {path: '/admin/onboard-org', element: withLoader(<OnboardOrgPage />)},
   {path: '/login', element: withLoader(<LoginPage />)},
   {
     path: '/',
