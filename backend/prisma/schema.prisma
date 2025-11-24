@@ -242,3 +242,48 @@ model UserProfile {
   @@index([userId])
   @@index([orgId])
 }
+
+model QuizSession {
+  id            String   @id @default(cuid())
+  orgId         String
+  courseId      String?
+  receiverId    String?
+  title         String
+  startTime     DateTime
+  endTime       DateTime
+  status        String
+  createdBy     String
+  settingsJson  Json?
+  createdAt     DateTime @default(now())
+
+  @@index([orgId])
+  @@index([receiverId])
+  @@index([createdBy])
+}
+
+model QuizQuestion {
+  id            String   @id @default(cuid())
+  quizId        String
+  type          String
+  text          String
+  optionsJson   Json?
+  correctOption String?
+  timeLimitSec  Int?
+  createdAt     DateTime @default(now())
+
+  @@index([quizId])
+}
+
+model QuizSubmission {
+  id           String   @id @default(cuid())
+  quizId       String
+  profileId    String
+  submittedAt  DateTime
+  answersJson  Json?
+  score        Float?
+  status       String
+  createdAt    DateTime @default(now())
+
+  @@index([quizId])
+  @@index([profileId])
+}

@@ -433,6 +433,14 @@ export const createApiClient = (session: Session) => {
       if (!res.ok) throw new Error("Failed to load profile");
       return res.json();
     },
+    getQuizSessions: async (orgId?: string) => {
+      const id = orgId ?? session.orgId;
+      const res = await fetch(`${baseUrl}/v2/orgs/${encodeURIComponent(id)}/quizzes`, {
+        headers: buildHeaders(session),
+      });
+      if (!res.ok) throw new Error("Failed to fetch quiz sessions");
+      return res.json();
+    },
   };
 };
 
