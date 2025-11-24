@@ -1,18 +1,11 @@
-import { Router, Request, Response, NextFunction } from "express";
+import { Router, Request, Response } from "express";
 import { prisma } from "../db/prisma";
 import { apiKeyAuth } from "../middleware/apiKeyAuth";
+import { requireRole } from "../middleware/permissions";
 
 const router = Router();
 
-function ensureAdminScope(req: Request, res: Response, next: NextFunction) {
-  const scope = req.apiKeyScope ?? "";
-  if (!scope.toLowerCase().includes("admin")) {
-    return res.status(403).json({ error: "Admin scope required" });
-  }
-  return next();
-}
-
-router.use(apiKeyAuth, ensureAdminScope);
+router.use(apiKeyAuth, requireRole("superadmin"));
 
 router.get("/internal/admin-users", async (_req: Request, res: Response) => {
   try {

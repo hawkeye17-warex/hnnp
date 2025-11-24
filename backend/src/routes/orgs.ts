@@ -5,6 +5,7 @@ import type { Org, Prisma, Receiver } from "@prisma/client";
 import { prisma } from "../db/prisma";
 import { apiKeyAuth } from "../middleware/apiKeyAuth";
 import { computeApiKeyHash } from "../security/apiKeys";
+import { requireRole } from "../middleware/permissions";
 
 const router = Router();
 
@@ -65,12 +66,12 @@ router.post("/internal/orgs/create", async (req: Request, res: Response) => {
 
 router.use(apiKeyAuth);
 
-router.get("/internal/test-auth", async (req: Request, res: Response) => {
+router.get("/internal/test-auth", requireRole("read-only"), async (req: Request, res: Response) => {
   if (!req.org) {
     return res.status(401).json({ error: "Unauthorized" });
   }
   const { id, name, slug } = req.org;
-  return res.json({ ok: true, org: { id, name, slug } });
+  return res.json({ ok: true, org: { id, name, slug }, scope: req.apiKeyScope ?? "unknown" });
 });
 
 function serializeOrg(org: Org) {
@@ -102,7 +103,7 @@ function serializeReceiver(receiver: Receiver) {
   };
 }
 
-router.get("/v2/orgs/:org_id", async (req: Request, res: Response) => {
+router.get("/v2/orgs/:org_id", requireRole("read-only"), async (req: Request, res: Response) => {
   const { org_id } = req.params;
 
   try {
@@ -120,7 +121,7 @@ router.get("/v2/orgs/:org_id", async (req: Request, res: Response) => {
   }
 });
 
-router.get("/v2/orgs", async (req: Request, res: Response) => {
+router.get("/v2/orgs", requireRole("read-only"), async (req: Request, res: Response) => {
   const includeKeys = req.query.include_keys === "true";
   try {
     const orgs = await prisma.org.findMany({
@@ -140,7 +141,7 @@ router.get("/v2/orgs", async (req: Request, res: Response) => {
   }
 });
 
-router.get("/v2/orgs/:org_id/receivers", async (req: Request, res: Response) => {
+router.get("/v2/orgs/:org_id/receivers", requireRole("read-only"), async (req: Request, res: Response) => {
   const { org_id } = req.params;
 
   try {
@@ -162,7 +163,7 @@ router.get("/v2/orgs/:org_id/receivers", async (req: Request, res: Response) => 
   }
 });
 
-router.post("/v2/orgs/:org_id/receivers", async (req: Request, res: Response) => {
+router.post("/v2/orgs/:org_id/receivers", requireRole("admin"), async (req: Request, res: Response) => {
   const { org_id } = req.params;
   const body = req.body ?? {};
 
@@ -278,6 +279,7 @@ router.post("/v2/orgs/:org_id/receivers", async (req: Request, res: Response) =>
 
 router.patch(
   "/v2/orgs/:org_id/receivers/:receiver_id",
+  requireRole("admin"),
   async (req: Request, res: Response) => {
     const { org_id, receiver_id } = req.params;
     const body = req.body ?? {};
@@ -380,7 +382,7 @@ router.patch(
   },
 );
 
-router.get("/v2/orgs/:org_id/presence", async (req: Request, res: Response) => {
+router.get("/v2/orgs/:org_id/presence", requireRole("auditor"), async (req: Request, res: Response) => {
   const { org_id } = req.params;
   const receiverIdParam = req.query.receiver_id;
   const fromParam = req.query.from;
@@ -482,7 +484,7 @@ router.get("/v2/orgs/:org_id/presence", async (req: Request, res: Response) => {
   }
 });
 
-router.get("/v2/orgs/:org_id/metrics/realtime", async (req: Request, res: Response) => {
+router.get("/v2/orgs/:org_id/metrics/realtime", requireRole("read-only"), async (req: Request, res: Response) => {
   const { org_id } = req.params;
   const windowSecondsParam = req.query.window_seconds;
   const receiverWindowParam = req.query.receivers_minutes;
