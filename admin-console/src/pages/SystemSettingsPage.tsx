@@ -10,9 +10,13 @@ type Settings = {
   presence_expiry_seconds: number;
   rate_limit_per_minute: number;
   log_retention_days: number;
-  email_from: string;
+  notification_recipient: string;
+  org_notification_email: string;
   email_template_subject: string;
   email_template_body: string;
+  alert_receiver_offline: boolean;
+  alert_key_rotation: boolean;
+  alert_suspicious_activity: boolean;
 };
 
 const SystemSettingsPage = () => {
@@ -122,12 +126,21 @@ const SystemSettingsPage = () => {
             />
           </label>
           <label className="form__field">
-            <span>Email from</span>
+            <span>Send alerts to (inbox)</span>
             <input
               type="email"
-              value={settings.email_from}
-              onChange={e => setSettings({...settings, email_from: e.target.value})}
+              value={settings.notification_recipient}
+              onChange={e => setSettings({...settings, notification_recipient: e.target.value})}
               placeholder="hnnp.nearid@gmail.com"
+            />
+          </label>
+          <label className="form__field">
+            <span>Org notification email (per-org alerts)</span>
+            <input
+              type="email"
+              value={settings.org_notification_email}
+              onChange={e => setSettings({...settings, org_notification_email: e.target.value})}
+              placeholder="org-contact@example.com"
             />
           </label>
           <label className="form__field">
@@ -148,8 +161,34 @@ const SystemSettingsPage = () => {
             />
           </label>
           <div className="muted" style={{fontSize: 12}}>
-            Emails should be sent from hnnp.nearid@gmail.com to the target organization’s contact email using this
-            template.
+            Alerts will be delivered to hnnp.nearid@gmail.com by default. You can also set a per-organization
+            notification email above. Toggle alert types below.
+          </div>
+          <div className="form__field" style={{display: 'flex', gap: 12, flexWrap: 'wrap'}}>
+            <label style={{display: 'flex', alignItems: 'center', gap: 6}}>
+              <input
+                type="checkbox"
+                checked={settings.alert_receiver_offline}
+                onChange={e => setSettings({...settings, alert_receiver_offline: e.target.checked})}
+              />
+              <span>Receiver offline alerts</span>
+            </label>
+            <label style={{display: 'flex', alignItems: 'center', gap: 6}}>
+              <input
+                type="checkbox"
+                checked={settings.alert_key_rotation}
+                onChange={e => setSettings({...settings, alert_key_rotation: e.target.checked})}
+              />
+              <span>Key rotation alerts</span>
+            </label>
+            <label style={{display: 'flex', alignItems: 'center', gap: 6}}>
+              <input
+                type="checkbox"
+                checked={settings.alert_suspicious_activity}
+                onChange={e => setSettings({...settings, alert_suspicious_activity: e.target.checked})}
+              />
+              <span>Suspicious activity alerts</span>
+            </label>
           </div>
         </div>
       </Card>

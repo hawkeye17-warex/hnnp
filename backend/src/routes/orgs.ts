@@ -133,18 +133,26 @@ type SystemSettings = {
   presence_expiry_seconds: number;
   rate_limit_per_minute: number;
   log_retention_days: number;
-  email_from: string;
+  notification_recipient: string;
+  org_notification_email: string;
   email_template_subject: string;
   email_template_body: string;
+  alert_receiver_offline: boolean;
+  alert_key_rotation: boolean;
+  alert_suspicious_activity: boolean;
 };
 
 const defaultSystemSettings: SystemSettings = {
   presence_expiry_seconds: 60 * 5,
   rate_limit_per_minute: 120,
   log_retention_days: 30,
-  email_from: "hnnp.nearid@gmail.com",
+  notification_recipient: "hnnp.nearid@gmail.com",
+  org_notification_email: "",
   email_template_subject: "NearID notification",
   email_template_body: "Hello {{org_name}},\n\nThis is a message from NearID.\n\nThank you,\nNearID Team",
+  alert_receiver_offline: true,
+  alert_key_rotation: true,
+  alert_suspicious_activity: true,
 };
 
 function normalizeSettings(partial: Partial<SystemSettings> | null | undefined): SystemSettings {
@@ -161,10 +169,14 @@ function normalizeSettings(partial: Partial<SystemSettings> | null | undefined):
       typeof partial?.log_retention_days === "number" && partial.log_retention_days > 0
         ? partial.log_retention_days
         : defaultSystemSettings.log_retention_days,
-    email_from:
-      typeof partial?.email_from === "string" && partial.email_from.trim().length > 0
-        ? partial.email_from.trim()
-        : defaultSystemSettings.email_from,
+    notification_recipient:
+      typeof partial?.notification_recipient === "string" && partial.notification_recipient.trim().length > 0
+        ? partial.notification_recipient.trim()
+        : defaultSystemSettings.notification_recipient,
+    org_notification_email:
+      typeof partial?.org_notification_email === "string" && partial.org_notification_email.trim().length > 0
+        ? partial.org_notification_email.trim()
+        : defaultSystemSettings.org_notification_email,
     email_template_subject:
       typeof partial?.email_template_subject === "string" && partial.email_template_subject.trim().length > 0
         ? partial.email_template_subject.trim()
@@ -173,6 +185,18 @@ function normalizeSettings(partial: Partial<SystemSettings> | null | undefined):
       typeof partial?.email_template_body === "string" && partial.email_template_body.trim().length > 0
         ? partial.email_template_body
         : defaultSystemSettings.email_template_body,
+    alert_receiver_offline:
+      typeof partial?.alert_receiver_offline === "boolean"
+        ? partial.alert_receiver_offline
+        : defaultSystemSettings.alert_receiver_offline,
+    alert_key_rotation:
+      typeof partial?.alert_key_rotation === "boolean"
+        ? partial.alert_key_rotation
+        : defaultSystemSettings.alert_key_rotation,
+    alert_suspicious_activity:
+      typeof partial?.alert_suspicious_activity === "boolean"
+        ? partial.alert_suspicious_activity
+        : defaultSystemSettings.alert_suspicious_activity,
   };
 }
 
