@@ -8,13 +8,19 @@ declare module "express-serve-static-core" {
   interface Request {
     org?: Org;
     apiKey?: ApiKey;
+    orgId?: string;
+    apiKeyScope?: string;
   }
 }
 
 function extractRawKey(req: Request): string | null {
   const authHeader = req.headers.authorization;
   const headerKey = req.headers["x-hnnp-api-key"];
+  const headerKeyAlt = req.headers["x-api-key"];
 
+  if (typeof headerKeyAlt === "string" && headerKeyAlt.trim().length > 0) {
+    return headerKeyAlt.trim();
+  }
   if (typeof headerKey === "string" && headerKey.trim().length > 0) {
     return headerKey.trim();
   }
@@ -58,6 +64,10 @@ export async function apiKeyAuth(req: Request, res: Response, next: NextFunction
     return res.status(401).json({ error: "Invalid API key format" });
   }
 
+  if (!rawKey.startsWith("hnnp_live_")) {
+    return res.status(401).json({ error: "Invalid API key format" });
+  }
+
   try {
     const apiKey = await prisma.apiKey.findUnique({ where: { keyPrefix: prefix } });
     if (!apiKey || apiKey.revokedAt) {
@@ -82,6 +92,8 @@ export async function apiKeyAuth(req: Request, res: Response, next: NextFunction
 
     req.apiKey = apiKey;
     req.org = org;
+    req.orgId = org.id;
+    req.apiKeyScope = apiKey.scopes;
 
     // eslint-disable-next-line no-console
     console.log(`[api-key] org=${org.id} keyPrefix=${apiKey.keyPrefix}`);
