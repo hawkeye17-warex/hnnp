@@ -2,6 +2,7 @@ import { Router, Request, Response } from "express";
 import { prisma } from "../db/prisma";
 import { apiKeyAuth } from "../middleware/apiKeyAuth";
 import { requireRole } from "../middleware/permissions";
+import { buildAuditContext, logAudit } from "../services/audit";
 
 const router = Router();
 
@@ -43,6 +44,13 @@ router.post("/internal/admin-users", async (req: Request, res: Response) => {
         status: typeof status === "string" && status.trim().length > 0 ? status.trim() : "active",
       },
     });
+    await logAudit({
+      action: "admin_user_create",
+      entityType: "admin_user",
+      entityId: created.id,
+      details: { email: created.email, role: created.role, status: created.status },
+      ...buildAuditContext(req),
+    });
     return res.status(201).json({
       id: created.id,
       email: created.email,
@@ -77,6 +85,13 @@ router.patch("/internal/admin-users/:id", async (req: Request, res: Response) =>
       where: { id },
       data,
     });
+    await logAudit({
+      action: "admin_user_update",
+      entityType: "admin_user",
+      entityId: updated.id,
+      details: data as Record<string, unknown>,
+      ...buildAuditContext(req),
+    });
     return res.json({
       id: updated.id,
       email: updated.email,
@@ -103,6 +118,13 @@ router.delete("/internal/admin-users/:id", async (req: Request, res: Response) =
   const { id } = req.params;
   try {
     await prisma.adminUser.delete({ where: { id } });
+    await logAudit({
+      action: "admin_user_delete",
+      entityType: "admin_user",
+      entityId: id,
+      details: null,
+      ...buildAuditContext(req),
+    });
     return res.status(204).send();
   } catch (err: any) {
     // eslint-disable-next-line no-console

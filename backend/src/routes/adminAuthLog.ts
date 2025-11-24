@@ -1,6 +1,7 @@
 import { Router, Request, Response } from "express";
 import { getSupabaseServiceClient } from "../services/supabaseClient";
 import { logger } from "../services/logger";
+import { logAudit } from "../services/audit";
 
 type LogBody = {
   user_id?: string;
@@ -48,6 +49,15 @@ router.post("/admin/auth/log", async (req: Request, res: Response) => {
       logger.warn("auth log insert failed", { message: error.message });
       return res.status(202).json({ ok: false, error: "log insert failed" });
     }
+    await logAudit({
+      action: "admin_login",
+      entityType: "auth",
+      entityId: user_id ?? email ?? undefined,
+      orgId: null,
+      actorKey: null,
+      actorRole: null,
+      details: { email, event, success, ip },
+    });
     return res.status(201).json({ ok: true });
   } catch (err: any) {
     logger.warn("auth log route error", { message: err?.message });

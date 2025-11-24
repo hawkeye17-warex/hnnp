@@ -9,6 +9,7 @@ import { linksRouter } from "./routes/links";
 import { presenceReadRouter } from "./routes/presenceRead";
 import { adminAuthLogRouter } from "./routes/adminAuthLog";
 import { adminUsersRouter } from "./routes/adminUsers";
+import { auditLogsRouter } from "./routes/auditLogs";
 import { prisma } from "./db/prisma";
 import cors from "cors";
 
@@ -36,6 +37,7 @@ app.use(linksRouter);
 app.use(presenceReadRouter);
 app.use(adminAuthLogRouter);
 app.use(adminUsersRouter);
+app.use(auditLogsRouter);
 
 const server = http.createServer(app);
 

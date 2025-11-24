@@ -315,6 +315,18 @@ export const createApiClient = (session: Session) => {
     createAdminUser,
     updateAdminUser,
     deleteAdminUser,
+    // Audit logs (admin/superadmin)
+    getAuditLogs: async (params: Record<string, string | number> = {}) => {
+      const search = new URLSearchParams(Object.fromEntries(Object.entries(params).map(([k, v]) => [k, String(v)])));
+      const res = await fetch(
+        `${baseUrl}/internal/audit-logs${search.toString() ? `?${search.toString()}` : ""}`,
+        {
+          headers: buildHeaders(session),
+        },
+      );
+      if (!res.ok) throw new Error("Failed to fetch audit logs");
+      return res.json();
+    },
   };
 };
 

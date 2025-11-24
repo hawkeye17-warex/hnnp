@@ -1,0 +1,58 @@
+import { Router, Request, Response } from "express";
+import { prisma } from "../db/prisma";
+import { apiKeyAuth } from "../middleware/apiKeyAuth";
+import { requireRole } from "../middleware/permissions";
+
+const router = Router();
+
+router.use(apiKeyAuth, requireRole("auditor"));
+
+router.get("/internal/audit-logs", async (req: Request, res: Response) => {
+  const { org_id, action, entity_type, limit } = req.query;
+
+  let take = 100;
+  if (typeof limit === "string") {
+    const parsed = Number.parseInt(limit, 10);
+    if (Number.isFinite(parsed) && parsed > 0 && parsed <= 500) {
+      take = parsed;
+    }
+  }
+
+  const where: any = {};
+  if (typeof org_id === "string" && org_id.length > 0) {
+    where.orgId = org_id;
+  }
+  if (typeof action === "string" && action.length > 0) {
+    where.action = action;
+  }
+  if (typeof entity_type === "string" && entity_type.length > 0) {
+    where.entityType = entity_type;
+  }
+
+  try {
+    const logs = await prisma.auditLog.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      take,
+    });
+    return res.json(
+      logs.map((l) => ({
+        id: l.id,
+        org_id: l.orgId,
+        actor_key: l.actorKey,
+        actor_role: l.actorRole,
+        action: l.action,
+        entity_type: l.entityType,
+        entity_id: l.entityId,
+        details: l.details,
+        created_at: l.createdAt.toISOString(),
+      })),
+    );
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error("Error listing audit logs", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+export { router as auditLogsRouter };

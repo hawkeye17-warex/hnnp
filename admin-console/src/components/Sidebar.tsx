@@ -11,6 +11,7 @@ const navItems = [
   {to: '/org-settings', label: 'Org Settings'},
   {to: '/organizations', label: 'Organizations'},
   {to: '/admin-users', label: 'Admin Users'},
+  {to: '/audit-logs', label: 'Audit Logs'},
   {to: '/account', label: 'Account'},
   {to: '/api', label: 'API'},
 ];

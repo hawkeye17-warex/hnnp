@@ -28,6 +28,7 @@ const ResetPasswordPage = React.lazy(() => import('./pages/ResetPasswordPage'));
 const LoginPage = React.lazy(() => import('./pages/LoginPage'));
 const OnboardOrgPage = React.lazy(() => import('./pages/OnboardOrgPage'));
 const AdminUsersPage = React.lazy(() => import('./pages/AdminUsersPage'));
+const AuditLogsPage = React.lazy(() => import('./pages/AuditLogsPage'));
 
 const ProtectedLayout = ProtectedRoute(MainLayout);
 
@@ -76,6 +77,7 @@ const router = createBrowserRouter([
       {path: 'organizations', element: withLoader(<OrganizationsPage />)},
       {path: 'organizations/:id', element: withLoader(<OrganizationDetailsPage />)},
       {path: 'admin-users', element: withLoader(<AdminUsersPage />)},
+      {path: 'audit-logs', element: withLoader(<AuditLogsPage />)},
       {path: '*', element: <Navigate to="/overview" replace />},
     ],
   },

@@ -7,6 +7,7 @@ import { prisma } from "../db/prisma";
 import { apiKeyAuth } from "../middleware/apiKeyAuth";
 import { computeApiKeyHash } from "../security/apiKeys";
 import { requireRole } from "../middleware/permissions";
+import { buildAuditContext, logAudit } from "../services/audit";
 
 const router = Router();
 
@@ -56,6 +57,16 @@ router.post("/internal/orgs/create", async (req: Request, res: Response) => {
         },
       }),
     ]);
+
+    await logAudit({
+      action: "org_create",
+      entityType: "org",
+      entityId: orgId,
+      orgId,
+      details: { name, slug },
+      actorKey: null,
+      actorRole: "superadmin",
+    });
 
     return res.status(201).json({ orgId, apiKey: rawKey });
   } catch (err) {
@@ -270,6 +281,21 @@ router.post("/v2/orgs/:org_id/receivers", requireRole("admin"), async (req: Requ
       },
     });
 
+    await logAudit({
+      action: "receiver_create",
+      entityType: "receiver",
+      entityId: receiver.id,
+      orgId: org_id,
+      details: {
+        display_name,
+        location_label,
+        auth_mode: authMode,
+        firmware_version,
+        status,
+      },
+      ...buildAuditContext(req),
+    });
+
     return res.status(201).json(serializeReceiver(receiver));
   } catch (err) {
     // eslint-disable-next-line no-console
@@ -372,6 +398,15 @@ router.patch(
       const updated = await prisma.receiver.update({
         where: { id: receiver_id },
         data,
+      });
+
+      await logAudit({
+        action: "receiver_update",
+        entityType: "receiver",
+        entityId: receiver_id,
+        orgId: org_id,
+        details: data as Record<string, unknown>,
+        ...buildAuditContext(req),
       });
 
       return res.status(200).json(serializeReceiver(updated));
