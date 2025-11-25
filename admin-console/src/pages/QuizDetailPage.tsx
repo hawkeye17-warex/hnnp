@@ -23,6 +23,9 @@ const QuizDetailPage = () => {
   const [subsStats, setSubsStats] = useState<any | null>(null);
   const [subsError, setSubsError] = useState<string | null>(null);
   const [subsLoading, setSubsLoading] = useState(false);
+  const [presence, setPresence] = useState<any[] | null>(null);
+  const [presenceError, setPresenceError] = useState<string | null>(null);
+  const [presenceLoading, setPresenceLoading] = useState(false);
 
   const load = async () => {
     if (!orgId || !quizId) return;
@@ -146,6 +149,25 @@ const QuizDetailPage = () => {
             }}>
             Submissions
           </button>
+          <button
+            className={tab === 'presence' ? 'primary' : 'secondary'}
+            onClick={async () => {
+              setTab('presence');
+              if (presence) return;
+              if (!orgId || !quizId) return;
+              setPresenceLoading(true);
+              setPresenceError(null);
+              try {
+                const res = await api.getQuizPresence(orgId, quizId);
+                setPresence(res?.presence_logs ?? []);
+              } catch (err: any) {
+                setPresenceError(err?.message ?? 'Failed to load presence');
+              } finally {
+                setPresenceLoading(false);
+              }
+            }}>
+            Presence
+          </button>
         </div>
       </Card>
 
@@ -208,6 +230,36 @@ const QuizDetailPage = () => {
             </>
           ) : (
             <EmptyState message="No submissions yet." />
+          )}
+        </Card>
+      ) : null}
+      {tab === 'presence' ? (
+        <Card>
+          {presenceLoading ? (
+            <LoadingState message="Loading presence..." />
+          ) : presenceError ? (
+            <ErrorState message={presenceError} onRetry={() => setPresence(null)} />
+          ) : presence && presence.length > 0 ? (
+            <div className="table">
+              <div className="table__row table__head">
+                <div>User</div>
+                <div>Receiver</div>
+                <div>Time</div>
+                <div>Result</div>
+                <div>Token prefix</div>
+              </div>
+              {presence.map((p: any) => (
+                <div className="table__row" key={p.id}>
+                  <div>{p.user_ref || '—'}</div>
+                  <div>{p.receiver_id || '—'}</div>
+                  <div className="muted">{formatDate(p.server_timestamp)}</div>
+                  <div>{p.auth_result}</div>
+                  <div>{p.token_prefix}</div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <EmptyState message="No presence logs in the quiz window." />
           )}
         </Card>
       ) : null}

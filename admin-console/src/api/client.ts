@@ -480,6 +480,13 @@ export const createApiClient = (session: Session) => {
       if (!res.ok) throw new Error('Failed to load quiz submissions');
       return res.json();
     },
+    getQuizPresence: async (orgId: string, quizId: string) => {
+      const res = await fetch(`${baseUrl}/v2/orgs/${encodeURIComponent(orgId)}/quizzes/${encodeURIComponent(quizId)}/presence`, {
+        headers: buildHeaders(session),
+      });
+      if (!res.ok) throw new Error('Failed to load quiz presence');
+      return res.json();
+    },
     exportQuizSubmissionsCsv: async (orgId: string, quizId: string) => {
       const res = await fetch(`${baseUrl}/v2/orgs/${encodeURIComponent(orgId)}/quizzes/${encodeURIComponent(quizId)}/submissions?export=csv`, {
         headers: buildHeaders(session),

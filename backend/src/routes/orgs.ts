@@ -1237,6 +1237,46 @@ router.get("/v2/orgs/:org_id/quizzes/:quiz_id/submissions", requireRole("auditor
   }
 });
 
+router.get("/v2/orgs/:org_id/quizzes/:quiz_id/presence", requireRole("auditor"), async (req: Request, res: Response) => {
+  const { org_id, quiz_id } = req.params;
+  try {
+    const quiz = await prisma.quizSession.findFirst({ where: { id: quiz_id, orgId: org_id } });
+    if (!quiz) return res.status(404).json({ error: "Quiz not found" });
+
+    const start = quiz.startTime;
+    const end = quiz.endTime;
+    const receiverId = quiz.receiverId;
+
+    const where: Prisma.PresenceEventWhereInput = {
+      orgId: org_id,
+      serverTimestamp: { gte: start, lte: end },
+    };
+    if (receiverId) where.receiverId = receiverId;
+
+    const presence = await prisma.presenceEvent.findMany({
+      where,
+      orderBy: { serverTimestamp: "desc" },
+      take: 500,
+    });
+
+    return res.json({
+      presence_logs: presence.map((p) => ({
+        id: p.id,
+        receiver_id: p.receiverId,
+        user_ref: p.userRef,
+        server_timestamp: p.serverTimestamp.toISOString(),
+        token_prefix: p.tokenPrefix,
+        auth_result: p.authResult,
+      })),
+      window: { start: start.toISOString(), end: end.toISOString(), receiver_id: receiverId },
+    });
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error("Error fetching quiz presence", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 router.get("/v2/orgs/:org_id/presence", requireRole("auditor"), async (req: Request, res: Response) => {
   const { org_id } = req.params;
   const receiverIdParam = req.query.receiver_id;
