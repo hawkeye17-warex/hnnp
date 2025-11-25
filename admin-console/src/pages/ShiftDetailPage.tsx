@@ -79,6 +79,10 @@ const ShiftDetailPage = () => {
 
       <Card>
         <h3>Breaks</h3>
+        <p className="muted">
+          Total break time: {formatDuration(sumBreaks(breaks))} | Paid:{' '}
+          {formatDuration(sumBreaks(breaks, true))} | Unpaid: {formatDuration(sumBreaks(breaks, false))}
+        </p>
         {breaks.length === 0 ? (
           <EmptyState message="No breaks recorded." />
         ) : (
@@ -116,6 +120,18 @@ const formatDuration = (seconds?: number | null) => {
   const hrs = Math.floor(mins / 60);
   const rem = mins % 60;
   return `${hrs}h ${rem}m`;
+};
+
+const sumBreaks = (breaks: Break[], paid?: boolean) => {
+  return breaks
+    .filter(b => {
+      if (paid === undefined) return true;
+      if (!b.type) return paid; // if type missing, count with paid flag
+      const lower = b.type.toLowerCase();
+      const isPaid = lower.includes('paid');
+      return paid ? isPaid : !isPaid;
+    })
+    .reduce((sum, b) => sum + (b.total_seconds ?? 0), 0);
 };
 
 export default ShiftDetailPage;
