@@ -30,6 +30,7 @@ model Org {
   sessions  PresenceSession[]
   userProfiles UserProfile[]
   quizSessions QuizSession[]
+  shifts       Shift[]
 }
 
 model Receiver {
@@ -244,6 +245,7 @@ model UserProfile {
 
   org Org @relation(fields: [orgId], references: [id])
   submissions QuizSubmission[]
+  shifts Shift[]
 
   @@index([userId])
   @@index([orgId])
