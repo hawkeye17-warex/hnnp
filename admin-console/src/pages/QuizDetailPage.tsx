@@ -26,6 +26,7 @@ const QuizDetailPage = () => {
   const [presence, setPresence] = useState<any[] | null>(null);
   const [presenceError, setPresenceError] = useState<string | null>(null);
   const [presenceLoading, setPresenceLoading] = useState(false);
+  const [notifyLoading, setNotifyLoading] = useState(false);
 
   const load = async () => {
     if (!orgId || !quizId) return;
@@ -134,6 +135,42 @@ const QuizDetailPage = () => {
             </button>
             <button className="secondary" type="button" onClick={endQuiz}>
               End quiz
+            </button>
+            <button
+              className="secondary"
+              type="button"
+              onClick={async () => {
+                if (!orgId || !quizId) return;
+                setNotifyLoading(true);
+                try {
+                  await api.notifyQuiz(orgId, quizId, 'published');
+                  toast.success('Published notification sent');
+                } catch (err: any) {
+                  toast.error(err?.message ?? 'Failed to send notification');
+                } finally {
+                  setNotifyLoading(false);
+                }
+              }}
+              disabled={notifyLoading}>
+              Notify (published)
+            </button>
+            <button
+              className="secondary"
+              type="button"
+              onClick={async () => {
+                if (!orgId || !quizId) return;
+                setNotifyLoading(true);
+                try {
+                  await api.notifyQuiz(orgId, quizId, 'scores');
+                  toast.success('Scores notification sent');
+                } catch (err: any) {
+                  toast.error(err?.message ?? 'Failed to send notification');
+                } finally {
+                  setNotifyLoading(false);
+                }
+              }}
+              disabled={notifyLoading}>
+              Notify (scores)
             </button>
           </div>
         </div>

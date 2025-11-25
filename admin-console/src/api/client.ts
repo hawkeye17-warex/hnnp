@@ -473,6 +473,15 @@ export const createApiClient = (session: Session) => {
       if (!res.ok) throw new Error('Failed to end quiz');
       return res.json();
     },
+    notifyQuiz: async (orgId: string, quizId: string, type: 'published' | 'scores') => {
+      const res = await fetch(`${baseUrl}/v2/orgs/${encodeURIComponent(orgId)}/quizzes/${encodeURIComponent(quizId)}/notify`, {
+        method: 'POST',
+        headers: buildHeaders(session),
+        body: JSON.stringify({type}),
+      });
+      if (!res.ok) throw new Error('Failed to send notification');
+      return res.json();
+    },
     getQuizSubmissions: async (orgId: string, quizId: string) => {
       const res = await fetch(`${baseUrl}/v2/orgs/${encodeURIComponent(orgId)}/quizzes/${encodeURIComponent(quizId)}/submissions`, {
         headers: buildHeaders(session),

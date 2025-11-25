@@ -1137,6 +1137,33 @@ router.post("/v2/orgs/:org_id/quizzes/:quiz_id/end", requireRole("admin"), async
   }
 });
 
+router.post("/v2/orgs/:org_id/quizzes/:quiz_id/notify", requireRole("admin"), async (req: Request, res: Response) => {
+  const { org_id, quiz_id } = req.params;
+  const { type } = req.body ?? {};
+  if (type !== "published" && type !== "scores") {
+    return res.status(400).json({ error: "type must be 'published' or 'scores'" });
+  }
+  try {
+    const quiz = await prisma.quizSession.findFirst({ where: { id: quiz_id, orgId: org_id } });
+    if (!quiz) return res.status(404).json({ error: "Quiz not found" });
+
+    // Placeholder: integrate actual email delivery here.
+    await logAudit({
+      action: "quiz_notify",
+      entityType: "quiz",
+      entityId: quiz_id,
+      details: { type },
+      ...buildAuditContext(req),
+    });
+
+    return res.json({ ok: true, message: "Notification queued", type });
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error("Error notifying quiz", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 router.post("/v2/orgs/:org_id/quizzes/:quiz_id/submit", requireRole("read-only"), async (req: Request, res: Response) => {
   const { org_id, quiz_id } = req.params;
   const { profile_id, user_ref } = req.body ?? {};
