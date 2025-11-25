@@ -30,6 +30,7 @@ const OverviewPage = ({orgId}: Props) => {
   const [org, setOrg] = useState<any>(null);
   const [receivers, setReceivers] = useState<Receiver[]>([]);
   const [events, setEvents] = useState<PresenceEvent[]>([]);
+  const [quizSummary, setQuizSummary] = useState<any | null>(null);
   const [realtime, setRealtime] = useState<{
     eventsPerSec: number;
     activeReceivers: number;
@@ -67,6 +68,12 @@ const OverviewPage = ({orgId}: Props) => {
           : [];
         setReceivers(receiversData);
         setEvents(eventsData);
+        try {
+          const quizRes = await api.getQuizSummary(orgId);
+          setQuizSummary(quizRes);
+        } catch {
+          setQuizSummary(null);
+        }
       } catch (err: any) {
         if (!mounted) return;
         setError(err?.message ?? 'Failed to load overview.');
@@ -204,6 +211,16 @@ const OverviewPage = ({orgId}: Props) => {
               </div>
             </>
           )}
+        </Card>
+        <Card>
+          <p className="muted">Quizzes this week</p>
+          <h2>{quizSummary?.quizzes_this_week ?? '—'}</h2>
+          <p className="muted">Submissions: {quizSummary?.submissions_this_week ?? '—'}</p>
+        </Card>
+        <Card>
+          <p className="muted">Live quizzes</p>
+          <h2>{quizSummary?.live_quizzes?.length ?? 0}</h2>
+          <p className="muted">Running now</p>
         </Card>
       </div>
 

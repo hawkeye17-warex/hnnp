@@ -482,6 +482,14 @@ export const createApiClient = (session: Session) => {
       if (!res.ok) throw new Error('Failed to send notification');
       return res.json();
     },
+    getQuizSummary: async (orgId?: string) => {
+      const id = orgId ?? session.orgId;
+      const res = await fetch(`${baseUrl}/v2/orgs/${encodeURIComponent(id)}/quizzes/metrics/summary`, {
+        headers: buildHeaders(session),
+      });
+      if (!res.ok) throw new Error('Failed to load quiz summary');
+      return res.json();
+    },
     getQuizSubmissions: async (orgId: string, quizId: string) => {
       const res = await fetch(`${baseUrl}/v2/orgs/${encodeURIComponent(orgId)}/quizzes/${encodeURIComponent(quizId)}/submissions`, {
         headers: buildHeaders(session),

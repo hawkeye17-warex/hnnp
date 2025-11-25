@@ -1456,6 +1456,44 @@ router.get("/v2/orgs/:org_id/quizzes/:quiz_id/presence", requireRole("auditor"),
   }
 });
 
+router.get("/v2/orgs/:org_id/quizzes/metrics/summary", requireRole("read-only"), async (req: Request, res: Response) => {
+  const { org_id } = req.params;
+  try {
+    const now = new Date();
+    const startOfWeek = new Date(now);
+    startOfWeek.setDate(now.getDate() - now.getDay());
+    startOfWeek.setHours(0, 0, 0, 0);
+
+    const quizzesThisWeek = await prisma.quizSession.count({
+      where: { orgId: org_id, startTime: { gte: startOfWeek } },
+    });
+
+    const liveQuizzes = await prisma.quizSession.findMany({
+      where: { orgId: org_id, status: "running" },
+      select: { id: true, title: true, startTime: true, endTime: true },
+    });
+
+    const submissionsThisWeek = await prisma.quizSubmission.count({
+      where: { quiz: { orgId: org_id, startTime: { gte: startOfWeek } } },
+    });
+
+    return res.json({
+      quizzes_this_week: quizzesThisWeek,
+      submissions_this_week: submissionsThisWeek,
+      live_quizzes: liveQuizzes.map((q) => ({
+        id: q.id,
+        title: q.title,
+        start_time: q.startTime.toISOString(),
+        end_time: q.endTime.toISOString(),
+      })),
+    });
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error("Error fetching quiz summary", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 router.get("/v2/orgs/:org_id/presence", requireRole("auditor"), async (req: Request, res: Response) => {
   const { org_id } = req.params;
   const receiverIdParam = req.query.receiver_id;
