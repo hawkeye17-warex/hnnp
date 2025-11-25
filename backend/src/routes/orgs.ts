@@ -151,6 +151,7 @@ function serializePresence(evt: PresenceEvent) {
 }
 
 function serializeQuiz(session: QuizSession) {
+  const settings = (session.settingsJson ?? {}) as any;
   return {
     id: session.id,
     org_id: session.orgId,
@@ -161,7 +162,13 @@ function serializeQuiz(session: QuizSession) {
     end_time: session.endTime.toISOString(),
     status: session.status,
     created_by: session.createdBy,
-    settings_json: session.settingsJson ?? null,
+    settings_json: {
+      require_presence: settings.require_presence ?? false,
+      presence_window_minutes: settings.presence_window_minutes ?? 10,
+      late_join_allowed: settings.late_join_allowed ?? false,
+      results_visibility: settings.results_visibility ?? "submitted_only",
+      ...(settings || {}),
+    },
     test_mode: session.testMode,
     created_at: session.createdAt.toISOString(),
   };
@@ -1012,6 +1019,7 @@ router.post("/v2/orgs/:org_id/quizzes", requireRole("admin"), async (req: Reques
           require_presence: settings_json?.require_presence ?? false,
           presence_window_minutes: settings_json?.presence_window_minutes ?? 10,
           late_join_allowed: settings_json?.late_join_allowed ?? false,
+          results_visibility: settings_json?.results_visibility ?? "submitted_only",
           ...settings_json,
         },
         testMode: Boolean(test_mode),

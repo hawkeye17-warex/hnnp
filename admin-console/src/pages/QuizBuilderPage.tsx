@@ -46,6 +46,7 @@ const QuizBuilderPage = () => {
   const [requirePresence, setRequirePresence] = useState(false);
   const [presenceWindow, setPresenceWindow] = useState(10);
   const [lateJoinAllowed, setLateJoinAllowed] = useState(false);
+  const [resultsVisibility, setResultsVisibility] = useState<'submitted_only' | 'score_only' | 'full'>('submitted_only');
 
   const addQuestion = () => {
     setQuestions(qs => [...qs, {...defaultQuestion, id: crypto.randomUUID()}]);
@@ -90,6 +91,7 @@ const QuizBuilderPage = () => {
           require_presence: requirePresence,
           presence_window_minutes: presenceWindow,
           late_join_allowed: lateJoinAllowed,
+          results_visibility: resultsVisibility,
         },
       };
       await api.createQuiz(orgId, payload);
@@ -173,6 +175,14 @@ const QuizBuilderPage = () => {
               value={presenceWindow}
               onChange={e => setPresenceWindow(Number(e.target.value) || 0)}
             />
+          </label>
+          <label className="form__field">
+            <span>Results visibility for students</span>
+            <select value={resultsVisibility} onChange={e => setResultsVisibility(e.target.value as any)}>
+              <option value="submitted_only">Show only "Submitted successfully"</option>
+              <option value="score_only">Show score only</option>
+              <option value="full">Show full result per question</option>
+            </select>
           </label>
         </div>
       </Card>
