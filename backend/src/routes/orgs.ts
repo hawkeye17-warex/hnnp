@@ -1164,6 +1164,147 @@ router.post("/v2/orgs/:org_id/quizzes/:quiz_id/notify", requireRole("admin"), as
   }
 });
 
+router.patch("/v2/orgs/:org_id/quizzes/:quiz_id", requireRole("admin"), async (req: Request, res: Response) => {
+  const { org_id, quiz_id } = req.params;
+  const {
+    title,
+    course_id,
+    receiver_id,
+    start_time,
+    duration_minutes,
+    status,
+    questions,
+    settings_json,
+    test_mode,
+  } = req.body ?? {};
+
+  try {
+    const quiz = await prisma.quizSession.findFirst({ where: { id: quiz_id, orgId: org_id } });
+    if (!quiz) return res.status(404).json({ error: "Quiz not found" });
+
+    const hasQuestions = Array.isArray(questions) && questions.length > 0;
+    if (hasQuestions && quiz.status !== "draft") {
+      await logAudit({
+        action: "quiz_question_edit_blocked",
+        entityType: "quiz",
+        entityId: quiz_id,
+        details: { status: quiz.status },
+        ...buildAuditContext(req),
+      });
+      return res.status(400).json({ error: "Cannot edit questions after publish" });
+    }
+
+    const updates: Prisma.QuizSessionUpdateInput = {};
+    if (typeof title === "string" && title.trim().length > 0) updates.title = title.trim();
+    if (typeof course_id === "string") updates.courseId = course_id || null;
+    if (typeof receiver_id === "string") updates.receiverId = receiver_id || null;
+    if (typeof test_mode === "boolean") updates.testMode = test_mode;
+
+    let startTime = quiz.startTime;
+    if (typeof start_time === "string") {
+      const d = new Date(start_time);
+      if (Number.isNaN(d.getTime())) return res.status(400).json({ error: "Invalid start_time" });
+      startTime = d;
+      updates.startTime = d;
+    }
+    if (typeof duration_minutes === "number" && duration_minutes > 0) {
+      const endTime = new Date(startTime.getTime() + duration_minutes * 60 * 1000);
+      updates.endTime = endTime;
+      if (!updates.startTime) updates.startTime = startTime;
+    }
+
+    if (typeof status === "string" && status.trim().length > 0) {
+      updates.status = status.trim();
+    }
+
+    if (settings_json && typeof settings_json === "object") {
+      updates.settingsJson = {
+        ...(quiz.settingsJson ?? {}),
+        ...settings_json,
+      };
+    }
+
+    const updated = await prisma.quizSession.update({
+      where: { id: quiz_id },
+      data: updates,
+    });
+
+    if (hasQuestions) {
+      const quizQuestions: Prisma.QuizQuestionCreateManyInput[] = questions
+        .filter((q: any) => q && typeof q.text === "string")
+        .map((q: any) => ({
+          quizId: quiz_id,
+          type: typeof q.type === "string" ? q.type : "mcq",
+          text: q.text,
+          optionsJson: q.options_json ?? q.options ?? null,
+          correctOption: typeof q.correct_option === "string" ? q.correct_option : null,
+          timeLimitSec: typeof q.time_limit_sec === "number" ? q.time_limit_sec : null,
+        }));
+      await prisma.quizQuestion.deleteMany({ where: { quizId: quiz_id } });
+      if (quizQuestions.length > 0) {
+        await prisma.quizQuestion.createMany({ data: quizQuestions });
+      }
+      await logAudit({
+        action: "quiz_questions_replace",
+        entityType: "quiz",
+        entityId: quiz_id,
+        details: { question_count: quizQuestions.length },
+        ...buildAuditContext(req),
+      });
+    }
+
+    if (updates.status && updates.status !== quiz.status) {
+      await logAudit({
+        action: updates.status.toLowerCase() === "live" ? "quiz_publish" : "quiz_status_change",
+        entityType: "quiz",
+        entityId: quiz_id,
+        details: { from: quiz.status, to: updates.status },
+        ...buildAuditContext(req),
+      });
+    } else {
+      await logAudit({
+        action: "quiz_update",
+        entityType: "quiz",
+        entityId: quiz_id,
+        details: updates as Record<string, unknown>,
+        ...buildAuditContext(req),
+      });
+    }
+
+    return res.json(serializeQuiz(updated));
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error("Error updating quiz", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.delete("/v2/orgs/:org_id/quizzes/:quiz_id", requireRole("admin"), async (req: Request, res: Response) => {
+  const { org_id, quiz_id } = req.params;
+  try {
+    const quiz = await prisma.quizSession.findFirst({ where: { id: quiz_id, orgId: org_id } });
+    if (!quiz) return res.status(404).json({ error: "Quiz not found" });
+
+    await prisma.quizQuestion.deleteMany({ where: { quizId: quiz_id } });
+    await prisma.quizSubmission.deleteMany({ where: { quizId: quiz_id } });
+    await prisma.quizSession.delete({ where: { id: quiz_id } });
+
+    await logAudit({
+      action: "quiz_delete",
+      entityType: "quiz",
+      entityId: quiz_id,
+      details: null,
+      ...buildAuditContext(req),
+    });
+
+    return res.status(204).send();
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error("Error deleting quiz", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 router.post("/v2/orgs/:org_id/quizzes/:quiz_id/submit", requireRole("read-only"), async (req: Request, res: Response) => {
   const { org_id, quiz_id } = req.params;
   const { profile_id, user_ref } = req.body ?? {};
