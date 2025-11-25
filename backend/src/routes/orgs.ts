@@ -1550,6 +1550,47 @@ router.get("/v2/orgs/:org_id/shifts", requireRole("read-only"), async (req: Requ
   }
 });
 
+router.get("/v2/orgs/:org_id/shifts/:shift_id", requireRole("read-only"), async (req: Request, res: Response) => {
+  const { org_id, shift_id } = req.params;
+  try {
+    const shift = await prisma.shift.findFirst({ where: { id: shift_id, orgId: org_id } });
+    if (!shift) return res.status(404).json({ error: "Shift not found" });
+    const breaks = await prisma.break.findMany({
+      where: { shiftId: shift_id },
+      orderBy: { startTime: "asc" },
+    });
+
+    return res.json({
+      shift: {
+        id: shift.id,
+        profile_id: shift.profileId,
+        org_id: shift.orgId,
+        location_id: shift.locationId,
+        start_time: shift.startTime.toISOString(),
+        end_time: shift.endTime ? shift.endTime.toISOString() : null,
+        total_seconds: shift.totalSeconds,
+        created_by: shift.createdBy,
+        closed_by: shift.closedBy,
+        status: shift.status,
+        created_at: shift.createdAt.toISOString(),
+      },
+      breaks: breaks.map((b) => ({
+        id: b.id,
+        shift_id: b.shiftId,
+        start_time: b.startTime.toISOString(),
+        end_time: b.endTime ? b.endTime.toISOString() : null,
+        total_seconds: b.totalSeconds,
+        type: b.type,
+        created_at: b.createdAt.toISOString(),
+      })),
+    });
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error("Error fetching shift detail", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 router.get("/v2/orgs/:org_id/presence", requireRole("auditor"), async (req: Request, res: Response) => {
   const { org_id } = req.params;
   const receiverIdParam = req.query.receiver_id;

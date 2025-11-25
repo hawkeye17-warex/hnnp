@@ -102,7 +102,7 @@ const ShiftsTab = ({orgId}: Props) => {
             <div>Status</div>
           </div>
           {filtered.map(s => (
-            <div className="table__row" key={s.id}>
+            <div className="table__row" key={s.id} onClick={() => window.location.assign(`/organizations/${orgId}/shifts/${s.id}`)}>
               <div>{s.profile_id}</div>
               <div>{formatDateOnly(s.start_time)}</div>
               <div className="muted">{formatDateTime(s.start_time)}</div>

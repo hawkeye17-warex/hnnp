@@ -394,6 +394,13 @@ export const createApiClient = (session: Session) => {
       if (!res.ok) throw new Error('Failed to fetch shifts');
       return res.json();
     },
+    getShift: async (orgId: string, shiftId: string) => {
+      const res = await fetch(`${baseUrl}/v2/orgs/${encodeURIComponent(orgId)}/shifts/${encodeURIComponent(shiftId)}`, {
+        headers: buildHeaders(session),
+      });
+      if (!res.ok) throw new Error('Failed to fetch shift');
+      return res.json();
+    },
     inviteOrgUser,
     getOrgUsageMetrics,
     getOrgErrors,
