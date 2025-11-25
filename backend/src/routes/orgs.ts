@@ -1494,6 +1494,62 @@ router.get("/v2/orgs/:org_id/quizzes/metrics/summary", requireRole("read-only"),
   }
 });
 
+router.get("/v2/orgs/:org_id/shifts", requireRole("read-only"), async (req: Request, res: Response) => {
+  const { org_id } = req.params;
+  const { from, to, status, profile_id } = req.query;
+
+  try {
+    const where: Prisma.ShiftWhereInput = { orgId: org_id };
+    if (typeof status === "string" && status.length > 0) {
+      where.status = status;
+    }
+    if (typeof profile_id === "string" && profile_id.length > 0) {
+      where.profileId = profile_id;
+    }
+    if (typeof from === "string" || typeof to === "string") {
+      where.startTime = {};
+      if (typeof from === "string") {
+        const d = new Date(from);
+        if (!Number.isNaN(d.getTime())) {
+          where.startTime.gte = d;
+        }
+      }
+      if (typeof to === "string") {
+        const d = new Date(to);
+        if (!Number.isNaN(d.getTime())) {
+          where.startTime.lte = d;
+        }
+      }
+    }
+
+    const shifts = await prisma.shift.findMany({
+      where,
+      orderBy: { startTime: "desc" },
+      take: 200,
+    });
+
+    return res.json(
+      shifts.map((s) => ({
+        id: s.id,
+        profile_id: s.profileId,
+        org_id: s.orgId,
+        location_id: s.locationId,
+        start_time: s.startTime.toISOString(),
+        end_time: s.endTime ? s.endTime.toISOString() : null,
+        total_seconds: s.totalSeconds,
+        created_by: s.createdBy,
+        closed_by: s.closedBy,
+        status: s.status,
+        created_at: s.createdAt.toISOString(),
+      })),
+    );
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error("Error fetching shifts", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 router.get("/v2/orgs/:org_id/presence", requireRole("auditor"), async (req: Request, res: Response) => {
   const { org_id } = req.params;
   const receiverIdParam = req.query.receiver_id;

@@ -14,6 +14,7 @@ import UsersTab from './UsersTab';
 import UsageDashboard from './UsageDashboard';
 import UserProfilesTab from './UserProfilesTab';
 import QuizzesTab from './QuizzesTab';
+import ShiftsTab from './ShiftsTab';
 
 const OrganizationDetailsPage = () => {
   const {id} = useParams<{id: string}>();
@@ -21,7 +22,7 @@ const OrganizationDetailsPage = () => {
   const [org, setOrg] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [tab, setTab] = useState<'overview' | 'receivers' | 'presence' | 'users' | 'profiles' | 'quizzes' | 'usage' | 'settings' | 'keys'>('overview');
+  const [tab, setTab] = useState<'overview' | 'receivers' | 'presence' | 'users' | 'profiles' | 'quizzes' | 'shifts' | 'usage' | 'settings' | 'keys'>('overview');
 
   const loadOrg = useCallback(async () => {
     if (!id) {
@@ -131,6 +132,11 @@ const OrganizationDetailsPage = () => {
             Quizzes
           </button>
           <button
+            className={tab === 'shifts' ? 'primary' : 'secondary'}
+            onClick={() => setTab('shifts')}>
+            Shifts
+          </button>
+          <button
             className={tab === 'settings' ? 'primary' : 'secondary'}
             onClick={() => setTab('settings')}>
             Settings
@@ -151,6 +157,7 @@ const OrganizationDetailsPage = () => {
         {tab === 'users' && <UsersTab orgId={orgId} />}
         {tab === 'profiles' && <UserProfilesTab orgId={orgId} />}
         {tab === 'quizzes' && <QuizzesTab orgId={orgId} />}
+        {tab === 'shifts' && <ShiftsTab orgId={orgId} />}
         {tab === 'settings' && <OrgSettingsPage org={org} orgId={orgId} onUpdate={refreshOrg} />}
         {tab === 'keys' && <ApiKeysTab org={org} orgId={orgId} />}
       </div>

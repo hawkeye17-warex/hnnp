@@ -385,6 +385,15 @@ export const createApiClient = (session: Session) => {
       if (!res.ok) throw new Error('Failed to load profile activity');
       return res.json();
     },
+    getShifts: async (orgId?: string, params: Record<string, string> = {}) => {
+      const id = orgId ?? session.orgId;
+      const search = new URLSearchParams(params);
+      const res = await fetch(`${baseUrl}/v2/orgs/${encodeURIComponent(id)}/shifts?${search.toString()}`, {
+        headers: buildHeaders(session),
+      });
+      if (!res.ok) throw new Error('Failed to fetch shifts');
+      return res.json();
+    },
     inviteOrgUser,
     getOrgUsageMetrics,
     getOrgErrors,
