@@ -304,3 +304,38 @@ model QuizSubmission {
   @@index([quizId])
   @@index([profileId])
 }
+
+model Shift {
+  id            String   @id @default(cuid())
+  profileId     String
+  orgId         String
+  locationId    String?
+  startTime     DateTime
+  endTime       DateTime?
+  totalSeconds  Int?
+  createdBy     String?
+  closedBy      String?
+  status        String
+  createdAt     DateTime @default(now())
+
+  org     Org          @relation(fields: [orgId], references: [id])
+  profile UserProfile  @relation(fields: [profileId], references: [id])
+  breaks  Break[]
+
+  @@index([profileId])
+  @@index([orgId])
+}
+
+model Break {
+  id           String   @id @default(cuid())
+  shiftId      String
+  startTime    DateTime
+  endTime      DateTime?
+  totalSeconds Int?
+  type         String?
+  createdAt    DateTime @default(now())
+
+  shift Shift @relation(fields: [shiftId], references: [id])
+
+  @@index([shiftId])
+}
