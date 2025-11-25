@@ -1198,7 +1198,7 @@ router.patch("/v2/orgs/:org_id/quizzes/:quiz_id", requireRole("admin"), requireC
     const updates: Prisma.QuizSessionUpdateInput = {};
     if (typeof title === "string" && title.trim().length > 0) updates.title = title.trim();
     if (typeof course_id === "string") updates.courseId = course_id || null;
-    if (typeof receiver_id === "string") updates.receiverId = receiver_id || null;
+    if (typeof receiver_id === "string") updates.receiver = { connect: receiver_id ? { id: receiver_id } : undefined };
     if (typeof test_mode === "boolean") updates.testMode = test_mode;
 
     let startTime = quiz.startTime;
@@ -1219,10 +1219,11 @@ router.patch("/v2/orgs/:org_id/quizzes/:quiz_id", requireRole("admin"), requireC
     }
 
     if (settings_json && typeof settings_json === "object") {
-      updates.settingsJson = {
+      const merged = {
         ...(typeof quiz.settingsJson === "object" && quiz.settingsJson !== null ? (quiz.settingsJson as Record<string, unknown>) : {}),
         ...(settings_json as Record<string, unknown>),
       };
+      updates.settingsJson = merged as Prisma.InputJsonValue;
     }
 
     const updated = await prisma.quizSession.update({
