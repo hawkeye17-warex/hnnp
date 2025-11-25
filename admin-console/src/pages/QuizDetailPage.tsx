@@ -18,7 +18,7 @@ const QuizDetailPage = () => {
   const [quiz, setQuiz] = useState<QuizSession | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [tab, setTab] = useState<'details' | 'submissions'>('details');
+  const [tab, setTab] = useState<'details' | 'submissions' | 'presence'>('details');
   const [subs, setSubs] = useState<any[] | null>(null);
   const [subsStats, setSubsStats] = useState<any | null>(null);
   const [subsError, setSubsError] = useState<string | null>(null);
