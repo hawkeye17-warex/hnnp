@@ -17,6 +17,19 @@ const ShiftDetailPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const [endInput, setEndInput] = useState('');
+  const [statusInput, setStatusInput] = useState('');
+  const [savingShift, setSavingShift] = useState(false);
+
+  const [breakForm, setBreakForm] = useState<{start_time: string; end_time: string; type: string; total_seconds: string}>({
+    start_time: '',
+    end_time: '',
+    type: '',
+    total_seconds: '',
+  });
+  const [editingBreak, setEditingBreak] = useState<string | null>(null);
+  const [savingBreak, setSavingBreak] = useState(false);
+
   const load = async () => {
     if (!orgId || !shiftId) return;
     setLoading(true);
@@ -25,6 +38,10 @@ const ShiftDetailPage = () => {
       const res = await api.getShift(orgId, shiftId);
       setShift(res?.shift ?? null);
       setBreaks(res?.breaks ?? []);
+      if (res?.shift) {
+        setEndInput(res.shift.end_time ?? '');
+        setStatusInput(res.shift.status ?? '');
+      }
     } catch (err: any) {
       setError(err?.message ?? 'Failed to load shift');
     } finally {
@@ -35,6 +52,78 @@ const ShiftDetailPage = () => {
   useEffect(() => {
     void load();
   }, [orgId, shiftId]);
+
+  const handleUpdateShift = async () => {
+    if (!orgId || !shiftId) return;
+    setSavingShift(true);
+    setError(null);
+    try {
+      const payload: Record<string, unknown> = {};
+      if (endInput) payload.end_time = endInput;
+      if (statusInput) payload.status = statusInput;
+      await api.updateShift(orgId, shiftId, payload);
+      await load();
+    } catch (err: any) {
+      setError(err?.message ?? 'Failed to update shift');
+    } finally {
+      setSavingShift(false);
+    }
+  };
+
+  const resetBreakForm = () => {
+    setBreakForm({start_time: '', end_time: '', type: '', total_seconds: ''});
+    setEditingBreak(null);
+  };
+
+  const handleSaveBreak = async () => {
+    if (!orgId || !shiftId) return;
+    setSavingBreak(true);
+    setError(null);
+    try {
+      const payload: Record<string, unknown> = {};
+      if (breakForm.start_time) payload.start_time = breakForm.start_time;
+      if (breakForm.end_time) payload.end_time = breakForm.end_time;
+      if (breakForm.type) payload.type = breakForm.type;
+      if (breakForm.total_seconds) payload.total_seconds = Number(breakForm.total_seconds);
+
+      if (editingBreak) {
+        await api.updateBreak(orgId, shiftId, editingBreak, payload);
+      } else {
+        await api.createBreak(orgId, shiftId, payload);
+      }
+      await load();
+      resetBreakForm();
+    } catch (err: any) {
+      setError(err?.message ?? 'Failed to save break');
+    } finally {
+      setSavingBreak(false);
+    }
+  };
+
+  const handleEditBreak = (b: Break) => {
+    setEditingBreak(b.id);
+    setBreakForm({
+      start_time: b.start_time ?? '',
+      end_time: b.end_time ?? '',
+      type: b.type ?? '',
+      total_seconds: b.total_seconds ? String(b.total_seconds) : '',
+    });
+  };
+
+  const handleDeleteBreak = async (id: string) => {
+    if (!orgId || !shiftId) return;
+    setSavingBreak(true);
+    setError(null);
+    try {
+      await api.deleteBreak(orgId, shiftId, id);
+      await load();
+      resetBreakForm();
+    } catch (err: any) {
+      setError(err?.message ?? 'Failed to delete break');
+    } finally {
+      setSavingBreak(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -66,8 +155,13 @@ const ShiftDetailPage = () => {
               Profile: {shift.profile_id} | Status: <span className="badge">{shift.status}</span>
             </p>
             <p className="muted">
-              {formatDateTime(shift.start_time)} → {formatDateTime(shift.end_time)} ({formatDuration(shift.total_seconds)})
+              {formatDateTime(shift.start_time)} — {formatDateTime(shift.end_time)} ({formatDuration(shift.total_seconds)})
             </p>
+            {(shift.edited_by || shift.edited_at) && (
+              <p className="muted">
+                Edited by {shift.edited_by ?? 'unknown'} at {formatDateTime(shift.edited_at ?? undefined)}
+              </p>
+            )}
           </div>
           <div className="actions">
             <button className="secondary" type="button" onClick={() => navigate(-1)}>
@@ -75,14 +169,48 @@ const ShiftDetailPage = () => {
             </button>
           </div>
         </div>
+        <div className="form">
+          <div className="form__row">
+            <label htmlFor="end-time">Adjust end time (ISO or yyyy-mm-ddThh:mm)</label>
+            <input
+              id="end-time"
+              type="text"
+              placeholder="2025-11-24T15:30:00Z"
+              value={endInput}
+              onChange={e => setEndInput(e.target.value)}
+            />
+          </div>
+          <div className="form__row">
+            <label htmlFor="status">Status</label>
+            <input
+              id="status"
+              type="text"
+              placeholder="running / closed / corrected"
+              value={statusInput}
+              onChange={e => setStatusInput(e.target.value)}
+            />
+          </div>
+          <div className="actions">
+            <button className="primary" type="button" disabled={savingShift} onClick={handleUpdateShift}>
+              {savingShift ? 'Saving...' : 'Save shift changes'}
+            </button>
+            <button className="secondary" type="button" onClick={() => load()} disabled={savingShift}>
+              Refresh
+            </button>
+          </div>
+        </div>
       </Card>
 
       <Card>
-        <h3>Breaks</h3>
-        <p className="muted">
-          Total break time: {formatDuration(sumBreaks(breaks))} | Paid:{' '}
-          {formatDuration(sumBreaks(breaks, true))} | Unpaid: {formatDuration(sumBreaks(breaks, false))}
-        </p>
+        <div className="table__header">
+          <div>
+            <h3>Breaks</h3>
+            <p className="muted">
+              Total break time: {formatDuration(sumBreaks(breaks))} | Paid: {formatDuration(sumBreaks(breaks, true))} | Unpaid:{' '}
+              {formatDuration(sumBreaks(breaks, false))}
+            </p>
+          </div>
+        </div>
         {breaks.length === 0 ? (
           <EmptyState message="No breaks recorded." />
         ) : (
@@ -92,6 +220,7 @@ const ShiftDetailPage = () => {
               <div>End</div>
               <div>Duration</div>
               <div>Type</div>
+              <div />
             </div>
             {breaks.map(b => (
               <div className="table__row" key={b.id}>
@@ -99,10 +228,74 @@ const ShiftDetailPage = () => {
                 <div>{formatDateTime(b.end_time)}</div>
                 <div>{formatDuration(b.total_seconds)}</div>
                 <div>{b.type || '—'}</div>
+                <div className="table__actions">
+                  <button className="link" type="button" onClick={() => handleEditBreak(b)}>
+                    Edit
+                  </button>
+                  <button className="link danger" type="button" onClick={() => handleDeleteBreak(b.id)} disabled={savingBreak}>
+                    Delete
+                  </button>
+                </div>
               </div>
             ))}
           </div>
         )}
+
+        <div className="divider" />
+
+        <h4>{editingBreak ? 'Edit break' : 'Add break'}</h4>
+        <div className="form">
+          <div className="form__row">
+            <label htmlFor="break-start">Start time</label>
+            <input
+              id="break-start"
+              type="text"
+              placeholder="2025-11-24T14:00:00Z"
+              value={breakForm.start_time}
+              onChange={e => setBreakForm({...breakForm, start_time: e.target.value})}
+            />
+          </div>
+          <div className="form__row">
+            <label htmlFor="break-end">End time</label>
+            <input
+              id="break-end"
+              type="text"
+              placeholder="2025-11-24T14:15:00Z"
+              value={breakForm.end_time}
+              onChange={e => setBreakForm({...breakForm, end_time: e.target.value})}
+            />
+          </div>
+          <div className="form__row">
+            <label htmlFor="break-type">Type</label>
+            <input
+              id="break-type"
+              type="text"
+              placeholder="paid / unpaid / meal"
+              value={breakForm.type}
+              onChange={e => setBreakForm({...breakForm, type: e.target.value})}
+            />
+          </div>
+          <div className="form__row">
+            <label htmlFor="break-duration">Total seconds (optional)</label>
+            <input
+              id="break-duration"
+              type="number"
+              min={0}
+              value={breakForm.total_seconds}
+              onChange={e => setBreakForm({...breakForm, total_seconds: e.target.value})}
+            />
+          </div>
+          <div className="actions">
+            <button className="primary" type="button" disabled={savingBreak} onClick={handleSaveBreak}>
+              {savingBreak ? 'Saving...' : editingBreak ? 'Update break' : 'Add break'}
+            </button>
+            {editingBreak && (
+              <button className="secondary" type="button" onClick={resetBreakForm} disabled={savingBreak}>
+                Cancel
+              </button>
+            )}
+          </div>
+        </div>
       </Card>
     </div>
   );
@@ -122,16 +315,15 @@ const formatDuration = (seconds?: number | null) => {
   return `${hrs}h ${rem}m`;
 };
 
-const sumBreaks = (breaks: Break[], paid?: boolean) => {
-  return breaks
+const sumBreaks = (items: Break[], paid?: boolean) =>
+  items
     .filter(b => {
       if (paid === undefined) return true;
-      if (!b.type) return paid; // if type missing, count with paid flag
+      if (!b.type) return paid;
       const lower = b.type.toLowerCase();
       const isPaid = lower.includes('paid');
       return paid ? isPaid : !isPaid;
     })
     .reduce((sum, b) => sum + (b.total_seconds ?? 0), 0);
-};
 
 export default ShiftDetailPage;

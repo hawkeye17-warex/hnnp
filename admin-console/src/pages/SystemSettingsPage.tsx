@@ -19,6 +19,10 @@ type Settings = {
   alert_suspicious_activity: boolean;
   default_student_capabilities: string[];
   default_worker_capabilities: string[];
+  auto_start_shift_on_presence: boolean;
+  auto_end_shift_after_minutes: number;
+  allow_manual_clock_in_out: boolean;
+  allow_manual_break_edit: boolean;
 };
 
 const SystemSettingsPage = () => {
@@ -224,6 +228,48 @@ const SystemSettingsPage = () => {
               <span>Suspicious activity alerts</span>
             </label>
           </div>
+
+          <div className="divider" />
+          <h3>Shift policies</h3>
+          <p className="muted">Configure how shifts and breaks are handled for this organization.</p>
+          <label className="form__field" style={{display: 'flex', alignItems: 'center', gap: 8}}>
+            <input
+              type="checkbox"
+              checked={settings.auto_start_shift_on_presence}
+              onChange={e => setSettings({...settings, auto_start_shift_on_presence: e.target.checked})}
+            />
+            <span>Auto-start shift on presence</span>
+          </label>
+          <label className="form__field">
+            <span>Auto-end shift after no presence for (minutes)</span>
+            <input
+              type="number"
+              min={1}
+              value={settings.auto_end_shift_after_minutes}
+              onChange={e =>
+                setSettings({
+                  ...settings,
+                  auto_end_shift_after_minutes: Number(e.target.value) || 0,
+                })
+              }
+            />
+          </label>
+          <label className="form__field" style={{display: 'flex', alignItems: 'center', gap: 8}}>
+            <input
+              type="checkbox"
+              checked={settings.allow_manual_clock_in_out}
+              onChange={e => setSettings({...settings, allow_manual_clock_in_out: e.target.checked})}
+            />
+            <span>Allow manual clock-in/clock-out</span>
+          </label>
+          <label className="form__field" style={{display: 'flex', alignItems: 'center', gap: 8}}>
+            <input
+              type="checkbox"
+              checked={settings.allow_manual_break_edit}
+              onChange={e => setSettings({...settings, allow_manual_break_edit: e.target.checked})}
+            />
+            <span>Allow manual break editing</span>
+          </label>
           <MaintenanceSection />
         </div>
       </Card>

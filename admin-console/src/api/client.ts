@@ -385,6 +385,22 @@ export const createApiClient = (session: Session) => {
       if (!res.ok) throw new Error('Failed to load profile activity');
       return res.json();
     },
+    getWorkerReport: async (orgId: string, profileId: string, opts: {from?: string; to?: string; format?: 'csv'}) => {
+      const url = new URL(
+        `${baseUrl}/v2/orgs/${encodeURIComponent(orgId)}/profiles/${encodeURIComponent(profileId)}/worker-report`,
+      );
+      if (opts?.from) url.searchParams.set('from', opts.from);
+      if (opts?.to) url.searchParams.set('to', opts.to);
+      if (opts?.format) url.searchParams.set('format', opts.format);
+      const res = await fetch(url.toString(), {
+        headers: buildHeaders(session),
+      });
+      if (!res.ok) throw new Error('Failed to load worker report');
+      if (opts?.format === 'csv') {
+        return res.text();
+      }
+      return res.json();
+    },
     getShifts: async (orgId?: string, params: Record<string, string> = {}) => {
       const id = orgId ?? session.orgId;
       const search = new URLSearchParams(params);
@@ -400,6 +416,47 @@ export const createApiClient = (session: Session) => {
       });
       if (!res.ok) throw new Error('Failed to fetch shift');
       return res.json();
+    },
+    updateShift: async (orgId: string, shiftId: string, payload: Record<string, unknown>) => {
+      const res = await fetch(`${baseUrl}/v2/orgs/${encodeURIComponent(orgId)}/shifts/${encodeURIComponent(shiftId)}`, {
+        method: 'PATCH',
+        headers: buildHeaders(session),
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) throw new Error('Failed to update shift');
+      return res.json();
+    },
+    createBreak: async (orgId: string, shiftId: string, payload: Record<string, unknown>) => {
+      const res = await fetch(`${baseUrl}/v2/orgs/${encodeURIComponent(orgId)}/shifts/${encodeURIComponent(shiftId)}/breaks`, {
+        method: 'POST',
+        headers: buildHeaders(session),
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) throw new Error('Failed to create break');
+      return res.json();
+    },
+    updateBreak: async (orgId: string, shiftId: string, breakId: string, payload: Record<string, unknown>) => {
+      const res = await fetch(
+        `${baseUrl}/v2/orgs/${encodeURIComponent(orgId)}/shifts/${encodeURIComponent(shiftId)}/breaks/${encodeURIComponent(breakId)}`,
+        {
+          method: 'PATCH',
+          headers: buildHeaders(session),
+          body: JSON.stringify(payload),
+        },
+      );
+      if (!res.ok) throw new Error('Failed to update break');
+      return res.json();
+    },
+    deleteBreak: async (orgId: string, shiftId: string, breakId: string) => {
+      const res = await fetch(
+        `${baseUrl}/v2/orgs/${encodeURIComponent(orgId)}/shifts/${encodeURIComponent(shiftId)}/breaks/${encodeURIComponent(breakId)}`,
+        {
+          method: 'DELETE',
+          headers: buildHeaders(session),
+        },
+      );
+      if (!res.ok) throw new Error('Failed to delete break');
+      return true;
     },
     inviteOrgUser,
     getOrgUsageMetrics,

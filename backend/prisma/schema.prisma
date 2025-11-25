@@ -319,6 +319,8 @@ model Shift {
   closedBy      String?
   status        String
   createdAt     DateTime @default(now())
+  editedBy      String?
+  editedAt      DateTime?
 
   org     Org          @relation(fields: [orgId], references: [id])
   profile UserProfile  @relation(fields: [profileId], references: [id])
@@ -336,6 +338,8 @@ model Break {
   totalSeconds Int?
   type         String?
   createdAt    DateTime @default(now())
+  editedBy     String?
+  editedAt     DateTime?
 
   shift Shift @relation(fields: [shiftId], references: [id])
 

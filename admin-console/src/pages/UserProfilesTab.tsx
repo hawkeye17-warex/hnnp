@@ -46,6 +46,10 @@ const UserProfilesTab = ({orgId}: Props) => {
   const [activity, setActivity] = useState<any | null>(null);
   const [activityLoading, setActivityLoading] = useState(false);
   const [activityError, setActivityError] = useState<string | null>(null);
+  const [reportProfile, setReportProfile] = useState<Profile | null>(null);
+  const [report, setReport] = useState<any | null>(null);
+  const [reportLoading, setReportLoading] = useState(false);
+  const [reportError, setReportError] = useState<string | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -184,6 +188,25 @@ const UserProfilesTab = ({orgId}: Props) => {
                     }
                   }}>
                   View activity
+                </button>
+                <button
+                  className="secondary"
+                  type="button"
+                  onClick={async () => {
+                    setReportProfile(p);
+                    setReport(null);
+                    setReportError(null);
+                    setReportLoading(true);
+                    try {
+                      const res = await api.getWorkerReport(orgId, p.id, {});
+                      setReport(res);
+                    } catch (err: any) {
+                      setReportError(err?.message ?? 'Failed to load report.');
+                    } finally {
+                      setReportLoading(false);
+                    }
+                  }}>
+                  Worker report
                 </button>
               </div>
             </div>
@@ -331,6 +354,109 @@ const UserProfilesTab = ({orgId}: Props) => {
           )}
         </div>
       ) : null}
+
+      {reportProfile ? (
+        <div className="card" style={{marginTop: 12}}>
+          <div className="table__header">
+            <div>
+              <h4>
+                Worker report for {reportProfile.user_id} ({reportProfile.type})
+              </h4>
+              {report?.range ? (
+                <p className="muted">
+                  Range: {formatDate(report.range.from)} → {formatDate(report.range.to)}
+                </p>
+              ) : null}
+            </div>
+            <div className="actions" style={{gap: 8}}>
+              <button
+                className="secondary"
+                type="button"
+                onClick={async () => {
+                  if (!reportProfile) return;
+                  setReportLoading(true);
+                  setReportError(null);
+                  try {
+                    const res = await api.getWorkerReport(orgId, reportProfile.id, {});
+                    setReport(res);
+                  } catch (err: any) {
+                    setReportError(err?.message ?? 'Failed to load report.');
+                  } finally {
+                    setReportLoading(false);
+                  }
+                }}>
+                Refresh
+              </button>
+              <button
+                className="primary"
+                type="button"
+                onClick={async () => {
+                  if (!reportProfile) return;
+                  try {
+                    const csv = await api.getWorkerReport(orgId, reportProfile.id, {format: 'csv'});
+                    const blob = new Blob([csv as string], {type: 'text/csv'});
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `worker_report_${reportProfile.id}.csv`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                  } catch (err: any) {
+                    setReportError(err?.message ?? 'Failed to export CSV.');
+                  }
+                }}>
+                Export CSV
+              </button>
+              <button className="secondary" type="button" onClick={() => setReportProfile(null)}>
+                Close
+              </button>
+            </div>
+          </div>
+          {reportLoading ? (
+            <LoadingState message="Building report..." />
+          ) : reportError ? (
+            <ErrorState message={reportError} onRetry={() => setReportProfile(null)} />
+          ) : report ? (
+            <div className="stack" style={{display: 'grid', gap: 12}}>
+              <div className="table" style={{maxWidth: 720}}>
+                <div className="table__row table__head">
+                  <div>Metric</div>
+                  <div>Value</div>
+                </div>
+                <div className="table__row">
+                  <div>Total hours</div>
+                  <div>{(report.totals?.total_hours ?? 0).toFixed(2)}h</div>
+                </div>
+                <div className="table__row">
+                  <div>Total breaks</div>
+                  <div>{formatSeconds(report.totals?.total_break_seconds)}</div>
+                </div>
+              </div>
+              <div>
+                <h5>Daily hours (last 30 days)</h5>
+                {report.daily_hours?.length ? (
+                  <div className="table">
+                    <div className="table__row table__head">
+                      <div>Date</div>
+                      <div>Hours</div>
+                    </div>
+                    {report.daily_hours.map((d: any) => (
+                      <div className="table__row" key={d.label}>
+                        <div>{d.label}</div>
+                        <div>{(d.seconds / 3600).toFixed(2)}</div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="muted">No shifts in range.</div>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="muted">Select a profile to load report.</div>
+          )}
+        </div>
+      ) : null}
     </Card>
   );
 };
@@ -340,6 +466,14 @@ const formatDate = (iso?: string) => {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;
   return d.toLocaleString();
+};
+
+const formatSeconds = (seconds?: number) => {
+  if (!seconds || Number.isNaN(seconds)) return '—';
+  const mins = Math.round(seconds / 60);
+  const hrs = Math.floor(mins / 60);
+  const rem = mins % 60;
+  return `${hrs}h ${rem}m`;
 };
 
 export default UserProfilesTab;

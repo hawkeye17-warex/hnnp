@@ -202,6 +202,10 @@ type SystemSettings = {
   alert_suspicious_activity: boolean;
   default_student_capabilities: string[];
   default_worker_capabilities: string[];
+  auto_start_shift_on_presence: boolean;
+  auto_end_shift_after_minutes: number;
+  allow_manual_clock_in_out: boolean;
+  allow_manual_break_edit: boolean;
 };
 
 const defaultSystemSettings: SystemSettings = {
@@ -217,6 +221,10 @@ const defaultSystemSettings: SystemSettings = {
   alert_suspicious_activity: true,
   default_student_capabilities: ["attendance", "quiz"],
   default_worker_capabilities: ["attendance", "shift", "breaks"],
+  auto_start_shift_on_presence: false,
+  auto_end_shift_after_minutes: 30,
+  allow_manual_clock_in_out: true,
+  allow_manual_break_edit: true,
 };
 
 function normalizeSettings(partial: Partial<SystemSettings> | null | undefined): SystemSettings {
@@ -269,6 +277,22 @@ function normalizeSettings(partial: Partial<SystemSettings> | null | undefined):
       Array.isArray(partial?.default_worker_capabilities) && partial.default_worker_capabilities.every((c) => typeof c === "string")
         ? partial.default_worker_capabilities
         : defaultSystemSettings.default_worker_capabilities,
+    auto_start_shift_on_presence:
+      typeof partial?.auto_start_shift_on_presence === "boolean"
+        ? partial.auto_start_shift_on_presence
+        : defaultSystemSettings.auto_start_shift_on_presence,
+    auto_end_shift_after_minutes:
+      typeof partial?.auto_end_shift_after_minutes === "number" && partial.auto_end_shift_after_minutes > 0
+        ? partial.auto_end_shift_after_minutes
+        : defaultSystemSettings.auto_end_shift_after_minutes,
+    allow_manual_clock_in_out:
+      typeof partial?.allow_manual_clock_in_out === "boolean"
+        ? partial.allow_manual_clock_in_out
+        : defaultSystemSettings.allow_manual_clock_in_out,
+    allow_manual_break_edit:
+      typeof partial?.allow_manual_break_edit === "boolean"
+        ? partial.allow_manual_break_edit
+        : defaultSystemSettings.allow_manual_break_edit,
   };
 }
 
@@ -940,6 +964,121 @@ router.get(
   },
 );
 
+router.get(
+  "/v2/orgs/:org_id/profiles/:profile_id/worker-report",
+  requireRole("auditor"),
+  async (req: Request, res: Response) => {
+    const { org_id, profile_id } = req.params;
+    const { from: fromParam, to: toParam, format } = req.query;
+
+    try {
+      const profile = await prisma.userProfile.findFirst({ where: { id: profile_id, orgId: org_id } });
+      if (!profile) return res.status(404).json({ error: "User profile not found" });
+
+      const to = typeof toParam === "string" ? new Date(toParam) : new Date();
+      const from =
+        typeof fromParam === "string"
+          ? new Date(fromParam)
+          : new Date(to.getTime() - 30 * 24 * 60 * 60 * 1000); // last 30 days default
+
+      if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())) {
+        return res.status(400).json({ error: "Invalid from/to" });
+      }
+
+      const shifts = await prisma.shift.findMany({
+        where: {
+          orgId: org_id,
+          profileId: profile_id,
+          startTime: { gte: from, lte: to },
+        },
+        include: { breaks: true },
+        orderBy: { startTime: "asc" },
+      });
+
+      const now = new Date();
+      const summarizeDuration = (s: typeof shifts[number]) => {
+        const end = s.endTime ?? now;
+        const dur = s.totalSeconds ?? Math.max(0, Math.floor((end.getTime() - s.startTime.getTime()) / 1000));
+        const breakSeconds =
+          s.breaks?.reduce(
+            (acc, b) =>
+              acc +
+              (b.totalSeconds ??
+                (b.endTime && b.startTime ? Math.max(0, Math.floor((b.endTime.getTime() - b.startTime.getTime()) / 1000)) : 0)),
+            0,
+          ) ?? 0;
+        return { dur, breakSeconds, end };
+      };
+
+      let totalSeconds = 0;
+      let totalBreakSeconds = 0;
+      const daily: Record<string, number> = {};
+      const weekly: Record<string, number> = {};
+      const monthly: Record<string, number> = {};
+
+      const rows = shifts.map((s) => {
+        const { dur, breakSeconds, end } = summarizeDuration(s);
+        totalSeconds += dur;
+        totalBreakSeconds += breakSeconds;
+        const dayKey = s.startTime.toISOString().slice(0, 10);
+        daily[dayKey] = (daily[dayKey] ?? 0) + dur;
+        const weekKey = `${s.startTime.getUTCFullYear()}-W${getWeekNumber(s.startTime)}`;
+        weekly[weekKey] = (weekly[weekKey] ?? 0) + dur;
+        const monthKey = `${s.startTime.getUTCFullYear()}-${String(s.startTime.getUTCMonth() + 1).padStart(2, "0")}`;
+        monthly[monthKey] = (monthly[monthKey] ?? 0) + dur;
+        return {
+          id: s.id,
+          start_time: s.startTime.toISOString(),
+          end_time: end ? end.toISOString() : null,
+          total_seconds: dur,
+          break_seconds: breakSeconds,
+          status: s.status,
+        };
+      });
+
+      if (format === "csv") {
+        const header = ["id", "start_time", "end_time", "total_seconds", "break_seconds", "status"];
+        const csv = [header.join(","), ...rows.map((r) => header.map((h) => r[h as keyof typeof r] ?? "").join(","))].join("\n");
+        res.setHeader("Content-Type", "text/csv");
+        res.setHeader("Content-Disposition", `attachment; filename=\"worker_report_${profile_id}.csv\"`);
+        return res.send(csv);
+      }
+
+      const mapEntries = (obj: Record<string, number>) =>
+        Object.entries(obj)
+          .sort(([a], [b]) => (a > b ? 1 : -1))
+          .map(([label, seconds]) => ({ label, seconds }));
+
+      return res.json({
+        profile: serializeProfile(profile),
+        range: { from: from.toISOString(), to: to.toISOString() },
+        totals: {
+          total_seconds: totalSeconds,
+          total_break_seconds: totalBreakSeconds,
+          total_hours: Number((totalSeconds / 3600).toFixed(2)),
+        },
+        daily_hours: mapEntries(daily),
+        weekly_hours: mapEntries(weekly),
+        monthly_hours: mapEntries(monthly),
+        rows,
+      });
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error("Error building worker report", err);
+      return res.status(500).json({ error: "Internal server error" });
+    }
+  },
+);
+
+function getWeekNumber(date: Date): string {
+  const d = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+  // Thursday in current week decides the year.
+  d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  const weekNo = Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
+  return String(weekNo).padStart(2, "0");
+}
+
 router.get("/v2/orgs/:org_id/quizzes", requireRole("read-only"), async (req: Request, res: Response) => {
   const { org_id } = req.params;
   const statusParam = req.query.status;
@@ -1541,6 +1680,8 @@ router.get("/v2/orgs/:org_id/shifts", requireRole("read-only"), async (req: Requ
         closed_by: s.closedBy,
         status: s.status,
         created_at: s.createdAt.toISOString(),
+        edited_by: s.editedBy,
+        edited_at: s.editedAt ? s.editedAt.toISOString() : null,
       })),
     );
   } catch (err) {
@@ -1573,6 +1714,8 @@ router.get("/v2/orgs/:org_id/shifts/:shift_id", requireRole("read-only"), async 
         closed_by: shift.closedBy,
         status: shift.status,
         created_at: shift.createdAt.toISOString(),
+        edited_by: shift.editedBy,
+        edited_at: shift.editedAt ? shift.editedAt.toISOString() : null,
       },
       breaks: breaks.map((b) => ({
         id: b.id,
@@ -1582,11 +1725,229 @@ router.get("/v2/orgs/:org_id/shifts/:shift_id", requireRole("read-only"), async 
         total_seconds: b.totalSeconds,
         type: b.type,
         created_at: b.createdAt.toISOString(),
+        edited_by: b.editedBy,
+        edited_at: b.editedAt ? b.editedAt.toISOString() : null,
       })),
     });
   } catch (err) {
     // eslint-disable-next-line no-console
     console.error("Error fetching shift detail", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.patch("/v2/orgs/:org_id/shifts/:shift_id", requireRole("admin"), async (req: Request, res: Response) => {
+  const { org_id, shift_id } = req.params;
+  const { end_time, status } = req.body ?? {};
+  try {
+    const org = await prisma.org.findUnique({ where: { id: org_id } });
+    if (!org) return res.status(404).json({ error: "Org not found" });
+
+    const settings = normalizeSettings((org.config as any)?.systemSettings);
+    if (!settings.allow_manual_clock_in_out) {
+      return res.status(403).json({ error: "Manual clock in/out is disabled by policy" });
+    }
+
+    const shift = await prisma.shift.findFirst({ where: { id: shift_id, orgId: org_id } });
+    if (!shift) return res.status(404).json({ error: "Shift not found" });
+
+    const data: Prisma.ShiftUpdateInput = {
+      editedBy: req.apiKey?.keyPrefix ?? "unknown",
+      editedAt: new Date(),
+    };
+    if (typeof end_time === "string") {
+      const end = new Date(end_time);
+      if (Number.isNaN(end.getTime())) return res.status(400).json({ error: "Invalid end_time" });
+      data.endTime = end;
+      const totalSeconds = Math.floor((end.getTime() - shift.startTime.getTime()) / 1000);
+      data.totalSeconds = totalSeconds > 0 ? totalSeconds : shift.totalSeconds ?? 0;
+    }
+    if (typeof status === "string" && status.trim().length > 0) {
+      data.status = status.trim();
+    }
+
+    const updated = await prisma.shift.update({ where: { id: shift_id }, data });
+
+    await logAudit({
+      action: "shift_adjust",
+      entityType: "shift",
+      entityId: shift_id,
+      details: data as Record<string, unknown>,
+      ...buildAuditContext(req),
+    });
+
+    return res.json({
+      id: updated.id,
+      profile_id: updated.profileId,
+      org_id: updated.orgId,
+      location_id: updated.locationId,
+      start_time: updated.startTime.toISOString(),
+      end_time: updated.endTime ? updated.endTime.toISOString() : null,
+      total_seconds: updated.totalSeconds,
+      status: updated.status,
+      edited_by: updated.editedBy,
+      edited_at: updated.editedAt ? updated.editedAt.toISOString() : null,
+    });
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error("Error adjusting shift", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.post("/v2/orgs/:org_id/shifts/:shift_id/breaks", requireRole("admin"), async (req: Request, res: Response) => {
+  const { org_id, shift_id } = req.params;
+  const { start_time, end_time, total_seconds, type } = req.body ?? {};
+  try {
+    const org = await prisma.org.findUnique({ where: { id: org_id } });
+    if (!org) return res.status(404).json({ error: "Org not found" });
+    const settings = normalizeSettings((org.config as any)?.systemSettings);
+    if (!settings.allow_manual_break_edit) {
+      return res.status(403).json({ error: "Manual break edits are disabled by policy" });
+    }
+
+    const shift = await prisma.shift.findFirst({ where: { id: shift_id, orgId: org_id } });
+    if (!shift) return res.status(404).json({ error: "Shift not found" });
+
+    const start = typeof start_time === "string" ? new Date(start_time) : new Date();
+    if (Number.isNaN(start.getTime())) return res.status(400).json({ error: "Invalid start_time" });
+    let end: Date | null = null;
+    if (typeof end_time === "string" && end_time.length > 0) {
+      const e = new Date(end_time);
+      if (Number.isNaN(e.getTime())) return res.status(400).json({ error: "Invalid end_time" });
+      end = e;
+    }
+
+    const created = await prisma.break.create({
+      data: {
+        shiftId: shift_id,
+        startTime: start,
+        endTime: end ?? null,
+        totalSeconds:
+          typeof total_seconds === "number" ? total_seconds : end ? Math.floor((end.getTime() - start.getTime()) / 1000) : null,
+        type: typeof type === "string" ? type : null,
+        editedBy: req.apiKey?.keyPrefix ?? "unknown",
+        editedAt: new Date(),
+      },
+    });
+
+    await logAudit({
+      action: "break_create",
+      entityType: "break",
+      entityId: created.id,
+      details: { shift_id: shift_id, type, start_time, end_time },
+      ...buildAuditContext(req),
+    });
+
+    return res.status(201).json({
+      id: created.id,
+      shift_id: created.shiftId,
+      start_time: created.startTime.toISOString(),
+      end_time: created.endTime ? created.endTime.toISOString() : null,
+      total_seconds: created.totalSeconds,
+      type: created.type,
+      edited_by: created.editedBy,
+      edited_at: created.editedAt ? created.editedAt.toISOString() : null,
+    });
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error("Error creating break", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.patch("/v2/orgs/:org_id/shifts/:shift_id/breaks/:break_id", requireRole("admin"), async (req: Request, res: Response) => {
+  const { org_id, shift_id, break_id } = req.params;
+  const { start_time, end_time, total_seconds, type } = req.body ?? {};
+  try {
+    const org = await prisma.org.findUnique({ where: { id: org_id } });
+    if (!org) return res.status(404).json({ error: "Org not found" });
+    const settings = normalizeSettings((org.config as any)?.systemSettings);
+    if (!settings.allow_manual_break_edit) {
+      return res.status(403).json({ error: "Manual break edits are disabled by policy" });
+    }
+
+    const shift = await prisma.shift.findFirst({ where: { id: shift_id, orgId: org_id } });
+    if (!shift) return res.status(404).json({ error: "Shift not found" });
+
+    const data: Prisma.BreakUpdateInput = {
+      editedBy: req.apiKey?.keyPrefix ?? "unknown",
+      editedAt: new Date(),
+    };
+    if (typeof start_time === "string") {
+      const s = new Date(start_time);
+      if (Number.isNaN(s.getTime())) return res.status(400).json({ error: "Invalid start_time" });
+      data.startTime = s;
+    }
+    if (typeof end_time === "string") {
+      const e = new Date(end_time);
+      if (Number.isNaN(e.getTime())) return res.status(400).json({ error: "Invalid end_time" });
+      data.endTime = e;
+    }
+    if (typeof total_seconds === "number") {
+      data.totalSeconds = total_seconds;
+    }
+    if (typeof type === "string") {
+      data.type = type;
+    }
+
+    const updated = await prisma.break.update({
+      where: { id: break_id },
+      data,
+    });
+
+    await logAudit({
+      action: "break_update",
+      entityType: "break",
+      entityId: break_id,
+      details: data as Record<string, unknown>,
+      ...buildAuditContext(req),
+    });
+
+    return res.json({
+      id: updated.id,
+      shift_id: updated.shiftId,
+      start_time: updated.startTime.toISOString(),
+      end_time: updated.endTime ? updated.endTime.toISOString() : null,
+      total_seconds: updated.totalSeconds,
+      type: updated.type,
+      edited_by: updated.editedBy,
+      edited_at: updated.editedAt ? updated.editedAt.toISOString() : null,
+    });
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error("Error updating break", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.delete("/v2/orgs/:org_id/shifts/:shift_id/breaks/:break_id", requireRole("admin"), async (req: Request, res: Response) => {
+  const { org_id, shift_id, break_id } = req.params;
+  try {
+    const org = await prisma.org.findUnique({ where: { id: org_id } });
+    if (!org) return res.status(404).json({ error: "Org not found" });
+    const settings = normalizeSettings((org.config as any)?.systemSettings);
+    if (!settings.allow_manual_break_edit) {
+      return res.status(403).json({ error: "Manual break edits are disabled by policy" });
+    }
+
+    const shift = await prisma.shift.findFirst({ where: { id: shift_id, orgId: org_id } });
+    if (!shift) return res.status(404).json({ error: "Shift not found" });
+
+    await prisma.break.delete({ where: { id: break_id } });
+
+    await logAudit({
+      action: "break_delete",
+      entityType: "break",
+      entityId: break_id,
+      details: null,
+      ...buildAuditContext(req),
+    });
+
+    return res.status(204).send();
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error("Error deleting break", err);
     return res.status(500).json({ error: "Internal server error" });
   }
 });

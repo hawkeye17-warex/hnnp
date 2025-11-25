@@ -10,6 +10,8 @@ export type Shift = {
   closed_by?: string | null;
   status: string;
   created_at?: string;
+  edited_by?: string | null;
+  edited_at?: string | null;
 };
 
 export type Break = {
@@ -20,4 +22,6 @@ export type Break = {
   total_seconds?: number | null;
   type?: string | null;
   created_at?: string;
+  edited_by?: string | null;
+  edited_at?: string | null;
 };
