@@ -28,6 +28,8 @@ model Org {
   devices   Device[]
   links     Link[]
   sessions  PresenceSession[]
+  userProfiles UserProfile[]
+  quizSessions QuizSession[]
 }
 
 model Receiver {
@@ -58,6 +60,7 @@ model Receiver {
 
   events PresenceEvent[]
   sessions PresenceSession[]
+  quizSessions QuizSession[]
 
   @@index([orgId])
 }
@@ -240,6 +243,7 @@ model UserProfile {
   createdAt    DateTime @default(now())
 
   org Org @relation(fields: [orgId], references: [id])
+  submissions QuizSubmission[]
 
   @@index([userId])
   @@index([orgId])
