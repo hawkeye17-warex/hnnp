@@ -162,6 +162,7 @@ function serializeQuiz(session: QuizSession) {
     status: session.status,
     created_by: session.createdBy,
     settings_json: session.settingsJson ?? null,
+    test_mode: session.testMode,
     created_at: session.createdAt.toISOString(),
   };
 }
@@ -973,6 +974,7 @@ router.post("/v2/orgs/:org_id/quizzes", requireRole("admin"), async (req: Reques
     status,
     questions,
     settings_json,
+    test_mode,
   } = req.body ?? {};
 
   if (typeof title !== "string" || title.trim().length === 0) {
@@ -989,7 +991,7 @@ router.post("/v2/orgs/:org_id/quizzes", requireRole("admin"), async (req: Reques
         : 30 * 60 * 1000;
     const end = new Date(start.getTime() + durationMs);
 
-  const quizStatus = typeof status === "string" && status.trim().length > 0 ? status : "draft";
+    const quizStatus = typeof status === "string" && status.trim().length > 0 ? status : "draft";
 
   try {
     const org = await prisma.org.findUnique({ where: { id: org_id } });
@@ -1012,6 +1014,7 @@ router.post("/v2/orgs/:org_id/quizzes", requireRole("admin"), async (req: Reques
           late_join_allowed: settings_json?.late_join_allowed ?? false,
           ...settings_json,
         },
+        testMode: Boolean(test_mode),
       },
     });
 
