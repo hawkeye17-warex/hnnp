@@ -7,6 +7,7 @@ import { prisma } from "../db/prisma";
 import { apiKeyAuth } from "../middleware/apiKeyAuth";
 import { computeApiKeyHash } from "../security/apiKeys";
 import { requireRole } from "../middleware/permissions";
+import { requireCapability } from "../middleware/capabilities";
 import { buildAuditContext, logAudit } from "../services/audit";
 
 const router = Router();
@@ -970,7 +971,7 @@ router.get("/v2/orgs/:org_id/quizzes", requireRole("read-only"), async (req: Req
   }
 });
 
-router.post("/v2/orgs/:org_id/quizzes", requireRole("admin"), async (req: Request, res: Response) => {
+router.post("/v2/orgs/:org_id/quizzes", requireRole("admin"), requireCapability("quiz:create"), async (req: Request, res: Response) => {
   const { org_id } = req.params;
   const {
     title,
@@ -1075,7 +1076,7 @@ router.get("/v2/orgs/:org_id/quizzes/:quiz_id", requireRole("read-only"), async 
   }
 });
 
-router.post("/v2/orgs/:org_id/quizzes/:quiz_id/start", requireRole("admin"), async (req: Request, res: Response) => {
+router.post("/v2/orgs/:org_id/quizzes/:quiz_id/start", requireRole("admin"), requireCapability("quiz:start"), async (req: Request, res: Response) => {
   const { org_id, quiz_id } = req.params;
   try {
     const quiz = await prisma.quizSession.findFirst({ where: { id: quiz_id, orgId: org_id } });
@@ -1106,7 +1107,7 @@ router.post("/v2/orgs/:org_id/quizzes/:quiz_id/start", requireRole("admin"), asy
   }
 });
 
-router.post("/v2/orgs/:org_id/quizzes/:quiz_id/end", requireRole("admin"), async (req: Request, res: Response) => {
+router.post("/v2/orgs/:org_id/quizzes/:quiz_id/end", requireRole("admin"), requireCapability("quiz:end"), async (req: Request, res: Response) => {
   const { org_id, quiz_id } = req.params;
   try {
     const quiz = await prisma.quizSession.findFirst({ where: { id: quiz_id, orgId: org_id } });
@@ -1164,7 +1165,7 @@ router.post("/v2/orgs/:org_id/quizzes/:quiz_id/notify", requireRole("admin"), as
   }
 });
 
-router.patch("/v2/orgs/:org_id/quizzes/:quiz_id", requireRole("admin"), async (req: Request, res: Response) => {
+router.patch("/v2/orgs/:org_id/quizzes/:quiz_id", requireRole("admin"), requireCapability("quiz:create"), async (req: Request, res: Response) => {
   const { org_id, quiz_id } = req.params;
   const {
     title,
@@ -1279,7 +1280,7 @@ router.patch("/v2/orgs/:org_id/quizzes/:quiz_id", requireRole("admin"), async (r
   }
 });
 
-router.delete("/v2/orgs/:org_id/quizzes/:quiz_id", requireRole("admin"), async (req: Request, res: Response) => {
+router.delete("/v2/orgs/:org_id/quizzes/:quiz_id", requireRole("admin"), requireCapability("quiz:create"), async (req: Request, res: Response) => {
   const { org_id, quiz_id } = req.params;
   try {
     const quiz = await prisma.quizSession.findFirst({ where: { id: quiz_id, orgId: org_id } });
@@ -1353,7 +1354,7 @@ router.post("/v2/orgs/:org_id/quizzes/:quiz_id/submit", requireRole("read-only")
   }
 });
 
-router.get("/v2/orgs/:org_id/quizzes/:quiz_id/submissions", requireRole("auditor"), async (req: Request, res: Response) => {
+router.get("/v2/orgs/:org_id/quizzes/:quiz_id/submissions", requireRole("auditor"), requireCapability("quiz:submissions"), async (req: Request, res: Response) => {
   const { org_id, quiz_id } = req.params;
   const exportType = req.query.export;
   try {
