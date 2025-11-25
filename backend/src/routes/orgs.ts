@@ -1220,8 +1220,8 @@ router.patch("/v2/orgs/:org_id/quizzes/:quiz_id", requireRole("admin"), requireC
 
     if (settings_json && typeof settings_json === "object") {
       updates.settingsJson = {
-        ...(quiz.settingsJson ?? {}),
-        ...settings_json,
+        ...(typeof quiz.settingsJson === "object" && quiz.settingsJson !== null ? (quiz.settingsJson as Record<string, unknown>) : {}),
+        ...(settings_json as Record<string, unknown>),
       };
     }
 
@@ -1254,12 +1254,13 @@ router.patch("/v2/orgs/:org_id/quizzes/:quiz_id", requireRole("admin"), requireC
       });
     }
 
-    if (updates.status && updates.status !== quiz.status) {
+    if (updates.status && typeof updates.status === "string" && updates.status !== quiz.status) {
+      const to = updates.status;
       await logAudit({
-        action: updates.status.toLowerCase() === "live" ? "quiz_publish" : "quiz_status_change",
+        action: to.toLowerCase() === "live" ? "quiz_publish" : "quiz_status_change",
         entityType: "quiz",
         entityId: quiz_id,
-        details: { from: quiz.status, to: updates.status },
+        details: { from: quiz.status, to },
         ...buildAuditContext(req),
       });
     } else {
