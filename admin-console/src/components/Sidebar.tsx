@@ -5,17 +5,17 @@ import {useTheme} from '../theme/ThemeProvider';
 
 const navItems = [
   {to: '/overview', label: 'Overview'},
+  {to: '/live', label: 'Live'},
+  {to: '/incidents', label: 'Incidents'},
+  {to: '/attendance', label: 'Attendance'},
+  {to: '/users', label: 'Users'},
+  {to: '/groups', label: 'Groups'},
+  {to: '/locations', label: 'Locations'},
   {to: '/receivers', label: 'Receivers'},
-  {to: '/presence', label: 'Presence Events'},
-  {to: '/links', label: 'Links'},
-  {to: '/search', label: 'Search'},
-  {to: '/org-settings', label: 'Org Settings'},
-  {to: '/system-settings', label: 'System Settings'},
-  {to: '/organizations', label: 'Organizations'},
-  {to: '/admin-users', label: 'Admin Users'},
-  {to: '/audit-logs', label: 'Audit Logs'},
-  {to: '/account', label: 'Account'},
-  {to: '/api', label: 'API'},
+  {to: '/logs', label: 'Logs'},
+  {to: '/hps', label: 'HPS Security'},
+  {to: '/integrations', label: 'Integrations'},
+  {to: '/settings', label: 'Settings'},
 ];
 
 const Sidebar = () => {
@@ -23,28 +23,18 @@ const Sidebar = () => {
   const {colors} = theme;
 
   return (
-    <aside
-      className="sidebar"
-      style={{
-        background: colors.sidebarBg,
-        color: colors.sidebarText,
-        borderColor: colors.cardBorder,
-      }}>
-      <div className="sidebar__logo" style={{color: colors.accentPrimary}}>
-        NearID Admin
-      </div>
-      <nav className="sidebar__nav">
+    <aside className="w-64 bg-slate-950 text-slate-200 flex flex-col min-h-screen">
+      <div className="px-4 py-6 text-lg font-bold text-blue-400">NearID Admin</div>
+      <nav className="flex-1 px-2 space-y-1">
         {navItems.map(item => (
           <NavLink
             key={item.to}
             to={item.to}
             className={({isActive}) =>
-              `sidebar__link ${isActive ? 'sidebar__link--active' : ''}`
-            }
-            style={({isActive}) => ({
-              color: isActive ? '#F5F6FF' : '#c5c8d8',
-              background: isActive ? `${colors.accentPrimary}33` : 'transparent',
-            })}>
+              `flex items-center px-3 py-2 rounded-md text-sm font-medium ${
+                isActive ? 'bg-blue-600 text-white' : 'text-slate-300 hover:bg-slate-800'
+              }`
+            }>
             {item.label}
           </NavLink>
         ))}

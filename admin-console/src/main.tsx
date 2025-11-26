@@ -5,7 +5,7 @@ import {createBrowserRouter, RouterProvider, Navigate} from 'react-router-dom';
 import './tailwind.css';
 import './styles.css';
 import LoadingState from './components/LoadingState';
-import MainLayout from './layout/MainLayout';
+import AppLayout from './layout/AppLayout';
 import {ThemeProvider} from './theme/ThemeProvider';
 import {AuthProvider, ProtectedRoute} from './context/AuthContext';
 import {ToastProvider} from './context/ToastContext';
@@ -36,7 +36,7 @@ const QuizBuilderPage = React.lazy(() => import('./pages/QuizBuilderPage'));
 const QuizDetailPage = React.lazy(() => import('./pages/QuizDetailPage'));
 const ShiftDetailPage = React.lazy(() => import('./pages/ShiftDetailPage'));
 
-const ProtectedLayout = ProtectedRoute(MainLayout);
+const ProtectedLayout = ProtectedRoute(AppLayout);
 
 const withLoader = (element: React.ReactNode) => (
   <Suspense
@@ -58,42 +58,38 @@ if (redirect) {
 
 const basename = import.meta.env.BASE_URL || '/';
 
-const router = createBrowserRouter([
-  {path: '/supabase-login', element: withLoader(<SupabaseLoginPage />)},
-  {path: '/forget-password', element: <Navigate to="/forgot-password" replace />},
-  {path: '/forgot-password', element: withLoader(<ForgotPasswordPage />)},
-  {path: '/reset-password', element: withLoader(<ResetPasswordPage />)},
-  {path: '/admin/onboard-org', element: withLoader(<OnboardOrgPage />)},
-  {path: '/login', element: withLoader(<LoginPage />)},
-  {
-    path: '/',
-    element: <ProtectedLayout />,
-    children: [
-      {path: 'dashboard', element: withLoader(<DashboardPage />)},
-      {path: 'overview', element: withLoader(<OverviewPage />)},
-      {path: 'receivers', element: withLoader(<ReceiversPage />)},
-      {path: 'receivers/:id', element: withLoader(<ReceiverDetailsPage />)},
-      {path: 'presence', element: withLoader(<PresencePage />)},
-      {path: 'links', element: withLoader(<LinksPage />)},
-      {path: 'org-settings', element: withLoader(<OrgSettingsPage />)},
-      {path: 'search', element: withLoader(<GlobalSearchPage />)},
-      {path: 'system-settings', element: withLoader(<SystemSettingsPage />)},
-      {path: 'health', element: withLoader(<HealthPage />)},
-      {path: 'error-logs', element: withLoader(<ErrorLogsPage />)},
-      {path: 'api', element: withLoader(<ApiDocsPage />)},
-      {path: 'account', element: withLoader(<AdminAccountPage />)},
-      {path: 'organizations', element: withLoader(<OrganizationsPage />)},
-      {path: 'organizations/:id', element: withLoader(<OrganizationDetailsPage />)},
-      {path: 'organizations/:id/quizzes/new', element: withLoader(<QuizBuilderPage />)},
-      {path: 'organizations/:id/quizzes/:quizId', element: withLoader(<QuizDetailPage />)},
-      {path: 'organizations/:id/shifts/:shiftId', element: withLoader(<ShiftDetailPage />)},
-      {path: 'admin-users', element: withLoader(<AdminUsersPage />)},
-      {path: 'audit-logs', element: withLoader(<AuditLogsPage />)},
-      {path: '*', element: <Navigate to="/overview" replace />},
-    ],
-  },
-  {path: '*', element: <Navigate to="/overview" replace />},
-], {basename});
+const router = createBrowserRouter(
+  [
+    {path: '/login', element: withLoader(<LoginPage />)},
+    {path: '/forgot-password', element: withLoader(<ForgotPasswordPage />)},
+    {path: '/reset-password', element: withLoader(<ResetPasswordPage />)},
+    {
+      path: '/',
+      element: (
+        <ProtectedLayout>
+          <></>
+        </ProtectedLayout>
+      ),
+      children: [
+        {path: '/', element: <Navigate to="/overview" replace />},
+        {path: '/overview', element: withLoader(<OverviewPage />)},
+        {path: '/live', element: withLoader(<HealthPage />)},
+        {path: '/incidents', element: withLoader(<ErrorLogsPage />)},
+        {path: '/attendance', element: withLoader(<PresencePage />)},
+        {path: '/users', element: withLoader(<OrganizationsPage />)},
+        {path: '/groups', element: withLoader(<GlobalSearchPage />)},
+        {path: '/locations', element: withLoader(<OrganizationsPage />)},
+        {path: '/receivers', element: withLoader(<ReceiversPage />)},
+        {path: '/logs', element: withLoader(<AuditLogsPage />)},
+        {path: '/hps', element: withLoader(<HealthPage />)},
+        {path: '/integrations', element: withLoader(<LinksPage />)},
+        {path: '/settings', element: withLoader(<SystemSettingsPage />)},
+      ],
+    },
+    {path: '*', element: <Navigate to="/overview" replace />},
+  ],
+  {basename},
+);
 
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
   <React.StrictMode>
