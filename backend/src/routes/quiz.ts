@@ -4,6 +4,7 @@ import { prisma } from "../db/prisma";
 import { apiKeyAuth } from "../middleware/apiKeyAuth";
 import { requireRole } from "../middleware/permissions";
 import { logAudit, buildAuditContext } from "../services/audit";
+import { checkQuizPresence } from "../services/quizPresence";
 
 const router = Router();
 
@@ -88,18 +89,17 @@ router.post("/v2/quiz/submit", requireRole("read-only"), async (req: Request, re
     }
 
     if (requirePresence) {
-      const profile = typeof profile_id === "string" ? await prisma.userProfile.findUnique({ where: { id: profile_id } }) : null;
-      const userRef = typeof user_ref === "string" && user_ref.length > 0 ? user_ref : profile?.userId;
-      if (!userRef) {
-        return res.status(400).json({ error: "Presence required: missing user reference" });
-      }
-      const since = new Date(now.getTime() - presenceWindowMinutes * 60 * 1000);
-      const presence = await prisma.presenceEvent.findFirst({
-        where: { orgId: org.id, userRef, serverTimestamp: { gte: since } },
-        orderBy: { serverTimestamp: "desc" },
+      const presence = await checkQuizPresence({
+        orgId: org.id,
+        profileId: typeof profile_id === "string" ? profile_id : undefined,
+        userRef: typeof user_ref === "string" && user_ref.length > 0 ? user_ref : undefined,
+        receiverId: quiz.receiverId ?? undefined,
+        windowMinutes: presenceWindowMinutes,
+        startTime: quiz.startTime,
+        endTime: quiz.endTime,
       });
-      if (!presence) {
-        return res.status(403).json({ error: "Presence validation failed" });
+      if (!presence.ok) {
+        return res.status(403).json({ error: presence.reason });
       }
     }
 
