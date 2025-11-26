@@ -1,9 +1,9 @@
 import {useEffect, useState} from 'react';
+import {useSession} from './useSession';
 import type {LocationSummary} from '../types/locations';
 
-const LOCATIONS_API_BASE = '/api/locations';
-
 export function useLocations() {
+  const {session} = useSession();
   const [data, setData] = useState<LocationSummary[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -11,14 +11,46 @@ export function useLocations() {
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
+      if (!session) {
+        setError('Not authenticated');
+        setData([]);
+        return;
+      }
       setIsLoading(true);
       setError(null);
       try {
-        // TODO: replace with real endpoint once available
-        const res = await fetch(LOCATIONS_API_BASE);
+        const baseUrl = import.meta.env.VITE_BACKEND_BASE_URL;
+        if (!baseUrl) throw new Error('Missing backend base URL');
+        // TODO: replace endpoint with real locations API when available
+        const url = `${baseUrl}/v2/orgs/${encodeURIComponent(session.orgId)}/locations`;
+        const res = await fetch(url, {
+          headers: {
+            'Content-Type': 'application/json',
+            'x-hnnp-api-key': session.apiKey,
+          },
+        });
         if (!res.ok) throw new Error(`Failed to fetch locations (${res.status})`);
-        const json = await res.json();
-        if (!cancelled) setData(Array.isArray(json) ? json : json?.data ?? []);
+        const text = await res.text();
+        const isJson = res.headers.get('content-type')?.includes('application/json');
+        if (!isJson) {
+          throw new Error(text || 'Received non-JSON response');
+        }
+        let json: any = [];
+        try {
+          json = JSON.parse(text);
+        } catch {
+          throw new Error('Received invalid JSON response');
+        }
+        const raw = Array.isArray(json) ? json : json?.locations ?? json?.data ?? [];
+        const mapped: LocationSummary[] = raw.map((loc: any) => ({
+          id: loc.id ?? '',
+          name: loc.name ?? loc.code ?? 'Location',
+          code: loc.code,
+          campusOrSite: loc.campus ?? loc.site,
+          receiverCount: loc.receiverCount,
+          status: loc.status as LocationSummary['status'],
+        }));
+        if (!cancelled) setData(mapped);
       } catch (err: any) {
         if (!cancelled) setError(err?.message ?? 'Failed to load locations');
         if (!cancelled) setData([]);
@@ -30,7 +62,7 @@ export function useLocations() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [session]);
 
   return {data, isLoading, error};
 }

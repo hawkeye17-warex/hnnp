@@ -1,9 +1,9 @@
 import {useEffect, useState} from 'react';
+import {useSession} from './useSession';
 import type {ReceiverSummary} from '../types/receivers';
 
-const RECEIVERS_API_BASE = '/api/receivers';
-
 export function useReceivers() {
+  const {session} = useSession();
   const [data, setData] = useState<ReceiverSummary[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -11,14 +11,47 @@ export function useReceivers() {
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
+      if (!session) {
+        setError('Not authenticated');
+        setData([]);
+        return;
+      }
       setIsLoading(true);
       setError(null);
       try {
-        // TODO: replace with real endpoint once available
-        const res = await fetch(RECEIVERS_API_BASE);
+        const baseUrl = import.meta.env.VITE_BACKEND_BASE_URL;
+        if (!baseUrl) throw new Error('Missing backend base URL');
+        const res = await fetch(
+          `${baseUrl}/v2/orgs/${encodeURIComponent(session.orgId)}/receivers`,
+          {
+            headers: {
+              'Content-Type': 'application/json',
+              'x-hnnp-api-key': session.apiKey,
+            },
+          },
+        );
         if (!res.ok) throw new Error(`Failed to fetch receivers (${res.status})`);
-        const json = await res.json();
-        if (!cancelled) setData(Array.isArray(json) ? json : json?.data ?? []);
+        const text = await res.text();
+        const isJson = res.headers.get('content-type')?.includes('application/json');
+        if (!isJson) {
+          throw new Error(text || 'Received non-JSON response');
+        }
+        let json: any = [];
+        try {
+          json = JSON.parse(text);
+        } catch {
+          throw new Error('Received invalid JSON response');
+        }
+        const raw = Array.isArray(json) ? json : json?.receivers ?? json?.data ?? [];
+        const mapped: ReceiverSummary[] = raw.map((r: any) => ({
+          id: r.id ?? '',
+          name: r.name ?? r.displayName ?? r.id ?? 'Receiver',
+          locationName: r.location ?? r.locationName,
+          status: r.status === 'online' ? 'online' : r.status === 'offline' ? 'offline' : 'flaky',
+          lastHeartbeatAt: r.last_seen_at ?? r.lastSeenAt,
+          firmwareVersion: r.firmwareVersion,
+        }));
+        if (!cancelled) setData(mapped);
       } catch (err: any) {
         if (!cancelled) setError(err?.message ?? 'Failed to load receivers');
         if (!cancelled) setData([]);
@@ -30,7 +63,7 @@ export function useReceivers() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [session]);
 
   return {data, isLoading, error};
 }
