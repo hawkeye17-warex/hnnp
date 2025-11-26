@@ -19,6 +19,15 @@ model Org {
   /// Org-level configuration blob (allowed protocol versions, clock skew, etc.).
   config Json?
 
+  /// Vertical / industry for this org.
+  /// Allowed values: "school", "factory", "office", "hospital", "gov", "other"
+  orgType String @default("office")
+
+  /// Enabled modules/features for this org.
+  /// Allowed values include:
+  /// "attendance", "quizzes", "exams", "sessions", "shifts", "workzones", "safety", "access_control", "analytics", "hps_insights", "developer_api"
+  enabledModules String[] @default([])
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

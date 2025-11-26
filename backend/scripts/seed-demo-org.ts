@@ -1,22 +1,57 @@
 import { prisma } from "../src/db/prisma";
 import crypto from "crypto";
 
-// Seed demo data for a single org to showcase UI
-const ORG_ID = "de43ed7c-b43a-4644-8eed-28591792cc23";
-
 async function main() {
-  const existing = await prisma.org.findUnique({ where: { id: ORG_ID } });
-  let org;
-  if (existing) {
-    org = existing;
-  } else {
-    const slug = "nearid-demo-" + Math.random().toString(16).slice(2, 6);
-    org = await prisma.org.create({
-      data: {
-        id: ORG_ID,
-        name: "NearID Demo Org",
-        slug,
+  // Example orgs
+  const orgSeeds = [
+    {
+      id: "de43ed7c-b43a-4644-8eed-28591792cc23",
+      name: "NearID Demo Org",
+      slug: "nearid-demo",
+      orgType: "office",
+      enabledModules: ["attendance", "analytics", "hps_insights", "developer_api"],
+    },
+    {
+      id: "org-uofm-demo",
+      name: "U of M",
+      slug: "uofm",
+      orgType: "school",
+      enabledModules: ["attendance", "sessions", "quizzes", "exams", "analytics", "hps_insights"],
+    },
+    {
+      id: "org-acme-demo",
+      name: "Acme Manufacturing",
+      slug: "acme-mfg",
+      orgType: "factory",
+      enabledModules: ["attendance", "shifts", "workzones", "safety", "access_control", "analytics", "hps_insights"],
+    },
+  ];
+
+  const org = await prisma.org.upsert({
+    where: { id: orgSeeds[0].id },
+    update: {},
+    create: {
+      id: orgSeeds[0].id,
+      name: orgSeeds[0].name,
+      slug: orgSeeds[0].slug,
+      status: "active",
+      orgType: orgSeeds[0].orgType,
+      enabledModules: orgSeeds[0].enabledModules,
+    },
+  });
+
+  // Upsert additional example orgs without demo data
+  for (const seed of orgSeeds.slice(1)) {
+    await prisma.org.upsert({
+      where: { id: seed.id },
+      update: {},
+      create: {
+        id: seed.id,
+        name: seed.name,
+        slug: seed.slug,
         status: "active",
+        orgType: seed.orgType,
+        enabledModules: seed.enabledModules,
       },
     });
   }

@@ -18,8 +18,28 @@ const API_KEY_SECRET = process.env.API_KEY_SECRET || "hnnp_api_key_secret";
 // Protect all org/receiver admin routes with API key auth.
 // NOTE: internal org creation endpoint is defined before auth middleware.
 
+const ORG_TYPES = ["school", "factory", "office", "hospital", "gov", "other"];
+const MODULES = [
+  "attendance",
+  "quizzes",
+  "exams",
+  "sessions",
+  "shifts",
+  "workzones",
+  "safety",
+  "access_control",
+  "analytics",
+  "hps_insights",
+  "developer_api",
+];
+
 router.post("/internal/orgs/create", async (req: Request, res: Response) => {
-  const { name, slug } = (req.body ?? {}) as { name?: unknown; slug?: unknown };
+  const { name, slug, org_type, enabled_modules } = (req.body ?? {}) as {
+    name?: unknown;
+    slug?: unknown;
+    org_type?: unknown;
+    enabled_modules?: unknown;
+  };
 
   if (typeof name !== "string" || name.trim().length === 0) {
     return res.status(400).json({ error: "name is required" });
@@ -27,6 +47,11 @@ router.post("/internal/orgs/create", async (req: Request, res: Response) => {
   if (typeof slug !== "string" || slug.trim().length === 0) {
     return res.status(400).json({ error: "slug is required" });
   }
+  const orgType = typeof org_type === "string" && ORG_TYPES.includes(org_type) ? org_type : "office";
+  const enabledModules =
+    Array.isArray(enabled_modules) && enabled_modules.every((m) => typeof m === "string" && MODULES.includes(m))
+      ? (enabled_modules as string[])
+      : [];
 
   try {
     const existing = await prisma.org.findUnique({ where: { slug } });
@@ -47,6 +72,8 @@ router.post("/internal/orgs/create", async (req: Request, res: Response) => {
           name: name.trim(),
           slug: slug.trim(),
           status: "active",
+          orgType,
+          enabledModules,
         },
       }),
       prisma.apiKey.create({
@@ -95,6 +122,8 @@ function serializeOrg(org: Org) {
     slug: org.slug,
     status: org.status,
     config: org.config,
+    org_type: (org as any).orgType ?? "office",
+    enabled_modules: (org as any).enabledModules ?? [],
     created_at: org.createdAt.toISOString(),
     updated_at: org.updatedAt.toISOString(),
   };
@@ -2349,10 +2378,45 @@ router.get("/v2/orgs/:org_id/config", requireRole("read-only"), async (req: Requ
       name: org.name,
       timezone: (cfg as any)?.timezone ?? null,
       contactEmail: (cfg as any)?.contactEmail ?? null,
+      orgType: (org as any).orgType ?? "office",
+      enabledModules: (org as any).enabledModules ?? [],
     });
   } catch (err) {
     // eslint-disable-next-line no-console
     console.error("Error fetching org config", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.patch("/v2/orgs/:org_id/config", requireRole("read-only"), async (req: Request, res: Response) => {
+  const { org_id } = req.params;
+  const { orgType, enabledModules, timezone, contactEmail, name } = req.body ?? {};
+  const data: any = {};
+  if (typeof orgType === "string" && ORG_TYPES.includes(orgType)) data.orgType = orgType;
+  if (Array.isArray(enabledModules) && enabledModules.every((m) => typeof m === "string" && MODULES.includes(m))) {
+    data.enabledModules = enabledModules;
+  }
+  if (timezone || contactEmail || name) {
+    const cfg: any = {};
+    if (typeof timezone === "string") cfg.timezone = timezone;
+    if (typeof contactEmail === "string") cfg.contactEmail = contactEmail;
+    data.config = cfg;
+    if (typeof name === "string" && name.trim().length > 0) data.name = name.trim();
+  }
+  try {
+    const updated = await prisma.org.update({ where: { id: org_id }, data });
+    return res.json({
+      id: updated.id,
+      name: updated.name,
+      timezone: (data.config as any)?.timezone ?? null,
+      contactEmail: (data.config as any)?.contactEmail ?? null,
+      orgType: updated.orgType,
+      enabledModules: updated.enabledModules,
+    });
+  } catch (err: any) {
+    // eslint-disable-next-line no-console
+    console.error("Error updating org config", err);
+    if (err?.code === "P2025") return res.status(404).json({ error: "Org not found" });
     return res.status(500).json({ error: "Internal server error" });
   }
 });
