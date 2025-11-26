@@ -2343,11 +2343,12 @@ router.get("/v2/orgs/:org_id/config", requireRole("read-only"), async (req: Requ
   try {
     const org = await prisma.org.findUnique({ where: { id: org_id } });
     if (!org) return res.status(404).json({ error: "Org not found" });
+    const cfg = typeof org.config === "object" && !Array.isArray(org.config) ? (org.config as Prisma.JsonObject) : {};
     return res.json({
       id: org.id,
       name: org.name,
-      timezone: org.config?.timezone ?? null,
-      contactEmail: org.config?.contactEmail ?? null,
+      timezone: (cfg as any)?.timezone ?? null,
+      contactEmail: (cfg as any)?.contactEmail ?? null,
     });
   } catch (err) {
     // eslint-disable-next-line no-console
