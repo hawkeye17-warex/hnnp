@@ -18,6 +18,7 @@ import { shiftRouter } from "./routes/shift";
 import { prisma } from "./db/prisma";
 import cors from "cors";
 import { maintenanceGuard } from "./middleware/maintenance";
+import { controlPlaneRouter } from "./routes/controlPlane";
 
 const config = loadConfig();
 const app = express();
@@ -64,6 +65,7 @@ app.use(searchRouter);
 app.use(meRouter);
 app.use(quizRouter);
 app.use(shiftRouter);
+app.use(controlPlaneRouter);
 
 const server = http.createServer(app);
 
