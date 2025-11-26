@@ -45,8 +45,12 @@ export function useIncidents(filters?: IncidentFilters) {
             },
           },
         );
-        if (!res.ok) throw new Error(`Failed to fetch incidents (${res.status})`);
         const text = await res.text();
+        if (!res.ok) {
+          throw new Error(
+            `Failed to fetch incidents (${res.status} ${res.statusText || ''})${text ? `: ${text}` : ''}`.trim(),
+          );
+        }
         const isJson = res.headers.get('content-type')?.includes('application/json');
         if (!isJson) {
           throw new Error(text || 'Received non-JSON response');

@@ -39,18 +39,30 @@ export function useAttendance(filters?: AttendanceFilters) {
           }`,
           {
             headers: {
+              Accept: 'application/json',
               'Content-Type': 'application/json',
               'x-hnnp-api-key': session.apiKey,
+              'x-api-key': session.apiKey,
             },
           },
         );
-        if (!res.ok) throw new Error(`Failed to fetch attendance (${res.status})`);
         const text = await res.text();
+        if (!res.ok) {
+          throw new Error(
+            `Failed to fetch attendance (${res.status} ${res.statusText || ''})${
+              text ? `: ${text}` : ''
+            }`.trim(),
+          );
+        }
+        const isJson = res.headers.get('content-type')?.includes('application/json');
+        if (!isJson) {
+          throw new Error(text || 'Received non-JSON response');
+        }
         let json: any = [];
         try {
           json = JSON.parse(text);
         } catch {
-          throw new Error('Received non-JSON response');
+          throw new Error('Received invalid JSON response');
         }
         const raw = Array.isArray(json) ? json : json?.data ?? [];
         if (!cancelled) setData(raw);
@@ -94,18 +106,28 @@ export function useGroups() {
           `${baseUrl}${ATTENDANCE_API_BASE}/${encodeURIComponent(session.orgId)}/groups`,
           {
             headers: {
+              Accept: 'application/json',
               'Content-Type': 'application/json',
               'x-hnnp-api-key': session.apiKey,
+              'x-api-key': session.apiKey,
             },
           },
         );
-        if (!res.ok) throw new Error(`Failed to fetch groups (${res.status})`);
         const text = await res.text();
+        if (!res.ok) {
+          throw new Error(
+            `Failed to fetch groups (${res.status} ${res.statusText || ''})${text ? `: ${text}` : ''}`.trim(),
+          );
+        }
+        const isJson = res.headers.get('content-type')?.includes('application/json');
+        if (!isJson) {
+          throw new Error(text || 'Received non-JSON response');
+        }
         let json: any = [];
         try {
           json = JSON.parse(text);
         } catch {
-          throw new Error('Received non-JSON response');
+          throw new Error('Received invalid JSON response');
         }
         const raw = Array.isArray(json) ? json : json?.data ?? [];
         if (!cancelled) setData(raw);
