@@ -228,7 +228,7 @@ const defaultSystemSettings: SystemSettings = {
   allow_manual_break_edit: true,
 };
 
-function normalizeSettings(partial: Partial<SystemSettings> | null | undefined): SystemSettings {
+export function normalizeSettings(partial: Partial<SystemSettings> | null | undefined): SystemSettings {
   return {
     presence_expiry_seconds:
       typeof partial?.presence_expiry_seconds === "number" && partial.presence_expiry_seconds > 0
