@@ -741,8 +741,16 @@ router.patch("/v2/orgs/:org_id/settings", requireRole("admin"), async (req: Requ
       },
     });
 
+    const shiftKeys = new Set([
+      "auto_start_shift_on_presence",
+      "auto_end_shift_after_minutes",
+      "allow_manual_clock_in_out",
+      "allow_manual_break_edit",
+    ]);
+    const changedShiftPolicy = Object.keys(body || {}).some((k) => shiftKeys.has(k));
+
     await logAudit({
-      action: "system_settings_update",
+      action: changedShiftPolicy ? "shift_policy_update" : "system_settings_update",
       entityType: "system_settings",
       entityId: org_id,
       details: merged,
@@ -1872,6 +1880,9 @@ router.patch("/v2/orgs/:org_id/shifts/:shift_id", requireRole("admin"), async (r
       editedBy: req.apiKey?.keyPrefix ?? "unknown",
       editedAt: new Date(),
     };
+    let statusChanged = false;
+    let statusFrom = shift.status;
+    let statusTo = shift.status;
     if (typeof end_time === "string") {
       const end = new Date(end_time);
       if (Number.isNaN(end.getTime())) return res.status(400).json({ error: "Invalid end_time" });
@@ -1881,15 +1892,17 @@ router.patch("/v2/orgs/:org_id/shifts/:shift_id", requireRole("admin"), async (r
     }
     if (typeof status === "string" && status.trim().length > 0) {
       data.status = status.trim();
+      statusChanged = data.status !== shift.status;
+      statusTo = data.status;
     }
 
     const updated = await prisma.shift.update({ where: { id: shift_id }, data });
 
     await logAudit({
-      action: "shift_adjust",
+      action: statusChanged ? "shift_status_change" : "shift_adjust",
       entityType: "shift",
       entityId: shift_id,
-      details: data as Record<string, unknown>,
+      details: { ...data, from: statusFrom, to: statusTo, manual: true } as Record<string, unknown>,
       ...buildAuditContext(req),
     });
 
@@ -1952,7 +1965,7 @@ router.post("/v2/orgs/:org_id/shifts/:shift_id/breaks", requireRole("admin"), as
       action: "break_create",
       entityType: "break",
       entityId: created.id,
-      details: { shift_id: shift_id, type, start_time, end_time },
+      details: { shift_id: shift_id, type, start_time, end_time, manual: true },
       ...buildAuditContext(req),
     });
 
@@ -2017,7 +2030,7 @@ router.patch("/v2/orgs/:org_id/shifts/:shift_id/breaks/:break_id", requireRole("
       action: "break_update",
       entityType: "break",
       entityId: break_id,
-      details: data as Record<string, unknown>,
+      details: { ...data, manual: true } as Record<string, unknown>,
       ...buildAuditContext(req),
     });
 
@@ -2057,7 +2070,7 @@ router.delete("/v2/orgs/:org_id/shifts/:shift_id/breaks/:break_id", requireRole(
       action: "break_delete",
       entityType: "break",
       entityId: break_id,
-      details: null,
+      details: { shift_id, manual: true },
       ...buildAuditContext(req),
     });
 
