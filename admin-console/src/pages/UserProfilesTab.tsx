@@ -50,6 +50,7 @@ const UserProfilesTab = ({orgId}: Props) => {
   const [report, setReport] = useState<any | null>(null);
   const [reportLoading, setReportLoading] = useState(false);
   const [reportError, setReportError] = useState<string | null>(null);
+  const [capSaving, setCapSaving] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -293,16 +294,69 @@ const UserProfilesTab = ({orgId}: Props) => {
         </div>
       ) : null}
 
-      {activityProfile ? (
-        <div className="card" style={{marginTop: 12}}>
-          <h4>
-            Activity for {activityProfile.user_id} ({activityProfile.type})
-          </h4>
-          {activityLoading ? (
-            <LoadingState message="Loading activity..." />
-          ) : activityError ? (
-            <ErrorState message={activityError} onRetry={() => setActivityProfile(null)} />
-          ) : activity ? (
+          {activityProfile ? (
+            <div className="card" style={{marginTop: 12}}>
+              <h4>
+                Activity for {activityProfile.user_id} ({activityProfile.type})
+              </h4>
+              <div className="form__field" style={{display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center'}}>
+                <strong>Worker capabilities</strong>
+                <label style={{display: 'flex', gap: 6, alignItems: 'center'}}>
+                  <input
+                    type="checkbox"
+                    checked={(activityProfile.capabilities || []).includes('shift')}
+                    onChange={async e => {
+                      setCapSaving(true);
+                      try {
+                        const caps = new Set(activityProfile.capabilities || []);
+                        if (e.target.checked) caps.add('shift');
+                        else caps.delete('shift');
+                        await api.updateOrgProfile(orgId, activityProfile.id, {capabilities: Array.from(caps)});
+                        await load();
+                      } catch (err: any) {
+                        setActivityError(err?.message ?? 'Failed to update capabilities.');
+                      } finally {
+                        setCapSaving(false);
+                      }
+                    }}
+                    disabled={capSaving}
+                  />
+                  <span>Shift tracking enabled</span>
+                </label>
+                <label style={{display: 'flex', gap: 6, alignItems: 'center'}}>
+                  <input
+                    type="checkbox"
+                    checked={(activityProfile.capabilities || []).includes('breaks')}
+                    onChange={async e => {
+                      setCapSaving(true);
+                      try {
+                        const caps = new Set(activityProfile.capabilities || []);
+                        if (e.target.checked) caps.add('breaks');
+                        else caps.delete('breaks');
+                        await api.updateOrgProfile(orgId, activityProfile.id, {capabilities: Array.from(caps)});
+                        await load();
+                      } catch (err: any) {
+                        setActivityError(err?.message ?? 'Failed to update capabilities.');
+                      } finally {
+                        setCapSaving(false);
+                      }
+                    }}
+                    disabled={capSaving}
+                  />
+                  <span>Breaks enabled</span>
+                </label>
+                <button
+                  className="link"
+                  type="button"
+                  onClick={() => window.location.assign('/system-settings')}>
+                  View shift policies
+                </button>
+              </div>
+              {activityLoading ? (
+                <LoadingState message="Loading activity..." />
+              ) : activityError ? (
+                <ErrorState message={activityError} onRetry={() => setActivityProfile(null)} />
+              ) : activity ? (
             <div className="stack" style={{display: 'grid', gap: 12}}>
               <div>
                 <h5>Recent presence logs</h5>
