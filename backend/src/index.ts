@@ -13,6 +13,7 @@ import { auditLogsRouter } from "./routes/auditLogs";
 import { maintenanceRouter } from "./routes/maintenance";
 import { searchRouter } from "./routes/search";
 import { meRouter } from "./routes/me";
+import { quizRouter } from "./routes/quiz";
 import { prisma } from "./db/prisma";
 import cors from "cors";
 import { maintenanceGuard } from "./middleware/maintenance";
@@ -47,6 +48,7 @@ app.use(auditLogsRouter);
 app.use(maintenanceRouter);
 app.use(searchRouter);
 app.use(meRouter);
+app.use(quizRouter);
 
 const server = http.createServer(app);
 
