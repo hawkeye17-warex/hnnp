@@ -1751,6 +1751,48 @@ router.get("/v2/orgs/:org_id/shifts", requireRole("read-only"), async (req: Requ
   }
 });
 
+router.get("/v2/orgs/:org_id/breaks", requireRole("read-only"), async (req: Request, res: Response) => {
+  const { org_id } = req.params;
+  const { profile_id, shift_id, active } = req.query;
+  try {
+    const where: Prisma.BreakWhereInput = { shift: { is: { orgId: org_id } } };
+    if (typeof profile_id === "string" && profile_id.length > 0) {
+      where.shift = { is: { orgId: org_id, profileId: profile_id } };
+    }
+    if (typeof shift_id === "string" && shift_id.length > 0) {
+      where.shiftId = shift_id;
+    }
+    if (active === "true") {
+      where.endTime = null;
+    }
+
+    const breaks = await prisma.break.findMany({
+      where,
+      include: { shift: true },
+      orderBy: { startTime: "desc" },
+      take: 200,
+    });
+
+    return res.json(
+      breaks.map((b) => ({
+        id: b.id,
+        shift_id: b.shiftId,
+        org_id: b.shift?.orgId ?? null,
+        profile_id: b.shift?.profileId ?? null,
+        start_time: b.startTime.toISOString(),
+        end_time: b.endTime ? b.endTime.toISOString() : null,
+        total_seconds: b.totalSeconds,
+        type: b.type,
+        created_at: b.createdAt.toISOString(),
+      })),
+    );
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error("Error listing breaks", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 router.get("/v2/orgs/:org_id/shifts/:shift_id", requireRole("read-only"), async (req: Request, res: Response) => {
   const { org_id, shift_id } = req.params;
   try {
@@ -1918,6 +1960,51 @@ router.patch("/v2/orgs/:org_id/shifts/:shift_id", requireRole("shift_manager"), 
   } catch (err) {
     // eslint-disable-next-line no-console
     console.error("Error adjusting shift", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.get("/v2/orgs/:org_id/shifts/summary", requireRole("auditor"), async (req: Request, res: Response) => {
+  const { org_id } = req.params;
+  const { profile_id } = req.query;
+  try {
+    const where: Prisma.ShiftWhereInput = { orgId: org_id };
+    if (typeof profile_id === "string" && profile_id.length > 0) {
+      where.profileId = profile_id;
+    }
+    const shifts = await prisma.shift.findMany({
+      where,
+      include: { breaks: true },
+    });
+    const totalSec = shifts.reduce((sum, s) => {
+      const end = s.endTime ?? new Date();
+      const dur = s.totalSeconds ?? Math.max(0, Math.floor((end.getTime() - s.startTime.getTime()) / 1000));
+      return sum + dur;
+    }, 0);
+    const totalBreakSec =
+      shifts.reduce(
+        (sum, s) =>
+          sum +
+          (s.breaks?.reduce(
+            (acc, b) =>
+              acc +
+              (b.totalSeconds ??
+                (b.endTime && b.startTime ? Math.max(0, Math.floor((b.endTime.getTime() - b.startTime.getTime()) / 1000)) : 0)),
+            0,
+          ) ?? 0),
+        0,
+      );
+    return res.json({
+      shift_count: shifts.length,
+      total_seconds: totalSec,
+      total_hours: Number((totalSec / 3600).toFixed(2)),
+      total_break_seconds: totalBreakSec,
+      total_break_hours: Number((totalBreakSec / 3600).toFixed(2)),
+      average_shift_hours: shifts.length ? Number((totalSec / shifts.length / 3600).toFixed(2)) : 0,
+    });
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error("Error computing shift summary", err);
     return res.status(500).json({ error: "Internal server error" });
   }
 });
