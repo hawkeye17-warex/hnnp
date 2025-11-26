@@ -51,11 +51,22 @@ router.get("/v2/me", apiKeyAuth, requireRole("read-only"), async (req: Request, 
       take: 50,
     });
 
+    const role = normalizeRole(req.apiKeyScope);
+    const capabilityUnion: Set<string> = new Set();
+    profiles.forEach((p) => {
+      const caps = serializeProfile(p).capabilities;
+      caps.forEach((c) => capabilityUnion.add(c));
+    });
+
     return res.json({
+      current_user: {
+        role,
+        org_id: org.id,
+        scope: req.apiKeyScope ?? null,
+        capabilities: Array.from(capabilityUnion),
+      },
       org: serializeOrg(org),
       profiles: profiles.map(serializeProfile),
-      role: normalizeRole(req.apiKeyScope),
-      scope: req.apiKeyScope ?? null,
     });
   } catch (err) {
     // eslint-disable-next-line no-console
