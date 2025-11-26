@@ -9,28 +9,30 @@ datasource db {
 
 model Org {
   /// org_id used in protocol, e.g. "test_org"
-  id        String   @id
-  name      String
-  slug      String   @unique
+  id   String @id
+  name String
+  slug String @unique
 
   /// Logical status; enforced in code (e.g. "active", "suspended").
-  status    String   @default("active")
+  status String @default("active")
 
   /// Org-level configuration blob (allowed protocol versions, clock skew, etc.).
-  config    Json?
+  config Json?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  receivers Receiver[]
-  apiKeys   ApiKey[]
-  events    PresenceEvent[]
-  devices   Device[]
-  links     Link[]
-  sessions  PresenceSession[]
+  receivers    Receiver[]
+  apiKeys      ApiKey[]
+  events       PresenceEvent[]
+  devices      Device[]
+  links        Link[]
+  sessions     PresenceSession[]
   userProfiles UserProfile[]
   quizSessions QuizSession[]
   shifts       Shift[]
+  adminUsers   AdminUser[]
+  auditLogs    AuditLog[]
 }
 
 model Receiver {
@@ -53,14 +55,14 @@ model Receiver {
 
   firmwareVersion String?
   /// Logical status; enforced in code (e.g. "active", "disabled").
-  status          String   @default("active")
+  status          String    @default("active")
   lastSeenAt      DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  events PresenceEvent[]
-  sessions PresenceSession[]
+  events       PresenceEvent[]
+  sessions     PresenceSession[]
   quizSessions QuizSession[]
 
   @@index([orgId])
@@ -79,7 +81,7 @@ model ApiKey {
   /// Simple comma-separated string or JSON; interpreted in code.
   scopes    String
 
-  createdAt  DateTime @default(now())
+  createdAt  DateTime  @default(now())
   lastUsedAt DateTime?
   revokedAt  DateTime?
 
@@ -161,26 +163,26 @@ model Device {
 }
 
 model DeviceKey {
-  id        String   @id
-  deviceId  String
-  device    Device   @relation(fields: [deviceId], references: [id])
-  keyHash   String
-  algorithm String
-  createdAt DateTime @default(now())
+  id         String    @id
+  deviceId   String
+  device     Device    @relation(fields: [deviceId], references: [id])
+  keyHash    String
+  algorithm  String
+  createdAt  DateTime  @default(now())
   lastUsedAt DateTime?
 
   @@index([deviceId])
 }
 
 model Link {
-  id         String   @id
-  orgId      String
-  deviceId   String?
-  userRef    String?
-  status     String
-  createdAt  DateTime @default(now())
+  id          String    @id
+  orgId       String
+  deviceId    String?
+  userRef     String?
+  status      String
+  createdAt   DateTime  @default(now())
   activatedAt DateTime?
-  revokedAt  DateTime?
+  revokedAt   DateTime?
 
   org    Org     @relation(fields: [orgId], references: [id])
   device Device? @relation(fields: [deviceId], references: [id])
@@ -191,7 +193,7 @@ model Link {
 }
 
 model PresenceSession {
-  id           String   @id
+  id           String    @id
   orgId        String
   receiverId   String
   userRef      String?
@@ -225,16 +227,16 @@ model AdminUser {
 }
 
 model AuditLog {
-  id            String   @id @default(cuid())
-  orgId         String?
-  org           Org?     @relation(fields: [orgId], references: [id])
-  actorKey      String?
-  actorRole     String?
-  action        String
-  entityType    String?
-  entityId      String?
-  details       Json?
-  createdAt     DateTime @default(now())
+  id         String   @id @default(cuid())
+  orgId      String?
+  org        Org?     @relation(fields: [orgId], references: [id])
+  actorKey   String?
+  actorRole  String?
+  action     String
+  entityType String?
+  entityId   String?
+  details    Json?
+  createdAt  DateTime @default(now())
 
   @@index([orgId, createdAt])
   @@index([entityType, entityId])
@@ -248,30 +250,30 @@ model UserProfile {
   capabilities Json?
   createdAt    DateTime @default(now())
 
-  org Org @relation(fields: [orgId], references: [id])
+  org         Org              @relation(fields: [orgId], references: [id])
   submissions QuizSubmission[]
-  shifts Shift[]
+  shifts      Shift[]
 
   @@index([userId])
   @@index([orgId])
 }
 
 model QuizSession {
-  id            String   @id @default(cuid())
-  orgId         String
-  courseId      String?
-  receiverId    String?
-  title         String
-  startTime     DateTime
-  endTime       DateTime
-  status        String
-  createdBy     String
-  settingsJson  Json?
-  testMode      Boolean  @default(false)
-  createdAt     DateTime @default(now())
+  id           String   @id @default(cuid())
+  orgId        String
+  courseId     String?
+  receiverId   String?
+  title        String
+  startTime    DateTime
+  endTime      DateTime
+  status       String
+  createdBy    String
+  settingsJson Json?
+  testMode     Boolean  @default(false)
+  createdAt    DateTime @default(now())
 
-  org      Org      @relation(fields: [orgId], references: [id])
-  receiver Receiver? @relation(fields: [receiverId], references: [id])
+  org         Org              @relation(fields: [orgId], references: [id])
+  receiver    Receiver?        @relation(fields: [receiverId], references: [id])
   questions   QuizQuestion[]
   submissions QuizSubmission[]
 
@@ -296,14 +298,14 @@ model QuizQuestion {
 }
 
 model QuizSubmission {
-  id           String   @id @default(cuid())
-  quizId       String
-  profileId    String
-  submittedAt  DateTime
-  answersJson  Json?
-  score        Float?
-  status       String
-  createdAt    DateTime @default(now())
+  id          String   @id @default(cuid())
+  quizId      String
+  profileId   String
+  submittedAt DateTime
+  answersJson Json?
+  score       Float?
+  status      String
+  createdAt   DateTime @default(now())
 
   quiz    QuizSession @relation(fields: [quizId], references: [id])
   profile UserProfile @relation(fields: [profileId], references: [id])
@@ -313,22 +315,22 @@ model QuizSubmission {
 }
 
 model Shift {
-  id            String   @id @default(cuid())
-  profileId     String
-  orgId         String
-  locationId    String?
-  startTime     DateTime
-  endTime       DateTime?
-  totalSeconds  Int?
-  createdBy     String?
-  closedBy      String?
-  status        String
-  createdAt     DateTime @default(now())
-  editedBy      String?
-  editedAt      DateTime?
+  id           String    @id @default(cuid())
+  profileId    String
+  orgId        String
+  locationId   String?
+  startTime    DateTime
+  endTime      DateTime?
+  totalSeconds Int?
+  createdBy    String?
+  closedBy     String?
+  status       String
+  createdAt    DateTime  @default(now())
+  editedBy     String?
+  editedAt     DateTime?
 
-  org     Org          @relation(fields: [orgId], references: [id])
-  profile UserProfile  @relation(fields: [profileId], references: [id])
+  org     Org         @relation(fields: [orgId], references: [id])
+  profile UserProfile @relation(fields: [profileId], references: [id])
   breaks  Break[]
 
   @@index([profileId])
@@ -336,13 +338,13 @@ model Shift {
 }
 
 model Break {
-  id           String   @id @default(cuid())
+  id           String    @id @default(cuid())
   shiftId      String
   startTime    DateTime
   endTime      DateTime?
   totalSeconds Int?
   type         String?
-  createdAt    DateTime @default(now())
+  createdAt    DateTime  @default(now())
   editedBy     String?
   editedAt     DateTime?
 
