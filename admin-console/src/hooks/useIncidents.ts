@@ -41,7 +41,6 @@ export function useIncidents(filters?: IncidentFilters) {
               Accept: 'application/json',
               'Content-Type': 'application/json',
               'x-hnnp-api-key': session.apiKey,
-              'x-api-key': session.apiKey, // some gateways expect generic header
             },
           },
         );

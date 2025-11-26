@@ -42,7 +42,6 @@ export function useAttendance(filters?: AttendanceFilters) {
               Accept: 'application/json',
               'Content-Type': 'application/json',
               'x-hnnp-api-key': session.apiKey,
-              'x-api-key': session.apiKey,
             },
           },
         );
@@ -109,7 +108,6 @@ export function useGroups() {
               Accept: 'application/json',
               'Content-Type': 'application/json',
               'x-hnnp-api-key': session.apiKey,
-              'x-api-key': session.apiKey,
             },
           },
         );
