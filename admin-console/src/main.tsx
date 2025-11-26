@@ -23,6 +23,16 @@ const OrganizationDetailsPage = React.lazy(() => import('./pages/OrganizationDet
 const HealthPage = React.lazy(() => import('./pages/HealthPage'));
 const ErrorLogsPage = React.lazy(() => import('./pages/ErrorLogsPage'));
 const DashboardPage = React.lazy(() => import('./pages/DashboardPage'));
+const LivePresencePage = React.lazy(() => import('./pages/LivePresencePage'));
+const IncidentsPage = React.lazy(() => import('./pages/IncidentsPage'));
+const AttendancePage = React.lazy(() => import('./pages/AttendancePage'));
+const UsersPage = React.lazy(() => import('./pages/UsersPage'));
+const GroupsPage = React.lazy(() => import('./pages/GroupsPage'));
+const LocationsPage = React.lazy(() => import('./pages/LocationsPage'));
+const LogsPage = React.lazy(() => import('./pages/LogsPage'));
+const HpsSecurityPage = React.lazy(() => import('./pages/HpsSecurityPage'));
+const IntegrationsPage = React.lazy(() => import('./pages/IntegrationsPage'));
+const SettingsPage = React.lazy(() => import('./pages/SettingsPage'));
 const SupabaseLoginPage = React.lazy(() => import('./pages/SupabaseLoginPage'));
 const ForgotPasswordPage = React.lazy(() => import('./pages/ForgotPasswordPage'));
 const ResetPasswordPage = React.lazy(() => import('./pages/ResetPasswordPage'));
@@ -73,17 +83,17 @@ const router = createBrowserRouter(
       children: [
         {path: '/', element: <Navigate to="/overview" replace />},
         {path: '/overview', element: withLoader(<OverviewPage />)},
-        {path: '/live', element: withLoader(<HealthPage />)},
-        {path: '/incidents', element: withLoader(<ErrorLogsPage />)},
-        {path: '/attendance', element: withLoader(<PresencePage />)},
-        {path: '/users', element: withLoader(<OrganizationsPage />)},
-        {path: '/groups', element: withLoader(<GlobalSearchPage />)},
-        {path: '/locations', element: withLoader(<OrganizationsPage />)},
+        {path: '/live', element: withLoader(<LivePresencePage />)},
+        {path: '/incidents', element: withLoader(<IncidentsPage />)},
+        {path: '/attendance', element: withLoader(<AttendancePage />)},
+        {path: '/users', element: withLoader(<UsersPage />)},
+        {path: '/groups', element: withLoader(<GroupsPage />)},
+        {path: '/locations', element: withLoader(<LocationsPage />)},
         {path: '/receivers', element: withLoader(<ReceiversPage />)},
-        {path: '/logs', element: withLoader(<AuditLogsPage />)},
-        {path: '/hps', element: withLoader(<HealthPage />)},
-        {path: '/integrations', element: withLoader(<LinksPage />)},
-        {path: '/settings', element: withLoader(<SystemSettingsPage />)},
+        {path: '/logs', element: withLoader(<LogsPage />)},
+        {path: '/hps', element: withLoader(<HpsSecurityPage />)},
+        {path: '/integrations', element: withLoader(<IntegrationsPage />)},
+        {path: '/settings', element: withLoader(<SettingsPage />)},
       ],
     },
     {path: '*', element: <Navigate to="/overview" replace />},
