@@ -4,7 +4,9 @@ export type Capability =
   | "quiz:create"
   | "quiz:start"
   | "quiz:end"
-  | "quiz:submissions";
+  | "quiz:submissions"
+  | "shift:view"
+  | "shift:write";
 
 export function requireCapability(cap: Capability) {
   return (req: Request, res: Response, next: NextFunction) => {
@@ -14,6 +16,7 @@ export function requireCapability(cap: Capability) {
     if (scope.includes(cap)) return next();
     // admins can manage quizzes by default
     if (cap.startsWith("quiz:") && scope.includes("admin")) return next();
+    if (cap.startsWith("shift:") && (scope.includes("admin") || scope.includes("shift_manager"))) return next();
     return res.status(403).json({ error: "Insufficient capability" });
   };
 }

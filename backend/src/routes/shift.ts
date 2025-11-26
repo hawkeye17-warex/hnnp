@@ -2,6 +2,7 @@ import { Router, Request, Response } from "express";
 import { prisma } from "../db/prisma";
 import { apiKeyAuth } from "../middleware/apiKeyAuth";
 import { normalizeSettings } from "./orgs"; // reuse settings normalizer
+import { requireCapability } from "../middleware/capabilities";
 import { requireRole } from "../middleware/permissions";
 
 const router = Router();
@@ -37,7 +38,7 @@ async function getOrgSettings(orgId: string) {
   return { org, settings: normalizeSettings(cfg.systemSettings as any) };
 }
 
-router.post("/v2/shift/clock-in", requireRole("read-only"), async (req: Request, res: Response) => {
+router.post("/v2/shift/clock-in", requireRole("read-only"), requireCapability("shift:write"), async (req: Request, res: Response) => {
   const orgId = req.org?.id;
   const { profile_id, location_id } = req.body ?? {};
   if (!orgId) return res.status(404).json({ error: "Org not found" });
@@ -75,7 +76,7 @@ router.post("/v2/shift/clock-in", requireRole("read-only"), async (req: Request,
   }
 });
 
-router.post("/v2/shift/clock-out", requireRole("read-only"), async (req: Request, res: Response) => {
+router.post("/v2/shift/clock-out", requireRole("read-only"), requireCapability("shift:write"), async (req: Request, res: Response) => {
   const orgId = req.org?.id;
   const { profile_id } = req.body ?? {};
   if (!orgId) return res.status(404).json({ error: "Org not found" });
@@ -107,7 +108,7 @@ router.post("/v2/shift/clock-out", requireRole("read-only"), async (req: Request
   }
 });
 
-router.post("/v2/shift/start-break", requireRole("read-only"), async (req: Request, res: Response) => {
+router.post("/v2/shift/start-break", requireRole("read-only"), requireCapability("shift:write"), async (req: Request, res: Response) => {
   const orgId = req.org?.id;
   const { profile_id, type } = req.body ?? {};
   if (!orgId) return res.status(404).json({ error: "Org not found" });
@@ -145,7 +146,7 @@ router.post("/v2/shift/start-break", requireRole("read-only"), async (req: Reque
   }
 });
 
-router.post("/v2/shift/end-break", requireRole("read-only"), async (req: Request, res: Response) => {
+router.post("/v2/shift/end-break", requireRole("read-only"), requireCapability("shift:write"), async (req: Request, res: Response) => {
   const orgId = req.org?.id;
   const { profile_id } = req.body ?? {};
   if (!orgId) return res.status(404).json({ error: "Org not found" });
@@ -179,7 +180,7 @@ router.post("/v2/shift/end-break", requireRole("read-only"), async (req: Request
   }
 });
 
-router.get("/v2/shift/current", requireRole("read-only"), async (req: Request, res: Response) => {
+router.get("/v2/shift/current", requireRole("read-only"), requireCapability("shift:view"), async (req: Request, res: Response) => {
   const orgId = req.org?.id;
   const profileId = req.query.profile_id;
   if (!orgId) return res.status(404).json({ error: "Org not found" });
@@ -203,7 +204,7 @@ router.get("/v2/shift/current", requireRole("read-only"), async (req: Request, r
   }
 });
 
-router.get("/v2/shift/history", requireRole("read-only"), async (req: Request, res: Response) => {
+router.get("/v2/shift/history", requireRole("read-only"), requireCapability("shift:view"), async (req: Request, res: Response) => {
   const orgId = req.org?.id;
   const profileId = req.query.profile_id;
   if (!orgId) return res.status(404).json({ error: "Org not found" });
