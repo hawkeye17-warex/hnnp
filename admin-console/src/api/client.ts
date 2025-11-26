@@ -385,6 +385,15 @@ export const createApiClient = (session: Session) => {
       if (!res.ok) throw new Error('Failed to load profile activity');
       return res.json();
     },
+    getOrgPresence: async (orgId: string, params: Record<string, string | number>) => {
+      const url = new URL(`${baseUrl}/v2/orgs/${encodeURIComponent(orgId)}/presence`);
+      Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, String(v)));
+      const res = await fetch(url.toString(), {
+        headers: buildHeaders(session),
+      });
+      if (!res.ok) throw new Error('Failed to load presence logs');
+      return res.json();
+    },
     getWorkerReport: async (orgId: string, profileId: string, opts: {from?: string; to?: string; format?: 'csv'}) => {
       const url = new URL(
         `${baseUrl}/v2/orgs/${encodeURIComponent(orgId)}/profiles/${encodeURIComponent(profileId)}/worker-report`,

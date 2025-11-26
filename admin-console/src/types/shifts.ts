@@ -1,6 +1,7 @@
 export type Shift = {
   id: string;
   profile_id: string;
+  user_id?: string | null;
   org_id: string;
   location_id?: string | null;
   start_time: string;

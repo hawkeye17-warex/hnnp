@@ -29,6 +29,9 @@ const ShiftDetailPage = () => {
   });
   const [editingBreak, setEditingBreak] = useState<string | null>(null);
   const [savingBreak, setSavingBreak] = useState(false);
+  const [presence, setPresence] = useState<any[]>([]);
+  const [presenceLoading, setPresenceLoading] = useState(false);
+  const [presenceError, setPresenceError] = useState<string | null>(null);
 
   const load = async () => {
     if (!orgId || !shiftId) return;
@@ -38,6 +41,9 @@ const ShiftDetailPage = () => {
       const res = await api.getShift(orgId, shiftId);
       setShift(res?.shift ?? null);
       setBreaks(res?.breaks ?? []);
+      if (res?.shift?.user_id) {
+        void loadPresence(res.shift);
+      }
       if (res?.shift) {
         setEndInput(res.shift.end_time ?? '');
         setStatusInput(res.shift.status ?? '');
@@ -46,6 +52,26 @@ const ShiftDetailPage = () => {
       setError(err?.message ?? 'Failed to load shift');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadPresence = async (s: Shift) => {
+    if (!orgId) return;
+    setPresenceLoading(true);
+    setPresenceError(null);
+    try {
+      const from = s.start_time;
+      const to = s.end_time ?? new Date().toISOString();
+      const res = await api.getOrgPresence(orgId, {
+        from,
+        to,
+        user_ref: (s as any)?.user_id || s.profile_id,
+      });
+      setPresence((res as any)?.events ?? []);
+    } catch (err: any) {
+      setPresenceError(err?.message ?? 'Failed to load presence logs');
+    } finally {
+      setPresenceLoading(false);
     }
   };
 
@@ -297,6 +323,47 @@ const ShiftDetailPage = () => {
           </div>
         </div>
       </Card>
+
+      <Card>
+        <div className="table__header">
+          <div>
+            <h3>Presence during shift</h3>
+            <p className="muted">Events for this worker within the shift window, with gap markers.</p>
+          </div>
+          <div className="actions">
+            <button className="secondary" type="button" onClick={() => shift && loadPresence(shift)} disabled={presenceLoading}>
+              Refresh
+            </button>
+          </div>
+        </div>
+        {presenceLoading ? (
+          <LoadingState message="Loading presence..." />
+        ) : presenceError ? (
+          <ErrorState message={presenceError} onRetry={() => shift && loadPresence(shift)} />
+        ) : presence.length === 0 ? (
+          <EmptyState message="No presence events in this window." />
+        ) : (
+          <>
+            {renderGaps(shift, presence)}
+            <div className="table">
+              <div className="table__row table__head">
+                <div>Time</div>
+                <div>Receiver</div>
+                <div>Result</div>
+                <div>Token</div>
+              </div>
+              {presence.map(evt => (
+                <div className="table__row" key={evt.id}>
+                  <div>{formatDateTime(evt.server_timestamp)}</div>
+                  <div>{evt.receiver_id}</div>
+                  <div>{evt.auth_result}</div>
+                  <div>{evt.token_prefix}</div>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+      </Card>
     </div>
   );
 };
@@ -325,5 +392,39 @@ const sumBreaks = (items: Break[], paid?: boolean) =>
       return paid ? isPaid : !isPaid;
     })
     .reduce((sum, b) => sum + (b.total_seconds ?? 0), 0);
+
+const renderGaps = (shift: Shift | null, events: any[]) => {
+  if (!shift || events.length === 0) return null;
+  const thresholdMs = 5 * 60 * 1000; // 5 minutes
+  const sorted = [...events].sort(
+    (a, b) => new Date(a.server_timestamp).getTime() - new Date(b.server_timestamp).getTime(),
+  );
+  const gaps: {from: Date; to: Date}[] = [];
+  let prev = new Date(shift.start_time);
+  sorted.forEach(evt => {
+    const ts = new Date(evt.server_timestamp);
+    if (ts.getTime() - prev.getTime() > thresholdMs) {
+      gaps.push({from: prev, to: ts});
+    }
+    prev = ts;
+  });
+  const shiftEnd = shift.end_time ? new Date(shift.end_time) : null;
+  if (shiftEnd && shiftEnd.getTime() - prev.getTime() > thresholdMs) {
+    gaps.push({from: prev, to: shiftEnd});
+  }
+  if (gaps.length === 0) return null;
+  return (
+    <div className="card" style={{marginBottom: 12, padding: 8, background: '#fff8e1'}}>
+      <strong>Presence gaps detected:</strong>
+      <ul>
+        {gaps.map((g, idx) => (
+          <li key={idx}>
+            {formatDateTime(g.from.toISOString())} → {formatDateTime(g.to.toISOString())} ({formatDuration(Math.floor((g.to.getTime() - g.from.getTime()) / 1000))})
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+};
 
 export default ShiftDetailPage;

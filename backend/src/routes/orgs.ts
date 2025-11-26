@@ -1694,7 +1694,7 @@ router.get("/v2/orgs/:org_id/shifts", requireRole("read-only"), async (req: Requ
 router.get("/v2/orgs/:org_id/shifts/:shift_id", requireRole("read-only"), async (req: Request, res: Response) => {
   const { org_id, shift_id } = req.params;
   try {
-    const shift = await prisma.shift.findFirst({ where: { id: shift_id, orgId: org_id } });
+    const shift = await prisma.shift.findFirst({ where: { id: shift_id, orgId: org_id }, include: { profile: true } });
     if (!shift) return res.status(404).json({ error: "Shift not found" });
     const breaks = await prisma.break.findMany({
       where: { shiftId: shift_id },
@@ -1716,6 +1716,7 @@ router.get("/v2/orgs/:org_id/shifts/:shift_id", requireRole("read-only"), async 
         created_at: shift.createdAt.toISOString(),
         edited_by: shift.editedBy,
         edited_at: shift.editedAt ? shift.editedAt.toISOString() : null,
+        user_id: shift.profile?.userId ?? null,
       },
       breaks: breaks.map((b) => ({
         id: b.id,
@@ -2020,6 +2021,7 @@ router.get("/v2/orgs/:org_id/presence", requireRole("auditor"), async (req: Requ
   const toParam = req.query.to;
   const resultParam = req.query.result;
   const limitParam = req.query.limit;
+  const userRefParam = req.query.user_ref;
 
   const receiverId =
     typeof receiverIdParam === "string" && receiverIdParam.length > 0
@@ -2028,6 +2030,8 @@ router.get("/v2/orgs/:org_id/presence", requireRole("auditor"), async (req: Requ
 
   const result =
     typeof resultParam === "string" && resultParam.length > 0 ? resultParam : undefined;
+  const userRef =
+    typeof userRefParam === "string" && userRefParam.length > 0 ? userRefParam : undefined;
 
   let from: Date | undefined;
   if (typeof fromParam === "string" && fromParam.length > 0) {
@@ -2070,6 +2074,10 @@ router.get("/v2/orgs/:org_id/presence", requireRole("auditor"), async (req: Requ
 
     if (receiverId) {
       where.receiverId = receiverId;
+    }
+
+    if (userRef) {
+      where.userRef = userRef;
     }
 
     if (result) {
