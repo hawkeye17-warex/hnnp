@@ -159,7 +159,7 @@ const OrganizationDetailsPage = () => {
 
       <div style={{marginTop: 16}}>
         {tab === 'overview' && <OverviewPage orgId={orgId} />}
-        {tab === 'receivers' && <ReceiversPage orgId={orgId} />}
+        {tab === 'receivers' && <ReceiversPage />}
         {tab === 'presence' && <PresencePage orgId={orgId} />}
         {tab === 'usage' && <UsageDashboard orgId={orgId} />}
         {tab === 'users' && <UsersTab orgId={orgId} />}
