@@ -23,11 +23,24 @@ const config = loadConfig();
 const app = express();
 
 app.use(express.json());
+const allowedOrigins = [
+  "https://nearid-admin.vercel.app",
+  "http://localhost:5173",
+];
+
 app.use(
   cors({
-    origin: ["https://nearid-admin.vercel.app", "http://localhost:5173"],
-    methods: ["GET", "POST", "PATCH", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "x-hnnp-api-key"],
+    origin: (origin, callback) => {
+      if (!origin) return callback(null, true);
+      const isAllowed =
+        allowedOrigins.includes(origin) ||
+        // Allow Vercel preview deployments
+        /\.vercel\.app$/.test(origin);
+      callback(isAllowed ? null : new Error("Not allowed by CORS"), isAllowed);
+    },
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Authorization", "Content-Type", "Accept", "x-hnnp-api-key"],
+    optionsSuccessStatus: 200,
   }),
 );
 
