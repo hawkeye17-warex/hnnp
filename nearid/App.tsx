@@ -1,5 +1,5 @@
 import React, {useMemo} from 'react';
-import {NavigationContainer} from '@react-navigation/native';
+import {DefaultTheme, NavigationContainer} from '@react-navigation/native';
 import {StatusBar} from 'react-native';
 import {SafeAreaProvider} from 'react-native-safe-area-context';
 
@@ -12,20 +12,29 @@ const AppNavigation = () => {
   const {colors, isDark} = useTheme();
   const {isAuthenticated} = useAuth();
 
-  const navigationTheme = useMemo(
-    () => ({
+  const navigationTheme = useMemo(() => {
+    const nearidColors = {
+      primary: colors.accentPrimary,
+      background: colors.bgPrimary,
+      card: colors.bgSurface,
+      text: colors.textPrimary,
+      border: colors.borderSubtle,
+      notification: colors.accentPrimary,
+    };
+
+    return {
+      ...DefaultTheme,
       dark: isDark,
       colors: {
-        primary: colors.accentPrimary,
-        background: colors.bgPrimary,
-        card: colors.bgSurface,
-        text: colors.textPrimary,
-        border: colors.borderSubtle,
-        notification: colors.accentPrimary,
+        ...DefaultTheme.colors,
+        ...nearidColors,
       },
-    }),
-    [colors, isDark],
-  );
+      // IMPORTANT: keep fonts from DefaultTheme so fonts.regular exists
+      fonts: {
+        ...DefaultTheme.fonts,
+      },
+    };
+  }, [colors, isDark]);
 
   return (
     <NavigationContainer theme={navigationTheme}>

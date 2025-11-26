@@ -27,7 +27,7 @@ const HistoryStackNavigator = () => {
       <Stack.Screen
         name="HistoryList"
         component={HistoryScreen}
-        options={{title: 'History'}}
+        options={{title: 'History'}} // Restore the title
       />
       <Stack.Screen
         name="HistoryDetail"

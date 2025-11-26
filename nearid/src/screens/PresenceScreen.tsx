@@ -1,5 +1,5 @@
 import React, {useMemo} from 'react';
-import {StatusBar, StyleSheet, View} from 'react-native';
+import {ScrollView, StatusBar, StyleSheet, View} from 'react-native';
 
 import Card from '../components/Card';
 import PresenceRing from '../components/PresenceRing';
@@ -64,127 +64,129 @@ const PresenceScreen = () => {
   return (
     <ScreenContainer>
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
-      <View style={styles.stack}>
-        {banner ? (
-          <View
-            style={[
-              styles.banner,
-              {backgroundColor: `${banner.tone}22`, borderColor: banner.tone},
-            ]}>
-            <BodyText style={styles.bannerText}>{banner.text}</BodyText>
-          </View>
-        ) : null}
-        <Card>
-          <View style={styles.headerRow}>
+      <ScrollView showsVerticalScrollIndicator={false}>
+        <View style={styles.stack}>
+          {banner ? (
             <View
               style={[
-                styles.logoOuter,
-                {borderColor: colors.accentPrimary},
+                styles.banner,
+                {backgroundColor: `${banner.tone}22`, borderColor: banner.tone},
               ]}>
-              <View
-                style={[
-                  styles.logoInner,
-                  {backgroundColor: colors.accentPrimary},
-                ]}
-              />
+              <BodyText style={styles.bannerText}>{banner.text}</BodyText>
             </View>
-            <View style={styles.headerCenter}>
-              <TitleText>NearID</TitleText>
+          ) : null}
+          <Card>
+            <View style={styles.headerRow}>
               <View
                 style={[
-                  styles.orgPill,
-                  {backgroundColor: `${colors.accentPrimary}1A`},
+                  styles.logoOuter,
+                  {borderColor: colors.accentPrimary},
                 ]}>
-                <BodyText
-                  style={[styles.orgText, {color: colors.accentPrimary}]}>
-                  U of M - Science
-                </BodyText>
-              </View>
-            </View>
-            <View
-              style={[
-                styles.avatar,
-                {backgroundColor: colors.accentPrimary},
-              ]}>
-              <TitleText style={[styles.avatarText, {color: colors.bgSurface}]}>
-                NC
-              </TitleText>
-            </View>
-          </View>
-          <StatusPill
-            status={presenceStatus === 'error' ? 'error' : presenceStatus}
-            label={
-              presenceStatus === 'verified'
-                ? 'Verified'
-                : presenceStatus === 'searching'
-                ? 'Searching'
-                : 'Error'
-            }
-          />
-          <View style={styles.ringWrapper}>
-            <PresenceRing status={presenceStatus} />
-          </View>
-          <View style={styles.centerText}>
-            <TitleText style={styles.spaced}>
-              {presenceStatus === 'verified'
-                ? 'You are verified'
-                : presenceStatus === 'searching'
-                ? 'Trying to verify'
-                : 'Verification blocked'}
-            </TitleText>
-            <BodyText style={styles.spaced}>{presenceSubtitle}</BodyText>
-            <MutedText>
-              Mock data for now. Hook this up to presence once available.
-            </MutedText>
-          </View>
-          {lastError ? <ErrorState message={lastError} /> : null}
-        </Card>
-        <Card>
-          <TitleText style={styles.spaced}>Today</TitleText>
-          <View style={styles.row}>
-            <BodyText>Verified events</BodyText>
-            <TitleText>3</TitleText>
-          </View>
-          <View style={styles.row}>
-            <BodyText>Total verified time</BodyText>
-            <TitleText>4h 12m</TitleText>
-          </View>
-        </Card>
-        <Card>
-          <View style={styles.listHeader}>
-            <TitleText>Recent places</TitleText>
-            <BodyText style={[styles.viewAll, {color: colors.accentPrimary}]}>
-              View all
-            </BodyText>
-          </View>
-          <View style={styles.list}>
-            {RECENT_PLACES.map(place => (
-              <View key={place.name} style={styles.listItem}>
-                <View style={styles.listText}>
-                  <TitleText style={styles.listTitle}>{place.name}</TitleText>
-                  <MutedText>{place.time}</MutedText>
-                </View>
                 <View
                   style={[
-                    styles.statusDot,
-                    {
-                      backgroundColor:
-                        place.status === 'verified'
-                          ? colors.accentSuccess
-                          : colors.danger,
-                    },
+                    styles.logoInner,
+                    {backgroundColor: colors.accentPrimary},
                   ]}
                 />
               </View>
-            ))}
-          </View>
-        </Card>
-        <PrimaryButton
-          title="Send Ping"
-          onPress={() => {}}
-          style={styles.button}
-        />
-      </View>
+              <View style={styles.headerCenter}>
+                <TitleText>NearID</TitleText>
+                <View
+                  style={[
+                    styles.orgPill,
+                    {backgroundColor: `${colors.accentPrimary}1A`},
+                  ]}>
+                  <BodyText
+                    style={[styles.orgText, {color: colors.accentPrimary}]}>
+                    U of M - Science
+                  </BodyText>
+                </View>
+              </View>
+              <View
+                style={[
+                  styles.avatar,
+                  {backgroundColor: colors.accentPrimary},
+                ]}>
+                <TitleText style={[styles.avatarText, {color: colors.bgSurface}]}>
+                  NC
+                </TitleText>
+              </View>
+            </View>
+            <StatusPill
+              status={presenceStatus === 'error' ? 'error' : presenceStatus}
+              label={
+                presenceStatus === 'verified'
+                  ? 'Verified'
+                  : presenceStatus === 'searching'
+                  ? 'Searching'
+                  : 'Error'
+              }
+            />
+            <View style={styles.ringWrapper}>
+              <PresenceRing status={presenceStatus} />
+            </View>
+            <View style={styles.centerText}>
+              <TitleText style={styles.spaced}>
+                {presenceStatus === 'verified'
+                  ? 'You are verified'
+                  : presenceStatus === 'searching'
+                  ? 'Trying to verify'
+                  : 'Verification blocked'}
+              </TitleText>
+              <BodyText style={styles.spaced}>{presenceSubtitle}</BodyText>
+              <MutedText>
+                Mock data for now. Hook this up to presence once available.
+              </MutedText>
+            </View>
+            {lastError ? <ErrorState message={lastError} /> : null}
+          </Card>
+          <Card>
+            <TitleText style={styles.spaced}>Today</TitleText>
+            <View style={styles.row}>
+              <BodyText>Verified events</BodyText>
+              <TitleText>3</TitleText>
+            </View>
+            <View style={styles.row}>
+              <BodyText>Total verified time</BodyText>
+              <TitleText>4h 12m</TitleText>
+            </View>
+          </Card>
+          <Card>
+            <View style={styles.listHeader}>
+              <TitleText>Recent places</TitleText>
+              <BodyText style={[styles.viewAll, {color: colors.accentPrimary}]}>
+                View all
+              </BodyText>
+            </View>
+            <View style={styles.list}>
+              {RECENT_PLACES.map(place => (
+                <View key={place.name} style={styles.listItem}>
+                  <View style={styles.listText}>
+                    <TitleText style={styles.listTitle}>{place.name}</TitleText>
+                    <MutedText>{place.time}</MutedText>
+                  </View>
+                  <View
+                    style={[
+                      styles.statusDot,
+                      {
+                        backgroundColor:
+                          place.status === 'verified'
+                            ? colors.accentSuccess
+                            : colors.danger,
+                      },
+                    ]}
+                  />
+                </View>
+              ))}
+            </View>
+          </Card>
+          <PrimaryButton
+            title="Send Ping"
+            onPress={() => {}}
+            style={styles.button}
+          />
+        </View>
+      </ScrollView>
     </ScreenContainer>
   );
 };

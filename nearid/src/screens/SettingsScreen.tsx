@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Alert, StyleSheet, Switch, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet, Switch, View } from 'react-native';
 
 import PrimaryButton from '../components/PrimaryButton';
 import ScreenContainer from '../components/ScreenContainer';
@@ -55,145 +55,146 @@ const SettingsScreen = () => {
   );
 
   return (
-    <ScreenContainer scroll>
-      <View style={styles.stack}>
-        <SettingsSection title="Account" description="Manage your identity">
-          <SettingsRow label="Name" value="Nico Collins" />
-          <SettingsRow label="Email" value="nico.collins@example.com" />
-          <SettingsRow label="Organization" value="U of M · Science" style={styles.lastRow} />
-          <PrimaryButton title="Sign out" onPress={signOut} style={styles.button} />
-        </SettingsSection>
+    <ScreenContainer>
+      <ScrollView showsVerticalScrollIndicator={false}>
+        <View style={styles.stack}>
+          <SettingsSection title="Account" description="Manage your identity">
+            <SettingsRow label="Name" value="Nico Collins" />
+            <SettingsRow label="Email" value="nico.collins@example.com" />
+            <SettingsRow label="Organization" value="U of M · Science" style={styles.lastRow} />
+            <PrimaryButton title="Sign out" onPress={signOut} style={styles.button} />
+          </SettingsSection>
 
-        <SettingsSection title="Notifications" description="Control alerts from NearID">
-          <SettingsRow
-            label="Presence alerts"
-            rightContent={
-              <Switch
-                value={presenceAlerts}
-                onValueChange={setPresenceAlerts}
-                trackColor={{ false: colors.borderSubtle, true: colors.accentPrimary }}
-                thumbColor={colors.bgSurface}
-              />
-            }
-          />
-          <SettingsRow
-            label="Security alerts"
-            rightContent={
-              <Switch
-                value={securityAlerts}
-                onValueChange={setSecurityAlerts}
-                trackColor={{ false: colors.borderSubtle, true: colors.accentPrimary }}
-                thumbColor={colors.bgSurface}
-              />
-            }
-            style={styles.lastRow}
-          />
-        </SettingsSection>
-
-        <SettingsSection title="Device Status">
-          {statusLoading ? (
-            <MutedText>Checking…</MutedText>
-          ) : (
-            <>
-              <SettingsRow
-                label="Bluetooth"
-                rightContent={statusChip(
-                  bluetoothEnabled ? 'On' : 'Off',
-                  bluetoothEnabled ? 'ok' : 'danger',
-                )}
-              />
-              <SettingsRow
-                label="Nearby devices"
-                rightContent={statusChip(
-                  nearbyPermission === 'granted' ? 'Allowed' : 'Denied',
-                  nearbyPermission === 'granted' ? 'ok' : 'danger',
-                )}
-              />
-              <SettingsRow
-                label="Notifications"
-                rightContent={statusChip(
-                  notificationsEnabled ? 'Allowed' : 'Blocked',
-                  notificationsEnabled ? 'ok' : 'danger',
-                )}
-              />
-              <SettingsRow
-                label="Battery saver"
-                rightContent={statusChip(
-                  batterySaverEnabled ? 'On' : 'Off',
-                  batterySaverEnabled ? 'warn' : 'ok',
-                )}
-                style={styles.lastRow}
-              />
-            </>
-          )}
-        </SettingsSection>
-
-        <SettingsSection
-          title="Privacy"
-          description="Control what data you keep or remove.">
-          <BodyText>
-            Download or delete your presence history at any time. Actions are immediate.
-          </BodyText>
-          <PrimaryButton
-            title="Download my history"
-            onPress={async () => {
-              try {
-                await exportHistory();
-                Alert.alert('Export ready', 'Your history export has been prepared.');
-              } catch (err) {
-                Alert.alert('Export failed', 'Could not export history right now.');
+          <SettingsSection title="Notifications" description="Control alerts from NearID">
+            <SettingsRow
+              label="Presence alerts"
+              rightContent={
+                <Switch
+                  value={presenceAlerts}
+                  onValueChange={setPresenceAlerts}
+                  trackColor={{ false: colors.borderSubtle, true: colors.accentPrimary }}
+                  thumbColor={colors.bgSurface}
+                />
               }
-            }}
-            style={styles.button}
-          />
-          <PrimaryButton
-            title="Delete my account"
-            onPress={() => {
-              Alert.alert(
-                'Delete account',
-                'This will remove your account info from this device. Continue?',
-                [
-                  { text: 'Cancel', style: 'cancel' },
-                  {
-                    text: 'Delete',
-                    style: 'destructive',
-                    onPress: async () => {
-                      try {
-                        await deleteAccount();
-                        await clearDeviceSecret();
-                        signOut();
-                      } catch (err) {
-                        Alert.alert('Deletion failed', 'Could not delete account right now.');
-                      }
-                    },
-                  },
-                ],
-              );
-            }}
-            style={[styles.button, { backgroundColor: colors.danger }]}
-          />
-        </SettingsSection>
+            />
+            <SettingsRow
+              label="Security alerts"
+              rightContent={
+                <Switch
+                  value={securityAlerts}
+                  onValueChange={setSecurityAlerts}
+                  trackColor={{ false: colors.borderSubtle, true: colors.accentPrimary }}
+                  thumbColor={colors.bgSurface}
+                />
+              }
+              style={styles.lastRow}
+            />
+          </SettingsSection>
 
-        <SettingsSection title="Help & About">
-          <SettingsRow label="FAQ" onPress={() => {}} />
-          <SettingsRow
-            label="Run diagnostics"
-            onPress={() => navigation.navigate('Diagnostics')}
-          />
-          <SettingsRow
-            label="App version"
-            value={versionLabel}
-            style={styles.lastRow}
-          />
-        </SettingsSection>
-      </View>
+          <SettingsSection title="Device Status">
+            {statusLoading ? (
+              <MutedText>Checking…</MutedText>
+            ) : (
+              <>
+                <SettingsRow
+                  label="Bluetooth"
+                  rightContent={statusChip(
+                    bluetoothEnabled ? 'On' : 'Off',
+                    bluetoothEnabled ? 'ok' : 'danger',
+                  )}
+                />
+                <SettingsRow
+                  label="Nearby devices"
+                  rightContent={statusChip(
+                    nearbyPermission === 'granted' ? 'Allowed' : 'Denied',
+                    nearbyPermission === 'granted' ? 'ok' : 'danger',
+                  )}
+                />
+                <SettingsRow
+                  label="Notifications"
+                  rightContent={statusChip(
+                    notificationsEnabled ? 'Allowed' : 'Blocked',
+                    notificationsEnabled ? 'ok' : 'danger',
+                  )}
+                />
+                <SettingsRow
+                  label="Battery saver"
+                  rightContent={statusChip(
+                    batterySaverEnabled ? 'On' : 'Off',
+                    batterySaverEnabled ? 'warn' : 'ok',
+                  )}
+                  style={styles.lastRow}
+                />
+              </>
+            )}
+          </SettingsSection>
+
+          <SettingsSection
+            title="Privacy"
+            description="Control what data you keep or remove.">
+            <BodyText>
+              Download or delete your presence history at any time. Actions are immediate.
+            </BodyText>
+            <PrimaryButton
+              title="Download my history"
+              onPress={async () => {
+                try {
+                  await exportHistory();
+                  Alert.alert('Export ready', 'Your history export has been prepared.');
+                } catch (err) {
+                  Alert.alert('Export failed', 'Could not export history right now.');
+                }
+              }}
+              style={styles.button}
+            />
+            <PrimaryButton
+              title="Delete my account"
+              onPress={() => {
+                Alert.alert(
+                  'Delete account',
+                  'This will remove your account info from this device. Continue?',
+                  [
+                    { text: 'Cancel', style: 'cancel' },
+                    {
+                      text: 'Delete',
+                      style: 'destructive',
+                      onPress: async () => {
+                        try {
+                          await deleteAccount();
+                          await clearDeviceSecret();
+                          signOut();
+                        } catch (err) {
+                          Alert.alert('Deletion failed', 'Could not delete account right now.');
+                        }
+                      },
+                    },
+                  ],
+                );
+              }}
+              style={[styles.button, { backgroundColor: colors.danger }]}
+            />
+          </SettingsSection>
+
+          <SettingsSection title="Help & About">
+            <SettingsRow label="FAQ" onPress={() => {}} />
+            <SettingsRow
+              label="Run diagnostics"
+              onPress={() => navigation.navigate('Diagnostics')}
+            />
+            <SettingsRow
+              label="App version"
+              value={versionLabel}
+              style={styles.lastRow}
+            />
+          </SettingsSection>
+        </View>
+      </ScrollView>
     </ScreenContainer>
   );
 };
 
 const styles = StyleSheet.create({
   stack: {
-    flex: 1,
     gap: 16,
   },
   button: {

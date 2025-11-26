@@ -1,6 +1,13 @@
-import 'react-native-get-random-values';
-import 'react-native-crypto';
-import {createHmac} from 'crypto';
+import HmacSHA256 from 'crypto-js/hmac-sha256';
+import encHex from 'crypto-js/enc-hex';
+
+function hmacSha256Hex(message: string | Buffer, key: string): string {
+  // Same result as Node's createHmac('sha256', key).update(message).digest('hex')
+  const messageWord = Buffer.isBuffer(message)
+    ? encHex.parse(message.toString('hex'))
+    : message;
+  return HmacSHA256(messageWord, key).toString(encHex);
+}
 
 export const getCurrentTimeSlot = (intervalSeconds = 15): number => {
   const nowSeconds = Math.floor(Date.now() / 1000);
@@ -8,9 +15,13 @@ export const getCurrentTimeSlot = (intervalSeconds = 15): number => {
 };
 
 export const generateToken = (deviceSecret: string, timeSlot: number) => {
-  const hmac = createHmac('sha256', Buffer.from(deviceSecret, 'hex'));
-  hmac.update(Buffer.allocUnsafe(4).writeUInt32BE(timeSlot, 0));
-  const digest = hmac.digest();
+  const timeSlotBytes = Buffer.allocUnsafe(4);
+  timeSlotBytes.writeUInt32BE(timeSlot, 0);
+
+  const secretBytes = Buffer.from(deviceSecret, 'hex');
+
+  const digestHex = hmacSha256Hex(timeSlotBytes, secretBytes.toString('hex'));
+  const digest = Buffer.from(digestHex, 'hex');
 
   const tokenPrefix = digest.subarray(0, 16);
   const mac = digest.subarray(16, 24);
