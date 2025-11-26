@@ -88,7 +88,8 @@ const IntegrationsPage: React.FC = () => {
         <div className="mt-4">
           <button
             type="button"
-            className="inline-flex px-4 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700">
+            className="inline-flex px-4 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700"
+            onClick={() => window.alert('Integration setup coming soon.')}>
             Add Integration
           </button>
         </div>
