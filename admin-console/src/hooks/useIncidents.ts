@@ -7,6 +7,7 @@ type IncidentFilters = {
   from?: string;
   to?: string;
   severity?: 'info' | 'warning' | 'critical';
+  locationId?: string;
 };
 
 export function useIncidents(filters?: IncidentFilters) {
