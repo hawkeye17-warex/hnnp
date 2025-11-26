@@ -31,6 +31,9 @@ const OverviewPage = ({orgId}: Props) => {
   const [receivers, setReceivers] = useState<Receiver[]>([]);
   const [events, setEvents] = useState<PresenceEvent[]>([]);
   const [quizSummary, setQuizSummary] = useState<any | null>(null);
+  const [activeWorkers, setActiveWorkers] = useState<number>(0);
+  const [avgShiftHours, setAvgShiftHours] = useState<number>(0);
+  const [totalHoursWeek, setTotalHoursWeek] = useState<number>(0);
   const [realtime, setRealtime] = useState<{
     eventsPerSec: number;
     activeReceivers: number;
@@ -73,6 +76,37 @@ const OverviewPage = ({orgId}: Props) => {
           setQuizSummary(quizRes);
         } catch {
           setQuizSummary(null);
+        }
+
+        // Shifts metrics
+        try {
+          const now = new Date();
+          const startOfWeek = new Date(now);
+          startOfWeek.setDate(now.getDate() - now.getDay());
+          startOfWeek.setHours(0, 0, 0, 0);
+          const shiftsRes = await api.getShifts(orgId, {from: startOfWeek.toISOString()});
+          const shiftList: any[] = Array.isArray(shiftsRes) ? shiftsRes : (shiftsRes as any)?.data ?? [];
+          const durations = shiftList.map(s => {
+            if (typeof s.total_seconds === 'number') return s.total_seconds;
+            const end = s.end_time ? new Date(s.end_time) : new Date();
+            const start = new Date(s.start_time);
+            return Math.max(0, Math.floor((end.getTime() - start.getTime()) / 1000));
+          });
+          const totalSec = durations.reduce((sum, v) => sum + (v || 0), 0);
+          setTotalHoursWeek(Number((totalSec / 3600).toFixed(2)));
+          const avg = durations.length ? totalSec / durations.length / 3600 : 0;
+          setAvgShiftHours(Number(avg.toFixed(2)));
+        } catch {
+          setTotalHoursWeek(0);
+          setAvgShiftHours(0);
+        }
+
+        // Live workers
+        try {
+          const live = await api.getLiveShifts(orgId ?? '');
+          setActiveWorkers(Array.isArray((live as any)?.on_shift) ? (live as any).on_shift.length : 0);
+        } catch {
+          setActiveWorkers(0);
         }
       } catch (err: any) {
         if (!mounted) return;
@@ -221,6 +255,27 @@ const OverviewPage = ({orgId}: Props) => {
           <p className="muted">Live quizzes</p>
           <h2>{quizSummary?.live_quizzes?.length ?? 0}</h2>
           <p className="muted">Running now</p>
+        </Card>
+        <Card>
+          <p className="muted">Current active workers</p>
+          <h2>{activeWorkers}</h2>
+          <button className="link" type="button" onClick={() => window.location.assign(`/organizations/${orgId}/shifts`)}>
+            View shifts
+          </button>
+        </Card>
+        <Card>
+          <p className="muted">Avg shift length (7d)</p>
+          <h2>{avgShiftHours.toFixed(2)}h</h2>
+          <button className="link" type="button" onClick={() => window.location.assign(`/organizations/${orgId}/shifts`)}>
+            Shift reports
+          </button>
+        </Card>
+        <Card>
+          <p className="muted">Total hours this week</p>
+          <h2>{totalHoursWeek.toFixed(2)}h</h2>
+          <button className="link" type="button" onClick={() => window.location.assign(`/organizations/${orgId}/shifts`)}>
+            Shift reports
+          </button>
         </Card>
       </div>
 
