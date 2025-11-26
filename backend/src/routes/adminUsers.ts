@@ -34,10 +34,15 @@ router.post("/internal/admin-users", async (req: Request, res: Response) => {
   if (typeof email !== "string" || email.trim().length === 0) {
     return res.status(400).json({ error: "email is required" });
   }
+  const orgId = req.orgId;
+  if (!orgId) {
+    return res.status(400).json({ error: "orgId missing from request context" });
+  }
 
   try {
     const created = await prisma.adminUser.create({
       data: {
+        org: { connect: { id: orgId } },
         email: email.trim().toLowerCase(),
         name: typeof name === "string" && name.trim().length > 0 ? name.trim() : undefined,
         role: typeof role === "string" && role.trim().length > 0 ? role.trim() : "admin",
