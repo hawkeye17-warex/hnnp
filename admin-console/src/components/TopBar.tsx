@@ -16,15 +16,38 @@ const titleMap: Record<string, string> = {
   '/settings': 'Settings',
 };
 
-const TopBar = () => {
+type Props = {
+  onToggleSidebar?: () => void;
+};
+
+const TopBar: React.FC<Props> = ({onToggleSidebar}) => {
   const location = useLocation();
-  const title = Object.keys(titleMap).find(path => location.pathname.startsWith(path))
-    ? titleMap[Object.keys(titleMap).find(path => location.pathname.startsWith(path)) as string]
-    : 'NearID Admin';
+
+  const resolveTitle = () => {
+    for (const path of Object.keys(titleMap)) {
+      if (location.pathname.startsWith(path)) {
+        return titleMap[path];
+      }
+    }
+    return 'NearID Admin';
+  };
+
+  const title = resolveTitle();
 
   return (
     <header className="sticky top-0 z-20 h-14 bg-[#161921] text-slate-100 border-b border-slate-800 flex items-center justify-between px-4">
-      <div className="text-sm font-semibold tracking-tight">{title}</div>
+      <div className="flex items-center gap-3">
+        <button
+          type="button"
+          className="lg:hidden h-9 w-9 rounded-md bg-slate-800 text-white flex items-center justify-center focus:outline-none"
+          onClick={onToggleSidebar}
+          aria-label="Toggle sidebar">
+          <span className="h-0.5 w-4 bg-white block mb-1" />
+          <span className="h-0.5 w-4 bg-white block mb-1" />
+          <span className="h-0.5 w-4 bg-white block" />
+        </button>
+        <div className="text-sm font-semibold tracking-tight">{title}</div>
+      </div>
       <div className="flex items-center gap-3">
         <span className="px-2 py-1 text-xs rounded-full bg-slate-800 border border-slate-700 text-slate-200">
           Sandbox

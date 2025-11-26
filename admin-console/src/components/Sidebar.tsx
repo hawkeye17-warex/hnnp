@@ -43,7 +43,7 @@ const sections: NavSection[] = [
 
 const Sidebar = () => {
   return (
-    <aside className="bg-[#111318] text-slate-200 w-64 shrink-0 min-h-screen hidden sm:flex flex-col">
+    <aside className="bg-[#111318] text-slate-200 w-64 shrink-0 min-h-screen flex flex-col">
       <div className="px-5 py-6 flex items-center gap-3 text-lg font-semibold">
         <span className="h-9 w-9 rounded-lg bg-slate-800 flex items-center justify-center text-blue-400 font-bold">
           N
