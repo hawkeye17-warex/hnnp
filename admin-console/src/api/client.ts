@@ -417,6 +417,13 @@ export const createApiClient = (session: Session) => {
       if (!res.ok) throw new Error('Failed to fetch shift');
       return res.json();
     },
+    getLiveShifts: async (orgId: string) => {
+      const res = await fetch(`${baseUrl}/v2/orgs/${encodeURIComponent(orgId)}/shifts/live`, {
+        headers: buildHeaders(session),
+      });
+      if (!res.ok) throw new Error('Failed to load live shifts');
+      return res.json();
+    },
     updateShift: async (orgId: string, shiftId: string, payload: Record<string, unknown>) => {
       const res = await fetch(`${baseUrl}/v2/orgs/${encodeURIComponent(orgId)}/shifts/${encodeURIComponent(shiftId)}`, {
         method: 'PATCH',

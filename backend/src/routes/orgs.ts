@@ -1736,6 +1736,67 @@ router.get("/v2/orgs/:org_id/shifts/:shift_id", requireRole("read-only"), async 
   }
 });
 
+router.get("/v2/orgs/:org_id/shifts/live", requireRole("read-only"), async (req: Request, res: Response) => {
+  const { org_id } = req.params;
+  try {
+    const now = new Date();
+    const activeShifts = await prisma.shift.findMany({
+      where: {
+        orgId: org_id,
+        OR: [{ endTime: null }, { status: { notIn: ["closed", "ended", "complete"] } }],
+      },
+      include: { profile: true },
+      orderBy: { startTime: "asc" },
+      take: 200,
+    });
+
+    const lastPings: Record<string, string | null> = {};
+    await Promise.all(
+      activeShifts.map(async (s) => {
+        const userRef = s.profile?.userId;
+        if (!userRef) return;
+        const evt = await prisma.presenceEvent.findFirst({
+          where: { orgId: org_id, userRef },
+          orderBy: { serverTimestamp: "desc" },
+        });
+        lastPings[s.id] = evt?.receiverId ?? null;
+      }),
+    );
+
+    const activeBreaks = await prisma.break.findMany({
+      where: { endTime: null, shift: { orgId: org_id } },
+      include: { shift: { include: { profile: true } } },
+      orderBy: { startTime: "asc" },
+      take: 200,
+    });
+
+    return res.json({
+      on_shift: activeShifts.map((s) => ({
+        id: s.id,
+        profile_id: s.profileId,
+        user_id: s.profile?.userId ?? null,
+        start_time: s.startTime.toISOString(),
+        status: s.status,
+        duration_seconds: Math.max(0, Math.floor((now.getTime() - s.startTime.getTime()) / 1000)),
+        last_receiver_id: lastPings[s.id] ?? null,
+      })),
+      on_break: activeBreaks.map((b) => ({
+        id: b.id,
+        shift_id: b.shiftId,
+        profile_id: b.shift?.profileId ?? null,
+        user_id: b.shift?.profile?.userId ?? null,
+        start_time: b.startTime.toISOString(),
+        duration_seconds: Math.max(0, Math.floor((now.getTime() - b.startTime.getTime()) / 1000)),
+        type: b.type,
+      })),
+    });
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error("Error fetching live shifts", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 router.patch("/v2/orgs/:org_id/shifts/:shift_id", requireRole("admin"), async (req: Request, res: Response) => {
   const { org_id, shift_id } = req.params;
   const { end_time, status } = req.body ?? {};

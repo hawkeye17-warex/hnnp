@@ -25,3 +25,23 @@ export type Break = {
   edited_by?: string | null;
   edited_at?: string | null;
 };
+
+export type LiveShift = {
+  id: string;
+  profile_id: string;
+  user_id?: string | null;
+  start_time: string;
+  status: string;
+  duration_seconds: number;
+  last_receiver_id?: string | null;
+};
+
+export type LiveBreak = {
+  id: string;
+  shift_id: string;
+  profile_id?: string | null;
+  user_id?: string | null;
+  start_time: string;
+  duration_seconds: number;
+  type?: string | null;
+};
