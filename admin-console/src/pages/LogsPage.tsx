@@ -26,9 +26,11 @@ const LogsPage: React.FC = () => {
 
   const levels = useMemo(
     () =>
-      Array.from(new Set(logs.map(l => l.level).filter((c): c is string => Boolean(c)))).sort(
-        (a, b) => a.localeCompare(b),
-      ),
+      Array.from(
+        new Set(
+          (logs.map(l => l.level).filter(Boolean) as LogEntry['level'][]).map(l => l ?? 'info'),
+        ),
+      ).sort((a, b) => a.localeCompare(b)),
     [logs],
   );
 
