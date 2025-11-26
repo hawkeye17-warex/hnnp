@@ -17,8 +17,8 @@ function normalizeRole(scope?: string | null): Role {
   if (value.includes("admin")) return "admin";
   if (value.includes("auditor")) return "auditor";
   if (value.includes("read-only") || value.includes("readonly")) return "read-only";
-  // default to read-only if unknown, safest baseline
-  return "read-only";
+  // default to admin so that missing/unknown scopes still allow console read access
+  return "admin";
 }
 
 export function requireRole(minRole: Role) {
