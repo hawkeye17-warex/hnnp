@@ -115,6 +115,25 @@ router.get("/internal/test-auth", requireRole("read-only"), async (req: Request,
   return res.json({ ok: true, org: { id, name, slug }, scope: req.apiKeyScope ?? "unknown" });
 });
 
+// Simplified org config for single-org admin console
+router.get("/api/org/config", requireRole("read-only"), async (req: Request, res: Response) => {
+  try {
+    const org = req.org ? req.org : await prisma.org.findUnique({ where: { id: req.orgId ?? "" } });
+    if (!org) return res.status(404).json({ error: "Org not found" });
+
+    return res.json({
+      org_id: org.id,
+      org_name: org.name,
+      org_type: (org as any).orgType ?? "office",
+      enabled_modules: (org as any).enabledModules ?? [],
+    });
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error("Error fetching org config", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 function serializeOrg(org: Org) {
   return {
     org_id: org.id,
