@@ -1,7 +1,7 @@
 import { Router, Request, Response } from "express";
 import { prisma } from "../db/prisma";
 import { apiKeyAuth } from "../middleware/apiKeyAuth";
-import { requireRole } from "../middleware/permissions";
+import { normalizeRole, requireRole } from "../middleware/permissions";
 import type { Org, UserProfile } from "@prisma/client";
 
 const router = Router();
@@ -54,6 +54,8 @@ router.get("/v2/me", apiKeyAuth, requireRole("read-only"), async (req: Request, 
     return res.json({
       org: serializeOrg(org),
       profiles: profiles.map(serializeProfile),
+      role: normalizeRole(req.apiKeyScope),
+      scope: req.apiKeyScope ?? null,
     });
   } catch (err) {
     // eslint-disable-next-line no-console

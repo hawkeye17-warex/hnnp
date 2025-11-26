@@ -1861,7 +1861,7 @@ router.get("/v2/orgs/:org_id/shifts/live", requireRole("read-only"), async (req:
   }
 });
 
-router.patch("/v2/orgs/:org_id/shifts/:shift_id", requireRole("admin"), async (req: Request, res: Response) => {
+router.patch("/v2/orgs/:org_id/shifts/:shift_id", requireRole("shift_manager"), async (req: Request, res: Response) => {
   const { org_id, shift_id } = req.params;
   const { end_time, status } = req.body ?? {};
   try {
@@ -1925,7 +1925,7 @@ router.patch("/v2/orgs/:org_id/shifts/:shift_id", requireRole("admin"), async (r
   }
 });
 
-router.post("/v2/orgs/:org_id/shifts/:shift_id/breaks", requireRole("admin"), async (req: Request, res: Response) => {
+router.post("/v2/orgs/:org_id/shifts/:shift_id/breaks", requireRole("shift_manager"), async (req: Request, res: Response) => {
   const { org_id, shift_id } = req.params;
   const { start_time, end_time, total_seconds, type } = req.body ?? {};
   try {
@@ -1986,7 +1986,7 @@ router.post("/v2/orgs/:org_id/shifts/:shift_id/breaks", requireRole("admin"), as
   }
 });
 
-router.patch("/v2/orgs/:org_id/shifts/:shift_id/breaks/:break_id", requireRole("admin"), async (req: Request, res: Response) => {
+router.patch("/v2/orgs/:org_id/shifts/:shift_id/breaks/:break_id", requireRole("shift_manager"), async (req: Request, res: Response) => {
   const { org_id, shift_id, break_id } = req.params;
   const { start_time, end_time, total_seconds, type } = req.body ?? {};
   try {
@@ -2051,7 +2051,7 @@ router.patch("/v2/orgs/:org_id/shifts/:shift_id/breaks/:break_id", requireRole("
   }
 });
 
-router.delete("/v2/orgs/:org_id/shifts/:shift_id/breaks/:break_id", requireRole("admin"), async (req: Request, res: Response) => {
+router.delete("/v2/orgs/:org_id/shifts/:shift_id/breaks/:break_id", requireRole("shift_manager"), async (req: Request, res: Response) => {
   const { org_id, shift_id, break_id } = req.params;
   try {
     const org = await prisma.org.findUnique({ where: { id: org_id } });

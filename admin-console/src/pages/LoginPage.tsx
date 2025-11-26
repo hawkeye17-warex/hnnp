@@ -2,6 +2,7 @@ import React, {useState} from 'react';
 import {Navigate, useNavigate} from 'react-router-dom';
 
 import {useSession} from '../hooks/useSession';
+import type {Session} from '../types/session';
 import {useTheme} from '../theme/ThemeProvider';
 
 const LoginPage = () => {
@@ -43,7 +44,19 @@ const LoginPage = () => {
         }
         throw new Error('Unable to sign in. Please try again.');
       }
-      setSession({orgId, apiKey});
+      let role: Session['role'] | undefined;
+      try {
+        const meRes = await fetch(`${baseUrl}/v2/me`, {
+          headers: {'x-hnnp-api-key': apiKey},
+        });
+        if (meRes.ok) {
+          const me = await meRes.json();
+          role = me?.role;
+        }
+      } catch {
+        // ignore role fetch failures
+      }
+      setSession({orgId, apiKey, role});
       navigate('/overview', {replace: true});
     } catch (err: any) {
       setError(err?.message ?? 'Sign-in failed.');

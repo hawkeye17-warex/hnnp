@@ -1,16 +1,18 @@
 import { NextFunction, Request, Response } from "express";
 
-type Role = "superadmin" | "admin" | "auditor" | "read-only";
+type Role = "superadmin" | "admin" | "shift_manager" | "auditor" | "read-only";
 
 const ROLE_WEIGHT: Record<Role, number> = {
   "read-only": 0,
   auditor: 1,
-  admin: 2,
-  superadmin: 3,
+  shift_manager: 2,
+  admin: 3,
+  superadmin: 4,
 };
 
 function normalizeRole(scope?: string | null): Role {
   const value = (scope ?? "").toLowerCase().trim();
+  if (value.includes("shift_manager") || value.includes("shift-manager") || value.includes("shift manager")) return "shift_manager";
   if (value.includes("superadmin")) return "superadmin";
   if (value.includes("admin")) return "admin";
   if (value.includes("auditor")) return "auditor";

@@ -6,12 +6,15 @@ import LoadingState from '../components/LoadingState';
 import ErrorState from '../components/ErrorState';
 import EmptyState from '../components/EmptyState';
 import {useApi} from '../api/client';
+import {useSession} from '../hooks/useSession';
 import {Shift, Break} from '../types/shifts';
 
 const ShiftDetailPage = () => {
   const {id: orgId, shiftId} = useParams<{id: string; shiftId: string}>();
   const api = useApi();
   const navigate = useNavigate();
+  const {session} = useSession();
+  const canManageShifts = ['admin', 'superadmin', 'shift_manager'].includes(session?.role ?? 'admin');
   const [shift, setShift] = useState<Shift | null>(null);
   const [breaks, setBreaks] = useState<Break[]>([]);
   const [loading, setLoading] = useState(true);
@@ -217,12 +220,13 @@ const ShiftDetailPage = () => {
             />
           </div>
           <div className="actions">
-            <button className="primary" type="button" disabled={savingShift} onClick={handleUpdateShift}>
+            <button className="primary" type="button" disabled={savingShift || !canManageShifts} onClick={handleUpdateShift}>
               {savingShift ? 'Saving...' : 'Save shift changes'}
             </button>
             <button className="secondary" type="button" onClick={() => load()} disabled={savingShift}>
               Refresh
             </button>
+            {!canManageShifts && <span className="muted">Requires shift manager/admin</span>}
           </div>
         </div>
       </Card>
@@ -312,7 +316,7 @@ const ShiftDetailPage = () => {
             />
           </div>
           <div className="actions">
-            <button className="primary" type="button" disabled={savingBreak} onClick={handleSaveBreak}>
+            <button className="primary" type="button" disabled={savingBreak || !canManageShifts} onClick={handleSaveBreak}>
               {savingBreak ? 'Saving...' : editingBreak ? 'Update break' : 'Add break'}
             </button>
             {editingBreak && (
@@ -320,6 +324,7 @@ const ShiftDetailPage = () => {
                 Cancel
               </button>
             )}
+            {!canManageShifts && <span className="muted">Requires shift manager/admin</span>}
           </div>
         </div>
       </Card>
