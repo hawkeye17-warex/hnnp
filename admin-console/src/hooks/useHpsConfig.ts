@@ -1,10 +1,16 @@
 import {useEffect, useState} from 'react';
 import {useSession} from './useSession';
-import type {HpsStat} from '../types/hps';
 
-export function useHpsStats() {
+export type HpsConfig = {
+  minScore?: number;
+  microGestureFallback?: boolean;
+  requiredForAttendance?: boolean;
+  requiredForAccess?: boolean;
+};
+
+export function useHpsConfig() {
   const {session} = useSession();
-  const [data, setData] = useState<HpsStat[]>([]);
+  const [data, setData] = useState<HpsConfig | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -13,7 +19,7 @@ export function useHpsStats() {
     const load = async () => {
       if (!session) {
         setError('Not authenticated');
-        setData([]);
+        setData(null);
         return;
       }
       setIsLoading(true);
@@ -21,7 +27,7 @@ export function useHpsStats() {
       try {
         const baseUrl = import.meta.env.VITE_BACKEND_BASE_URL;
         if (!baseUrl) throw new Error('Missing backend base URL');
-        const res = await fetch(`${baseUrl}/v2/orgs/${encodeURIComponent(session.orgId)}/hps/stats`, {
+        const res = await fetch(`${baseUrl}/v2/orgs/${encodeURIComponent(session.orgId)}/hps/config`, {
           headers: {
             Accept: 'application/json',
             'Content-Type': 'application/json',
@@ -31,24 +37,24 @@ export function useHpsStats() {
         const text = await res.text();
         if (!res.ok) {
           throw new Error(
-            `Failed to fetch HPS stats (${res.status} ${res.statusText || ''})${text ? `: ${text}` : ''}`.trim(),
+            `Failed to fetch HPS config (${res.status} ${res.statusText || ''})${text ? `: ${text}` : ''}`.trim(),
           );
         }
         const isJson = res.headers.get('content-type')?.includes('application/json');
         if (!isJson) {
           throw new Error(text || 'Received non-JSON response');
         }
-        let json: any = [];
+        let json: any = null;
         try {
           json = JSON.parse(text);
         } catch {
           throw new Error('Received invalid JSON response');
         }
-        const raw = Array.isArray(json) ? json : json?.stats ?? json?.data ?? [];
-        if (!cancelled) setData(raw);
+        const cfg = json?.config ?? json ?? null;
+        if (!cancelled) setData(cfg);
       } catch (err: any) {
-        if (!cancelled) setError(err?.message ?? 'Failed to load HPS stats');
-        if (!cancelled) setData([]);
+        if (!cancelled) setError(err?.message ?? 'Failed to load HPS config');
+        if (!cancelled) setData(null);
       } finally {
         if (!cancelled) setIsLoading(false);
       }
