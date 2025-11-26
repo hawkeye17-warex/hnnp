@@ -41,7 +41,7 @@ export function useAttendance(filters?: AttendanceFilters) {
             headers: {
               Accept: 'application/json',
               'Content-Type': 'application/json',
-              'x-hnnp-api-key': session.apiKey,
+              Authorization: `Bearer ${session.apiKey}`,
             },
           },
         );
@@ -107,7 +107,7 @@ export function useGroups() {
             headers: {
               Accept: 'application/json',
               'Content-Type': 'application/json',
-              'x-hnnp-api-key': session.apiKey,
+              Authorization: `Bearer ${session.apiKey}`,
             },
           },
         );

@@ -37,7 +37,7 @@ export function usePresenceStream(filters?: PresenceFilters) {
         const res = await fetch(`${baseUrl}/v1/presence/events?${params.toString()}`, {
           headers: {
             'Content-Type': 'application/json',
-            'x-hnnp-api-key': session.apiKey,
+            Authorization: `Bearer ${session.apiKey}`,
           },
         });
         if (!res.ok) throw new Error(`Failed to fetch presence (${res.status})`);

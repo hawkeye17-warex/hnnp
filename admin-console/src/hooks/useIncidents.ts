@@ -40,7 +40,7 @@ export function useIncidents(filters?: IncidentFilters) {
             headers: {
               Accept: 'application/json',
               'Content-Type': 'application/json',
-              'x-hnnp-api-key': session.apiKey,
+              Authorization: `Bearer ${session.apiKey}`,
             },
           },
         );

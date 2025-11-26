@@ -25,8 +25,9 @@ export function useLocations() {
         const url = `${baseUrl}/v2/orgs/${encodeURIComponent(session.orgId)}/locations`;
         const res = await fetch(url, {
           headers: {
+            Accept: 'application/json',
             'Content-Type': 'application/json',
-            'x-hnnp-api-key': session.apiKey,
+            Authorization: `Bearer ${session.apiKey}`,
           },
         });
         if (!res.ok) throw new Error(`Failed to fetch locations (${res.status})`);

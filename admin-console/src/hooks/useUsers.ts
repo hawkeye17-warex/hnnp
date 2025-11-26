@@ -25,7 +25,7 @@ export function useUsers() {
           headers: {
             Accept: 'application/json',
             'Content-Type': 'application/json',
-            'x-hnnp-api-key': session.apiKey,
+            Authorization: `Bearer ${session.apiKey}`,
           },
         });
         const text = await res.text();
