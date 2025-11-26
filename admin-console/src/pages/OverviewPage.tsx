@@ -99,39 +99,39 @@ const OverviewPage: React.FC<Props> = ({orgId}) => {
     };
   }, [api, orgId]);
 
+  const eventsNormalized = useMemo(() => {
+    return events
+      .map(ev => {
+        const ts = ev.timestamp || ev.occurredAt || ev.createdAt || (ev as any).time || (ev as any).at;
+        const time = ts ? new Date(ts).getTime() : NaN;
+        return {...ev, time};
+      })
+      .filter(ev => !Number.isNaN(ev.time))
+      .sort((a, b) => b.time - a.time);
+  }, [events]);
+
   const {eventsToday} = useMemo(() => {
     const now = new Date();
     const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-    const todays = events.filter(ev => {
-      const ts = ev.timestamp || ev.occurredAt || ev.createdAt || (ev as any).time || (ev as any).at;
-      if (!ts) return false;
-      const time = new Date(ts).getTime();
-      return !Number.isNaN(time) && time >= startOfDay;
-    }).length;
+    const todays = eventsNormalized.filter(ev => ev.time >= startOfDay).length;
     return {eventsToday: todays};
-  }, [events]);
+  }, [eventsNormalized]);
 
-  const receiverList = receivers.length
-    ? receivers.map(r => ({
-        name: r.name ?? r.id,
-        status: r.status === 'online' ? 'online' : r.status === 'offline' ? 'offline' : 'warning',
-      }))
-    : [
-        {name: 'R-ENG201-CEIL', status: 'online' as const},
-        {name: 'R-ENG202-WALL', status: 'online' as const},
-        {name: 'R-LAB3B-DOOR', status: 'offline' as const},
-        {name: 'R-ENG201-DOOR', status: 'online' as const},
-      ];
+  const receiverList = receivers.map(r => ({
+    name: r.name ?? r.id,
+    status: r.status === 'online' ? 'online' : r.status === 'offline' ? 'offline' : 'warning',
+  }));
 
-  const incidents = [
-    {time: '10:17', description: 'Receiver R-ENG201-DOOR went offline (5 min)'},
-    {time: '10:22', description: 'HPS low confidence for 3 users in COMP 1020'},
-    {time: '10:35', description: 'Webhook /uofm/attendance retry succeeded'},
-  ];
+  const incidents = eventsNormalized.slice(0, 3).map(ev => ({
+    time: new Date(ev.time).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'}),
+    description: `${ev.receiverName ?? 'Receiver'} ${ev.status ?? 'event'} at ${
+      ev.userRef ? ev.userRef : 'unknown user'
+    }`,
+  }));
 
   const metrics = {
-    activeSessions: realtime?.onlineUsers ?? 5,
-    presentUsers: eventsToday || 214,
+    activeSessions: realtime?.onlineUsers ?? 0,
+    presentUsers: eventsToday,
     incidents: incidents.length,
   };
 
@@ -155,36 +155,44 @@ const OverviewPage: React.FC<Props> = ({orgId}) => {
       {/* Row 2: Presence timeline + Receivers */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <SectionCard title="Presence Timeline" className="lg:col-span-2">
-          <div className="space-y-4">
-            {['ENG 201', 'ENG 202', 'Lab 3B'].map((label, idx) => (
-              <div key={label} className="grid grid-cols-[100px,1fr] items-center gap-3">
-                <div className="text-xs font-medium text-slate-600">{label}</div>
-                <div className="flex items-center gap-3">
-                  {[0, 1, 2, 3].map(dot => (
-                    <span
-                      key={`${label}-${dot}`}
-                      className={`h-2.5 w-2.5 rounded-full ${
-                        (idx + dot) % 3 === 0 ? 'bg-blue-500' : 'bg-blue-300'
-                      }`}
-                    />
-                  ))}
-                </div>
-              </div>
-            ))}
-            <div className="grid grid-cols-[100px,1fr] items-center gap-3">
-              <div />
-              <div className="flex justify-between text-xs text-slate-500 max-w-sm">
-                {['10:10', '10:20', '10:30', '10:40'].map(t => (
-                  <span key={t}>{t}</span>
-                ))}
-              </div>
+          {eventsNormalized.length === 0 ? (
+            <div className="text-sm text-slate-500">No recent presence events.</div>
+          ) : (
+            <div className="space-y-4">
+              {Array.from(
+                new Map(
+                  eventsNormalized.map(ev => [ev.receiverName ?? ev.id ?? 'Receiver', ev.receiverName ?? ev.id ?? 'Receiver']),
+                ).values(),
+              )
+                .slice(0, 3)
+                .map((label, idx) => {
+                  const dots = eventsNormalized.filter(ev => (ev.receiverName ?? ev.id ?? 'Receiver') === label).slice(0, 6);
+                  return (
+                    <div key={label} className="grid grid-cols-[120px,1fr] items-center gap-3">
+                      <div className="text-xs font-medium text-slate-600 truncate">{label}</div>
+                      <div className="flex items-center gap-3">
+                        {dots.map((dot, i) => (
+                          <span
+                            key={`${label}-${i}`}
+                            title={new Date(dot.time).toLocaleTimeString()}
+                            className={`h-2.5 w-2.5 rounded-full ${
+                              (idx + i) % 2 === 0 ? 'bg-blue-500' : 'bg-blue-300'
+                            }`}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
             </div>
-          </div>
+          )}
         </SectionCard>
 
         <SectionCard title="Receivers">
-          {loading && receiverList.length === 0 ? (
+          {loading ? (
             <div className="text-sm text-slate-500">Loading receivers...</div>
+          ) : receiverList.length === 0 ? (
+            <div className="text-sm text-slate-500">No receivers found.</div>
           ) : (
             <div className="divide-y divide-slate-200">
               {receiverList.map(r => (
@@ -219,7 +227,11 @@ const OverviewPage: React.FC<Props> = ({orgId}) => {
         </SectionCard>
 
         <SectionCard title="Incidents">
-          <IncidentList incidents={incidents} />
+          {incidents.length === 0 ? (
+            <div className="text-sm text-slate-500">No incidents reported.</div>
+          ) : (
+            <IncidentList incidents={incidents} />
+          )}
         </SectionCard>
       </div>
     </div>
