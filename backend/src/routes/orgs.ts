@@ -1635,7 +1635,7 @@ router.get("/v2/orgs/:org_id/quizzes/metrics/summary", requireRole("read-only"),
 
 router.get("/v2/orgs/:org_id/shifts", requireRole("read-only"), async (req: Request, res: Response) => {
   const { org_id } = req.params;
-  const { from, to, status, profile_id } = req.query;
+  const { from, to, status, profile_id, max_hours, max_breaks, max_break_minutes } = req.query;
 
   try {
     const where: Prisma.ShiftWhereInput = { orgId: org_id };
@@ -1663,27 +1663,82 @@ router.get("/v2/orgs/:org_id/shifts", requireRole("read-only"), async (req: Requ
 
     const shifts = await prisma.shift.findMany({
       where,
+      include: { breaks: true, profile: true },
       orderBy: { startTime: "desc" },
       take: 200,
     });
 
-    return res.json(
-      shifts.map((s) => ({
+    const maxShiftSeconds =
+      typeof max_hours === "string" && Number.isFinite(Number(max_hours)) && Number(max_hours) > 0
+        ? Number(max_hours) * 3600
+        : 12 * 3600;
+    const maxBreaksCount =
+      typeof max_breaks === "string" && Number.isFinite(Number(max_breaks)) && Number(max_breaks) > 0
+        ? Number(max_breaks)
+        : 3;
+    const maxBreakSeconds =
+      typeof max_break_minutes === "string" && Number.isFinite(Number(max_break_minutes)) && Number(max_break_minutes) > 0
+        ? Number(max_break_minutes) * 60
+        : 30 * 60;
+
+    const results = [];
+    for (const s of shifts) {
+      const now = new Date();
+      const end = s.endTime ?? now;
+      const totalSeconds = s.totalSeconds ?? Math.max(0, Math.floor((end.getTime() - s.startTime.getTime()) / 1000));
+      const totalBreakSeconds =
+        s.breaks?.reduce(
+          (acc, b) =>
+            acc +
+            (b.totalSeconds ??
+              (b.endTime && b.startTime ? Math.max(0, Math.floor((b.endTime.getTime() - b.startTime.getTime()) / 1000)) : 0)),
+          0,
+        ) ?? 0;
+
+      let hasPresence = false;
+      const userRef = s.profile?.userId ?? s.profileId;
+      if (userRef) {
+        const evt = await prisma.presenceEvent.findFirst({
+          where: { orgId: org_id, userRef, serverTimestamp: { gte: s.startTime, lte: end } },
+          select: { id: true },
+        });
+        hasPresence = Boolean(evt);
+      }
+
+      const anomalies: string[] = [];
+      if (totalSeconds > maxShiftSeconds) anomalies.push("long_shift");
+      if ((s.breaks?.length ?? 0) > maxBreaksCount) anomalies.push("too_many_breaks");
+      if (s.breaks?.some((b) => {
+        const dur = b.totalSeconds ?? (b.endTime && b.startTime ? Math.max(0, Math.floor((b.endTime.getTime() - b.startTime.getTime()) / 1000)) : 0);
+        return dur > maxBreakSeconds;
+      })) {
+        anomalies.push("long_break");
+      }
+      if (!hasPresence) anomalies.push("no_presence");
+
+      results.push({
         id: s.id,
         profile_id: s.profileId,
+        user_id: s.profile?.userId ?? null,
         org_id: s.orgId,
         location_id: s.locationId,
         start_time: s.startTime.toISOString(),
         end_time: s.endTime ? s.endTime.toISOString() : null,
-        total_seconds: s.totalSeconds,
+        total_seconds: totalSeconds,
+        total_break_seconds: totalBreakSeconds,
+        breaks_count: s.breaks?.length ?? 0,
         created_by: s.createdBy,
         closed_by: s.closedBy,
         status: s.status,
         created_at: s.createdAt.toISOString(),
         edited_by: s.editedBy,
         edited_at: s.editedAt ? s.editedAt.toISOString() : null,
-      })),
-    );
+        anomalies,
+        has_presence: hasPresence,
+      });
+    }
+
+    return res.json(results);
   } catch (err) {
     // eslint-disable-next-line no-console
     console.error("Error fetching shifts", err);

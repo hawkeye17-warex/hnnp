@@ -100,6 +100,7 @@ const ShiftsTab = ({orgId}: Props) => {
             <div>End</div>
             <div>Duration</div>
             <div>Status</div>
+            <div>Anomalies</div>
           </div>
           {filtered.map(s => (
             <div className="table__row" key={s.id} onClick={() => window.location.assign(`/organizations/${orgId}/shifts/${s.id}`)}>
@@ -110,6 +111,20 @@ const ShiftsTab = ({orgId}: Props) => {
               <div>{formatDuration(s.total_seconds)}</div>
               <div>
                 <span className="badge">{s.status}</span>
+              </div>
+              <div style={{display: 'flex', gap: 6, flexWrap: 'wrap'}}>
+                {(s.anomalies || []).length === 0 ? (
+                  <span className="muted">—</span>
+                ) : (
+                  (s.anomalies || []).map(a => (
+                    <span
+                      key={a}
+                      className="badge"
+                      style={{background: '#ffe1e1', color: '#a00', border: '1px solid #f5b5b5'}}>
+                      {humanize(a)}
+                    </span>
+                  ))
+                )}
               </div>
             </div>
           ))}
@@ -135,6 +150,21 @@ const formatDuration = (seconds?: number | null) => {
   const hrs = Math.floor(mins / 60);
   const rem = mins % 60;
   return `${hrs}h ${rem}m`;
+};
+
+const humanize = (code: string) => {
+  switch (code) {
+    case 'long_shift':
+      return 'Long shift';
+    case 'too_many_breaks':
+      return 'Too many breaks';
+    case 'long_break':
+      return 'Long break';
+    case 'no_presence':
+      return 'No presence';
+    default:
+      return code.replace(/_/g, ' ');
+  }
 };
 
 export default ShiftsTab;

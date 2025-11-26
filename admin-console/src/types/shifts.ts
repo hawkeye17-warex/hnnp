@@ -7,12 +7,16 @@ export type Shift = {
   start_time: string;
   end_time?: string | null;
   total_seconds?: number | null;
+  total_break_seconds?: number | null;
+  breaks_count?: number;
   created_by?: string | null;
   closed_by?: string | null;
   status: string;
   created_at?: string;
   edited_by?: string | null;
   edited_at?: string | null;
+  anomalies?: string[];
+  has_presence?: boolean;
 };
 
 export type Break = {
