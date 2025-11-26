@@ -1,9 +1,9 @@
 import {useEffect, useState} from 'react';
+import {useSession} from './useSession';
 import type {IntegrationSummary} from '../types/integrations';
 
-const INTEGRATIONS_API_BASE = '/api/integrations';
-
 export function useIntegrations() {
+  const {session} = useSession();
   const [data, setData] = useState<IntegrationSummary[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -11,14 +11,46 @@ export function useIntegrations() {
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
+      if (!session) {
+        setError('Not authenticated');
+        setData([]);
+        return;
+      }
       setIsLoading(true);
       setError(null);
       try {
-        // TODO: replace with real endpoint once available
-        const res = await fetch(INTEGRATIONS_API_BASE);
-        if (!res.ok) throw new Error(`Failed to fetch integrations (${res.status})`);
-        const json = await res.json();
-        if (!cancelled) setData(Array.isArray(json) ? json : json?.data ?? []);
+        const baseUrl = import.meta.env.VITE_BACKEND_BASE_URL;
+        if (!baseUrl) throw new Error('Missing backend base URL');
+        const res = await fetch(
+          `${baseUrl}/v2/orgs/${encodeURIComponent(session.orgId)}/integrations`,
+          {
+            headers: {
+              Accept: 'application/json',
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${session.apiKey}`,
+            },
+          },
+        );
+        const text = await res.text();
+        if (!res.ok) {
+          throw new Error(
+            `Failed to fetch integrations (${res.status} ${res.statusText || ''})${
+              text ? `: ${text}` : ''
+            }`.trim(),
+          );
+        }
+        const isJson = res.headers.get('content-type')?.includes('application/json');
+        if (!isJson) {
+          throw new Error(text || 'Received non-JSON response');
+        }
+        let json: any = [];
+        try {
+          json = JSON.parse(text);
+        } catch {
+          throw new Error('Received invalid JSON response');
+        }
+        const raw = Array.isArray(json) ? json : json?.integrations ?? json?.data ?? [];
+        if (!cancelled) setData(raw);
       } catch (err: any) {
         if (!cancelled) setError(err?.message ?? 'Failed to load integrations');
         if (!cancelled) setData([]);
@@ -30,7 +62,7 @@ export function useIntegrations() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [session]);
 
   return {data, isLoading, error};
 }
