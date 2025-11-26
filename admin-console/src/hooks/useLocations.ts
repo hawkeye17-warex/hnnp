@@ -2,7 +2,7 @@ import {useEffect, useState} from 'react';
 import {useSession} from './useSession';
 import type {LocationSummary} from '../types/locations';
 
-export function useLocations() {
+export function useLocations(refreshKey = 0) {
   const {session} = useSession();
   const [data, setData] = useState<LocationSummary[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -63,7 +63,7 @@ export function useLocations() {
     return () => {
       cancelled = true;
     };
-  }, [session]);
+  }, [session, refreshKey]);
 
   return {data, isLoading, error};
 }

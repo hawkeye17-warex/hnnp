@@ -2337,4 +2337,116 @@ router.get("/v2/orgs/:org_id/metrics/realtime", requireRole("read-only"), async 
   }
 });
 
+// Basic org config
+router.get("/v2/orgs/:org_id/config", requireRole("read-only"), async (req: Request, res: Response) => {
+  const { org_id } = req.params;
+  try {
+    const org = await prisma.org.findUnique({ where: { id: org_id } });
+    if (!org) return res.status(404).json({ error: "Org not found" });
+    return res.json({
+      id: org.id,
+      name: org.name,
+      timezone: org.config?.timezone ?? null,
+      contactEmail: org.config?.contactEmail ?? null,
+    });
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error("Error fetching org config", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// Locations derived from receivers
+router.get("/v2/orgs/:org_id/locations", requireRole("read-only"), async (req: Request, res: Response) => {
+  const { org_id } = req.params;
+  try {
+    const receivers = await prisma.receiver.findMany({ where: { orgId: org_id } });
+    const grouped = receivers.reduce<Record<string, number>>((acc, r) => {
+      const key = r.locationLabel ?? "Unknown";
+      acc[key] = (acc[key] ?? 0) + 1;
+      return acc;
+    }, {});
+    const result = Object.entries(grouped).map(([name, count], idx) => ({
+      id: `${org_id}-loc-${idx}`,
+      name,
+      code: null,
+      campusOrSite: null,
+      receiverCount: count,
+      status: "active",
+    }));
+    return res.json(result);
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error("Error listing locations", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// Users placeholder (no user table)
+router.get("/v2/orgs/:org_id/users", requireRole("read-only"), async (_req: Request, res: Response) => {
+  return res.json([]);
+});
+
+// Attendance placeholder
+router.get("/v2/orgs/:org_id/attendance", requireRole("read-only"), async (_req: Request, res: Response) => {
+  return res.json([]);
+});
+
+// Groups placeholder
+router.get("/v2/orgs/:org_id/groups", requireRole("read-only"), async (_req: Request, res: Response) => {
+  return res.json([]);
+});
+
+// Incidents placeholder
+router.get("/v2/orgs/:org_id/incidents", requireRole("read-only"), async (_req: Request, res: Response) => {
+  return res.json([]);
+});
+
+// Logs placeholder
+router.get("/v2/orgs/:org_id/logs", requireRole("read-only"), async (_req: Request, res: Response) => {
+  return res.json([]);
+});
+
+// HPS stats/config placeholder
+router.get("/v2/orgs/:org_id/hps/stats", requireRole("read-only"), async (_req: Request, res: Response) => {
+  return res.json([]);
+});
+router.get("/v2/orgs/:org_id/hps/config", requireRole("read-only"), async (_req: Request, res: Response) => {
+  return res.json({});
+});
+
+// Notification settings placeholder
+router.get("/v2/orgs/:org_id/settings/notifications", requireRole("read-only"), async (_req: Request, res: Response) => {
+  return res.json({});
+});
+router.patch("/v2/orgs/:org_id/settings/notifications", requireRole("read-only"), async (_req: Request, res: Response) => {
+  return res.json({});
+});
+
+// API keys listing
+router.get("/v2/orgs/:org_id/api-keys", requireRole("read-only"), async (req: Request, res: Response) => {
+  const { org_id } = req.params;
+  try {
+    const keys = await prisma.apiKey.findMany({ where: { orgId: org_id } });
+    return res.json(
+      keys.map((k) => ({
+        id: k.id,
+        name: k.name,
+        masked: `${k.keyPrefix}••••`,
+        createdAt: k.createdAt.toISOString(),
+        lastUsedAt: k.lastUsedAt ? k.lastUsedAt.toISOString() : null,
+      })),
+    );
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error("Error listing API keys", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// Integrations placeholder
+router.get("/v2/orgs/:org_id/integrations", requireRole("read-only"), async (_req: Request, res: Response) => {
+  return res.json([]);
+});
+
 export { router as orgsRouter };

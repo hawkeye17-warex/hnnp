@@ -2,7 +2,7 @@ import {useEffect, useState} from 'react';
 import {useSession} from './useSession';
 import type {UserSummary} from '../types/users';
 
-export function useUsers() {
+export function useUsers(refreshKey = 0) {
   const {session} = useSession();
   const [data, setData] = useState<UserSummary[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -57,7 +57,7 @@ export function useUsers() {
     return () => {
       cancelled = true;
     };
-  }, [session]);
+  }, [session, refreshKey]);
 
   return {data, isLoading, error};
 }

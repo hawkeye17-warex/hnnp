@@ -2,7 +2,7 @@ import {useEffect, useState} from 'react';
 import {useSession} from './useSession';
 import type {ReceiverSummary} from '../types/receivers';
 
-export function useReceivers() {
+export function useReceivers(refreshKey = 0) {
   const {session} = useSession();
   const [data, setData] = useState<ReceiverSummary[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -64,7 +64,7 @@ export function useReceivers() {
     return () => {
       cancelled = true;
     };
-  }, [session]);
+  }, [session, refreshKey]);
 
   return {data, isLoading, error};
 }
