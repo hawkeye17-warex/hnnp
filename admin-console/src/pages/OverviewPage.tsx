@@ -1,10 +1,10 @@
 import React, {useEffect, useMemo, useState} from 'react';
 
-import Card from '../components/Card';
 import {useApi} from '../api/client';
-import LoadingState from '../components/LoadingState';
-import ErrorState from '../components/ErrorState';
-import EmptyState from '../components/EmptyState';
+import IncidentList from '../components/ui/IncidentList';
+import SectionCard from '../components/ui/SectionCard';
+import StatCard from '../components/ui/StatCard';
+import StatusPill from '../components/ui/StatusPill';
 
 type Receiver = {
   id: string;
@@ -25,24 +25,17 @@ type PresenceEvent = {
 
 type Props = {orgId?: string};
 
-const OverviewPage = ({orgId}: Props) => {
+const OverviewPage: React.FC<Props> = ({orgId}) => {
   const api = useApi();
-  const [org, setOrg] = useState<any>(null);
   const [receivers, setReceivers] = useState<Receiver[]>([]);
   const [events, setEvents] = useState<PresenceEvent[]>([]);
-  const [quizSummary, setQuizSummary] = useState<any | null>(null);
-  const [activeWorkers, setActiveWorkers] = useState<number>(0);
-  const [avgShiftHours, setAvgShiftHours] = useState<number>(0);
-  const [totalHoursWeek, setTotalHoursWeek] = useState<number>(0);
   const [realtime, setRealtime] = useState<{
     eventsPerSec: number;
     activeReceivers: number;
     onlineUsers: number;
-    updatedAt?: string;
   } | null>(null);
-  const [realtimeError, setRealtimeError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let mounted = true;
@@ -50,13 +43,11 @@ const OverviewPage = ({orgId}: Props) => {
       setLoading(true);
       setError(null);
       try {
-        const [orgRes, receiversRes, eventsRes] = await Promise.all([
-          api.getOrg(orgId),
+        const [receiversRes, eventsRes] = await Promise.all([
           api.getReceivers(orgId),
           api.getPresenceEvents({limit: 10, sort: 'desc'}, orgId),
         ]);
         if (!mounted) return;
-        setOrg(orgRes);
         const receiversData = Array.isArray(receiversRes)
           ? receiversRes
           : Array.isArray((receiversRes as any)?.data)
@@ -71,46 +62,9 @@ const OverviewPage = ({orgId}: Props) => {
           : [];
         setReceivers(receiversData);
         setEvents(eventsData);
-        try {
-          const quizRes = await api.getQuizSummary(orgId);
-          setQuizSummary(quizRes);
-        } catch {
-          setQuizSummary(null);
-        }
-
-        // Shifts metrics
-        try {
-          const now = new Date();
-          const startOfWeek = new Date(now);
-          startOfWeek.setDate(now.getDate() - now.getDay());
-          startOfWeek.setHours(0, 0, 0, 0);
-          const shiftsRes = await api.getShifts(orgId, {from: startOfWeek.toISOString()});
-          const shiftList: any[] = Array.isArray(shiftsRes) ? shiftsRes : (shiftsRes as any)?.data ?? [];
-          const durations = shiftList.map(s => {
-            if (typeof s.total_seconds === 'number') return s.total_seconds;
-            const end = s.end_time ? new Date(s.end_time) : new Date();
-            const start = new Date(s.start_time);
-            return Math.max(0, Math.floor((end.getTime() - start.getTime()) / 1000));
-          });
-          const totalSec = durations.reduce((sum, v) => sum + (v || 0), 0);
-          setTotalHoursWeek(Number((totalSec / 3600).toFixed(2)));
-          const avg = durations.length ? totalSec / durations.length / 3600 : 0;
-          setAvgShiftHours(Number(avg.toFixed(2)));
-        } catch {
-          setTotalHoursWeek(0);
-          setAvgShiftHours(0);
-        }
-
-        // Live workers
-        try {
-          const live = await api.getLiveShifts(orgId ?? '');
-          setActiveWorkers(Array.isArray((live as any)?.on_shift) ? (live as any).on_shift.length : 0);
-        } catch {
-          setActiveWorkers(0);
-        }
       } catch (err: any) {
         if (!mounted) return;
-        setError(err?.message ?? 'Failed to load overview.');
+        setError(err?.message ?? 'Failed to load overview data.');
       } finally {
         if (mounted) setLoading(false);
       }
@@ -123,8 +77,6 @@ const OverviewPage = ({orgId}: Props) => {
 
   useEffect(() => {
     let cancelled = false;
-    let timer: ReturnType<typeof setInterval> | null = null;
-
     const loadRealtime = async () => {
       try {
         const data = await api.getRealtimeMetrics(orgId, {windowSeconds: 60, receiversMinutes: 5});
@@ -133,194 +85,145 @@ const OverviewPage = ({orgId}: Props) => {
           eventsPerSec: Number(data?.events_per_sec ?? 0),
           activeReceivers: Number(data?.active_receivers ?? 0),
           onlineUsers: Number(data?.online_users ?? 0),
-          updatedAt: data?.updated_at,
         });
-        setRealtimeError(null);
-      } catch (err: any) {
+      } catch {
         if (cancelled) return;
-        setRealtimeError(err?.message ?? 'Failed to load live counters.');
+        setRealtime(null);
       }
     };
-
     loadRealtime();
-    timer = setInterval(loadRealtime, 7000);
-
+    const timer = setInterval(loadRealtime, 8000);
     return () => {
       cancelled = true;
-      if (timer) clearInterval(timer);
+      clearInterval(timer);
     };
   }, [api, orgId]);
 
-  const {totalReceivers, onlineReceivers, eventsToday} = useMemo(() => {
+  const {eventsToday} = useMemo(() => {
     const now = new Date();
     const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-    const twentyMinutes = 20 * 60 * 1000;
-
-    const online = receivers.filter(r => {
-      if (r.status === 'online') return true;
-      if (r.last_seen_at) {
-        const last = new Date(r.last_seen_at).getTime();
-        return !Number.isNaN(last) && now.getTime() - last < twentyMinutes;
-      }
-      return false;
-    }).length;
-
     const todays = events.filter(ev => {
-      const ts =
-        ev.timestamp ||
-        ev.occurredAt ||
-        ev.createdAt ||
-        (ev as any).time ||
-        (ev as any).at;
+      const ts = ev.timestamp || ev.occurredAt || ev.createdAt || (ev as any).time || (ev as any).at;
       if (!ts) return false;
       const time = new Date(ts).getTime();
       return !Number.isNaN(time) && time >= startOfDay;
     }).length;
+    return {eventsToday: todays};
+  }, [events]);
 
-    return {
-      totalReceivers: receivers.length,
-      onlineReceivers: online,
-      eventsToday: todays,
-    };
-  }, [receivers, events]);
+  const receiverList = receivers.length
+    ? receivers.map(r => ({
+        name: r.name ?? r.id,
+        status: r.status === 'online' ? 'online' : r.status === 'offline' ? 'offline' : 'warning',
+      }))
+    : [
+        {name: 'R-ENG201-CEIL', status: 'online' as const},
+        {name: 'R-ENG202-WALL', status: 'online' as const},
+        {name: 'R-LAB3B-DOOR', status: 'offline' as const},
+        {name: 'R-ENG201-DOOR', status: 'online' as const},
+      ];
 
-  if (loading) {
-    return (
-      <div className="overview">
-        <Card>
-          <LoadingState message="Loading overview..." />
-        </Card>
-      </div>
-    );
-  }
+  const incidents = [
+    {time: '10:17', description: 'Receiver R-ENG201-DOOR went offline (5 min)'},
+    {time: '10:22', description: 'HPS low confidence for 3 users in COMP 1020'},
+    {time: '10:35', description: 'Webhook /uofm/attendance retry succeeded'},
+  ];
 
-  if (error) {
-    return (
-      <div className="overview">
-        <Card>
-          <ErrorState message={error} onRetry={() => window.location.reload()} />
-        </Card>
-      </div>
-    );
-  }
+  const metrics = {
+    activeSessions: realtime?.onlineUsers ?? 5,
+    presentUsers: eventsToday || 214,
+    incidents: incidents.length,
+  };
 
   return (
-    <div className="overview">
-      <div className="card-grid metrics-grid">
-        <Card>
-          <p className="muted">Organization</p>
-          <h2>{org?.name ?? '—'}</h2>
-          <p className="muted">Org ID: {org?.id ?? '—'}</p>
-        </Card>
-        <Card>
-          <p className="muted">Receivers</p>
-          <h2>{totalReceivers}</h2>
-          <p className="muted">{onlineReceivers} online</p>
-        </Card>
-        <Card>
-          <p className="muted">Events today</p>
-          <h2>{eventsToday}</h2>
-          <p className="muted">Last 10 shown below</p>
-        </Card>
-        <Card>
-          <p className="muted">Real-time</p>
-          {realtimeError ? (
-            <div className="form__error">{realtimeError}</div>
-          ) : (
-            <>
-              <div className="metric-row">
-                <span>Events/sec</span>
-                <strong>{realtime ? realtime.eventsPerSec.toFixed(2) : '—'}</strong>
-              </div>
-              <div className="metric-row">
-                <span>Active receivers</span>
-                <strong>{realtime ? realtime.activeReceivers : '—'}</strong>
-              </div>
-              <div className="metric-row">
-                <span>Online users</span>
-                <strong>{realtime ? realtime.onlineUsers : '—'}</strong>
-              </div>
-              <div className="muted" style={{fontSize: 12}}>
-                Auto-refreshing every few seconds
-              </div>
-            </>
-          )}
-        </Card>
-        <Card>
-          <p className="muted">Quizzes this week</p>
-          <h2>{quizSummary?.quizzes_this_week ?? '—'}</h2>
-          <p className="muted">Submissions: {quizSummary?.submissions_this_week ?? '—'}</p>
-        </Card>
-        <Card>
-          <p className="muted">Live quizzes</p>
-          <h2>{quizSummary?.live_quizzes?.length ?? 0}</h2>
-          <p className="muted">Running now</p>
-        </Card>
-        <Card>
-          <p className="muted">Current active workers</p>
-          <h2>{activeWorkers}</h2>
-          <button className="link" type="button" onClick={() => window.location.assign(`/organizations/${orgId}/shifts`)}>
-            View shifts
-          </button>
-        </Card>
-        <Card>
-          <p className="muted">Avg shift length (7d)</p>
-          <h2>{avgShiftHours.toFixed(2)}h</h2>
-          <button className="link" type="button" onClick={() => window.location.assign(`/organizations/${orgId}/shifts`)}>
-            Shift reports
-          </button>
-        </Card>
-        <Card>
-          <p className="muted">Total hours this week</p>
-          <h2>{totalHoursWeek.toFixed(2)}h</h2>
-          <button className="link" type="button" onClick={() => window.location.assign(`/organizations/${orgId}/shifts`)}>
-            Shift reports
-          </button>
-        </Card>
+    <div className="bg-slate-100 min-h-screen p-6 space-y-6">
+      <h1 className="text-2xl font-semibold text-slate-900">Overview</h1>
+
+      {error && (
+        <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-md p-3">
+          {error}
+        </div>
+      )}
+
+      {/* Row 1: metric cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <StatCard title="Active Sessions" value={metrics.activeSessions} />
+        <StatCard title="Present Users" value={metrics.presentUsers} />
+        <StatCard title="Incidents" value={metrics.incidents} />
       </div>
 
-      <Card>
-        <div className="table__header">
-          <h2>Recent presence events</h2>
-        </div>
-        {events.length === 0 ? (
-          <EmptyState message="No recent events." />
-        ) : (
-          <div className="table">
-            <div className="table__row table__head">
-              <div>Time</div>
-              <div>User</div>
-              <div>Receiver</div>
-              <div>Status</div>
-            </div>
-            {events.map(ev => (
-              <div className="table__row" key={ev.id}>
-                <div>{formatTime(ev)}</div>
-                <div>{ev.userRef || '—'}</div>
-                <div>{ev.receiverName || '—'}</div>
-                <div>
-                  <span className="badge">{ev.status || 'unknown'}</span>
+      {/* Row 2: Presence timeline + Receivers */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <SectionCard title="Presence Timeline" className="lg:col-span-2">
+          <div className="space-y-4">
+            {['ENG 201', 'ENG 202', 'Lab 3B'].map((label, idx) => (
+              <div key={label} className="grid grid-cols-[100px,1fr] items-center gap-3">
+                <div className="text-xs font-medium text-slate-600">{label}</div>
+                <div className="flex items-center gap-3">
+                  {[0, 1, 2, 3].map(dot => (
+                    <span
+                      key={`${label}-${dot}`}
+                      className={`h-2.5 w-2.5 rounded-full ${
+                        (idx + dot) % 3 === 0 ? 'bg-blue-500' : 'bg-blue-300'
+                      }`}
+                    />
+                  ))}
                 </div>
               </div>
             ))}
+            <div className="grid grid-cols-[100px,1fr] items-center gap-3">
+              <div />
+              <div className="flex justify-between text-xs text-slate-500 max-w-sm">
+                {['10:10', '10:20', '10:30', '10:40'].map(t => (
+                  <span key={t}>{t}</span>
+                ))}
+              </div>
+            </div>
           </div>
-        )}
-      </Card>
+        </SectionCard>
+
+        <SectionCard title="Receivers">
+          {loading && receiverList.length === 0 ? (
+            <div className="text-sm text-slate-500">Loading receivers...</div>
+          ) : (
+            <div className="divide-y divide-slate-200">
+              {receiverList.map(r => (
+                <div key={r.name} className="py-2 flex items-center justify-between">
+                  <span className="text-sm text-slate-900">{r.name}</span>
+                  <StatusPill status={r.status as 'online' | 'offline' | 'warning'} />
+                </div>
+              ))}
+            </div>
+          )}
+        </SectionCard>
+      </div>
+
+      {/* Row 3: Sessions + Incidents */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <SectionCard title="Today’s Sessions" className="lg:col-span-2">
+          <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="text-sm font-semibold text-slate-900">COMP 1020 – Lecture</div>
+              <div className="text-xs text-slate-600">10:00–11:15</div>
+            </div>
+            <div className="text-sm text-slate-600">Prof. Smith</div>
+            <div className="flex items-center gap-3 pt-2">
+              <div className="text-sm font-medium text-slate-900">72 / 84 Present</div>
+              <div className="flex gap-2">
+                {[0, 1, 2, 3, 4].map(i => (
+                  <span key={i} className="h-2.5 w-2.5 rounded-full bg-blue-500" />
+                ))}
+              </div>
+            </div>
+          </div>
+        </SectionCard>
+
+        <SectionCard title="Incidents">
+          <IncidentList incidents={incidents} />
+        </SectionCard>
+      </div>
     </div>
   );
-};
-
-const formatTime = (ev: PresenceEvent) => {
-  const ts =
-    ev.timestamp ||
-    ev.occurredAt ||
-    ev.createdAt ||
-    (ev as any).time ||
-    (ev as any).at;
-  if (!ts) return '—';
-  const d = new Date(ts);
-  if (Number.isNaN(d.getTime())) return '—';
-  return d.toLocaleString();
 };
 
 export default OverviewPage;
