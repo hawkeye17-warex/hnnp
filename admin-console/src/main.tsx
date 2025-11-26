@@ -2,6 +2,7 @@ import React, {Suspense} from 'react';
 import ReactDOM from 'react-dom/client';
 import {createBrowserRouter, RouterProvider, Navigate} from 'react-router-dom';
 
+import './tailwind.css';
 import './styles.css';
 import LoadingState from './components/LoadingState';
 import MainLayout from './layout/MainLayout';
