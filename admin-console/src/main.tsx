@@ -44,6 +44,7 @@ const AccessPage = React.lazy(() => import('./pages/AccessPage'));
 const AnalyticsPage = React.lazy(() => import('./pages/AnalyticsPage'));
 const DeveloperApiPage = React.lazy(() => import('./pages/DeveloperApiPage'));
 const AuditTrailPage = React.lazy(() => import('./pages/AuditTrailPage'));
+const SecuritySettingsPage = React.lazy(() => import('./pages/SecuritySettingsPage'));
 const SupabaseLoginPage = React.lazy(() => import('./pages/SupabaseLoginPage'));
 const ForgotPasswordPage = React.lazy(() => import('./pages/ForgotPasswordPage'));
 const ResetPasswordPage = React.lazy(() => import('./pages/ResetPasswordPage'));
@@ -116,6 +117,7 @@ const router = createBrowserRouter(
         {path: '/access', element: withLoader(<AccessPage />)},
         {path: '/analytics', element: withLoader(<AnalyticsPage />)},
         {path: '/developer-api', element: withLoader(<DeveloperApiPage />)},
+        {path: '/settings/security', element: withLoader(<SecuritySettingsPage />)},
         {path: '/audit-trail', element: withLoader(<AuditTrailPage />)},
       ],
     },
