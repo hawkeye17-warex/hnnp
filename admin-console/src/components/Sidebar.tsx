@@ -1,47 +1,8 @@
 import React from 'react';
 import {NavLink} from 'react-router-dom';
+import type {SidebarSection} from '../config/orgModules';
 
-type NavSection = {
-  title: string;
-  items: {to: string; label: string}[];
-};
-
-const sections: NavSection[] = [
-  {
-    title: 'Monitor',
-    items: [
-      {to: '/overview', label: 'Overview'},
-      {to: '/live', label: 'Live Presence'},
-      {to: '/incidents', label: 'Incidents'},
-    ],
-  },
-  {
-    title: 'People',
-    items: [
-      {to: '/attendance', label: 'Attendance'},
-      {to: '/users', label: 'Users'},
-      {to: '/groups', label: 'Groups & Sessions'},
-    ],
-  },
-  {
-    title: 'Spaces',
-    items: [
-      {to: '/locations', label: 'Locations'},
-      {to: '/receivers', label: 'Receivers'},
-    ],
-  },
-  {
-    title: 'System',
-    items: [
-      {to: '/logs', label: 'Logs'},
-      {to: '/hps', label: 'HPS & Security'},
-      {to: '/integrations', label: 'API & Integrations'},
-      {to: '/settings', label: 'Settings'},
-    ],
-  },
-];
-
-const Sidebar = () => {
+const Sidebar = ({sections}: {sections: SidebarSection[]}) => {
   return (
     <aside className="bg-[#111318] text-slate-200 w-64 shrink-0 min-h-screen flex flex-col">
       <div className="px-5 py-6 flex items-center gap-3 text-lg font-semibold">

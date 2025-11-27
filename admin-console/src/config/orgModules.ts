@@ -30,6 +30,14 @@ export const MODULE_NAV_ITEMS: Record<
   developer_api: { label: "Developer API", route: "/developer-api" },
 };
 
+export const ROUTE_TO_MODULE: Record<string, ModuleId | undefined> = Object.values(MODULE_NAV_ITEMS).reduce(
+  (acc, item) => {
+    acc[item.route] = Object.entries(MODULE_NAV_ITEMS).find(([, v]) => v.route === item.route)?.[0] as ModuleId;
+    return acc;
+  },
+  {} as Record<string, ModuleId | undefined>,
+);
+
 export type SidebarItem = { label: string; route: string };
 export type SidebarSection = { title: string; items: SidebarItem[] };
 
