@@ -9,41 +9,34 @@ datasource db {
 
 model Org {
   /// org_id used in protocol, e.g. "test_org"
-  id   String @id
-  name String
-  slug String @unique
-
+  id             String            @id
+  name           String
+  slug           String            @unique
   /// Logical status; enforced in code (e.g. "active", "suspended").
-  status String @default("active")
-
+  status         String            @default("active")
   /// Org-level configuration blob (allowed protocol versions, clock skew, etc.).
-  config Json?
-
+  config         Json?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
   /// Vertical / industry for this org.
   /// Allowed values: "school", "factory", "office", "hospital", "gov", "other"
-  orgType String @default("office")
-
+  orgType        String            @default("office")
   /// Enabled modules/features for this org.
   /// Allowed values include:
   /// "attendance", "quizzes", "exams", "sessions", "shifts", "workzones", "safety", "access_control", "analytics", "hps_insights", "developer_api"
-  enabledModules String[] @default([])
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  receivers    Receiver[]
-  apiKeys      ApiKey[]
-  events       PresenceEvent[]
-  devices      Device[]
-  links        Link[]
-  sessions     PresenceSession[]
-  userProfiles UserProfile[]
-  quizSessions QuizSession[]
-  shifts       Shift[]
-  adminUsers   AdminUser[]
-  auditLogs    AuditLog[]
-  orgRoles     OrgRole[]
-  auditEvents  AuditEvent[]
+  enabledModules String[]          @default([])
+  adminUsers     AdminUser[]
+  apiKeys        ApiKey[]
+  auditLogs      AuditLog[]
+  devices        Device[]
+  links          Link[]
+  orgRoles       OrgRole[]
+  events         PresenceEvent[]
+  sessions       PresenceSession[]
+  quizSessions   QuizSession[]
+  receivers      Receiver[]
+  shifts         Shift[]
+  userProfiles   UserProfile[]
 }
 
 /// Per-user role assignments within an org.
@@ -51,10 +44,10 @@ model OrgRole {
   id        String   @id @default(cuid())
   orgId     String
   userId    String
-  role      String   /// Allowed: owner | admin | viewer | hr | security
+  /// Allowed: owner | admin | viewer | hr | security
+  role      String
   createdAt DateTime @default(now())
-
-  org Org @relation(fields: [orgId], references: [id])
+  org       Org      @relation(fields: [orgId], references: [id])
 
   @@index([orgId])
   @@index([userId])
@@ -62,109 +55,92 @@ model OrgRole {
 
 model Receiver {
   /// receiver_id from spec, e.g. "R1"
-  id    String @id
-  orgId String
-  org   Org    @relation(fields: [orgId], references: [id])
-
-  displayName   String
-  locationLabel String?
-  latitude      Float?
-  longitude     Float?
-
+  id               String            @id
+  orgId            String
+  displayName      String
+  locationLabel    String?
+  latitude         Float?
+  longitude        Float?
   /// "hmac_shared_secret" | "public_key" | "none_low_trust"
   authMode         String
   /// Argon2/bcrypt hash, required when authMode = hmac_shared_secret.
   sharedSecretHash String?
   /// PEM when using signature-based auth.
   publicKeyPem     String?
-
-  firmwareVersion String?
+  firmwareVersion  String?
   /// Logical status; enforced in code (e.g. "active", "disabled").
-  status          String    @default("active")
-  lastSeenAt      DateTime?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  events       PresenceEvent[]
-  sessions     PresenceSession[]
-  quizSessions QuizSession[]
+  status           String            @default("active")
+  lastSeenAt       DateTime?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  events           PresenceEvent[]
+  sessions         PresenceSession[]
+  quizSessions     QuizSession[]
+  org              Org               @relation(fields: [orgId], references: [id])
 
   @@index([orgId])
 }
 
 model ApiKey {
-  id    String @id @default(cuid())
-  orgId String
-  org   Org    @relation(fields: [orgId], references: [id])
-
-  name      String
+  id         String    @id @default(cuid())
+  orgId      String
+  name       String
   /// First 6–8 chars for identification.
-  keyPrefix String @unique
+  keyPrefix  String    @unique
   /// Argon2/bcrypt hash of full key.
-  keyHash   String
+  keyHash    String
   /// Simple comma-separated string or JSON; interpreted in code.
-  scopes    String
-
+  scopes     String
   createdAt  DateTime  @default(now())
   lastUsedAt DateTime?
   revokedAt  DateTime?
+  org        Org       @relation(fields: [orgId], references: [id])
 
   @@index([orgId])
   @@index([keyPrefix])
 }
 
 model PresenceEvent {
-  id String @id @default(cuid())
-
-  orgId      String
-  receiverId String
-
-  org      Org      @relation(fields: [orgId], references: [id])
-  receiver Receiver @relation(fields: [receiverId], references: [id])
-
-  /// Identity / linking (can be null for anonymous mode).
-  /// Hashed device_id or derived identifier per spec v2.
-  deviceIdHash String?
-  /// Optional external reference (student/employee ID, if used).
-  userRef      String?
-
+  id                String   @id @default(cuid())
+  orgId             String
+  receiverId        String
+  /// Normalized slot index per spec.
+  timeSlot          Int
+  /// e.g. "accepted", "rejected_mac", "rejected_signature",
+  /// "rejected_window", "ignored_duplicate".
+  authResult        String
   /// Time fields.
   /// Client timestamp from packet, in milliseconds.
   clientTimestampMs BigInt
+  createdAt         DateTime @default(now())
+  /// Identity / linking (can be null for anonymous mode).
+  /// Hashed device_id or derived identifier per spec v2.
+  deviceIdHash      String?
+  /// Bitmask flags field from packet.
+  flags             Int
+  /// True if processed as low-trust anonymous presence per spec v2.
+  isAnonymous       Boolean
+  /// MAC if HMAC auth is used.
+  macHex            String?
+  /// Optional context: RSSI, receiver IP, user-agent, etc.
+  meta              Json?
+  /// Human-readable debug reason.
+  reason            String?
   /// When backend processed the report.
   serverTimestamp   DateTime @default(now())
-
-  /// Normalized slot index per spec.
-  timeSlot Int
-  /// Protocol version from packet.
-  version  Int
-  /// Bitmask flags field from packet.
-  flags    Int
-
+  /// Signature if public-key auth is used.
+  signatureHex      String?
+  /// Hash of full token for replay detection (no raw token storage).
+  tokenHash         String
   /// Token + security.
   /// Short prefix sent over the air.
-  tokenPrefix  String
-  /// Hash of full token for replay detection (no raw token storage).
-  tokenHash    String
-  /// MAC if HMAC auth is used.
-  macHex       String?
-  /// Signature if public-key auth is used.
-  signatureHex String?
-
-  /// True if processed as low-trust anonymous presence per spec v2.
-  isAnonymous Boolean
-
-  /// e.g. "accepted", "rejected_mac", "rejected_signature",
-  /// "rejected_window", "ignored_duplicate".
-  authResult String
-  /// Human-readable debug reason.
-  reason     String?
-
-  /// Optional context: RSSI, receiver IP, user-agent, etc.
-  meta Json?
-
-  createdAt DateTime @default(now())
+  tokenPrefix       String
+  /// Optional external reference (student/employee ID, if used).
+  userRef           String?
+  /// Protocol version from packet.
+  version           Int
+  org               Org      @relation(fields: [orgId], references: [id])
+  receiver          Receiver @relation(fields: [receiverId], references: [id])
 
   @@index([orgId, serverTimestamp])
   @@index([orgId, receiverId, serverTimestamp])
@@ -173,16 +149,15 @@ model PresenceEvent {
 }
 
 model Device {
-  id          String   @id @default(cuid())
+  id          String      @id @default(cuid())
   orgId       String
-  org         Org      @relation(fields: [orgId], references: [id])
   displayName String?
-  status      String   @default("active")
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  keys  DeviceKey[]
-  links Link[]
+  status      String      @default("active")
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  org         Org         @relation(fields: [orgId], references: [id])
+  keys        DeviceKey[]
+  links       Link[]
 
   @@index([orgId])
 }
@@ -190,11 +165,11 @@ model Device {
 model DeviceKey {
   id         String    @id
   deviceId   String
-  device     Device    @relation(fields: [deviceId], references: [id])
   keyHash    String
   algorithm  String
   createdAt  DateTime  @default(now())
   lastUsedAt DateTime?
+  device     Device    @relation(fields: [deviceId], references: [id])
 
   @@index([deviceId])
 }
@@ -208,9 +183,8 @@ model Link {
   createdAt   DateTime  @default(now())
   activatedAt DateTime?
   revokedAt   DateTime?
-
-  org    Org     @relation(fields: [orgId], references: [id])
-  device Device? @relation(fields: [deviceId], references: [id])
+  device      Device?   @relation(fields: [deviceId], references: [id])
+  org         Org       @relation(fields: [orgId], references: [id])
 
   @@index([orgId])
   @@index([orgId, userRef])
@@ -227,9 +201,8 @@ model PresenceSession {
   endedAt      DateTime?
   flags        Int
   meta         Json?
-
-  org      Org      @relation(fields: [orgId], references: [id])
-  receiver Receiver @relation(fields: [receiverId], references: [id])
+  org          Org       @relation(fields: [orgId], references: [id])
+  receiver     Receiver  @relation(fields: [receiverId], references: [id])
 
   @@index([orgId])
   @@index([orgId, userRef])
@@ -239,14 +212,14 @@ model PresenceSession {
 
 model AdminUser {
   id        String   @id @default(cuid())
-  orgId     String
-  org       Org      @relation(fields: [orgId], references: [id])
   email     String   @unique
   name      String?
   role      String   @default("admin")
   status    String   @default("active")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  orgId     String
+  org       Org      @relation(fields: [orgId], references: [id])
 
   @@index([orgId])
 }
@@ -254,7 +227,6 @@ model AdminUser {
 model AuditLog {
   id         String   @id @default(cuid())
   orgId      String?
-  org        Org?     @relation(fields: [orgId], references: [id])
   actorKey   String?
   actorRole  String?
   action     String
@@ -262,63 +234,44 @@ model AuditLog {
   entityId   String?
   details    Json?
   createdAt  DateTime @default(now())
+  org        Org?     @relation(fields: [orgId], references: [id])
 
   @@index([orgId, createdAt])
   @@index([entityType, entityId])
 }
 
-/// Fine-grained audit trail for org-scoped actions.
-model AuditEvent {
-  id         String   @id @default(cuid())
-  orgId      String
-  userId     String?
-  action     String
-  entityType String?
-  entityId   String?
-  metadata   Json?
-  createdAt  DateTime @default(now())
-
-  org Org @relation(fields: [orgId], references: [id])
-
-  @@index([orgId, createdAt])
-  @@index([orgId, action])
-  @@index([orgId, userId])
-}
-
 model UserProfile {
-  id           String   @id @default(cuid())
-  userId       String
-  orgId        String
+  id           String           @id @default(cuid())
   type         String
   capabilities Json?
-  createdAt    DateTime @default(now())
-
-  org         Org              @relation(fields: [orgId], references: [id])
-  submissions QuizSubmission[]
-  shifts      Shift[]
+  createdAt    DateTime         @default(now())
+  orgId        String
+  userId       String
+  submissions  QuizSubmission[]
+  shifts       Shift[]
+  org          Org              @relation(fields: [orgId], references: [id])
 
   @@index([userId])
   @@index([orgId])
 }
 
 model QuizSession {
-  id           String   @id @default(cuid())
-  orgId        String
-  courseId     String?
-  receiverId   String?
+  id           String           @id @default(cuid())
   title        String
-  startTime    DateTime
-  endTime      DateTime
   status       String
+  courseId     String?
+  createdAt    DateTime         @default(now())
   createdBy    String
+  endTime      DateTime
+  orgId        String
+  receiverId   String?
   settingsJson Json?
-  testMode     Boolean  @default(false)
-  createdAt    DateTime @default(now())
-
-  org         Org              @relation(fields: [orgId], references: [id])
-  receiver    Receiver?        @relation(fields: [receiverId], references: [id])
-  questions   QuizQuestion[]
-  submissions QuizSubmission[]
+  startTime    DateTime
+  testMode     Boolean          @default(false)
+  questions    QuizQuestion[]
+  org          Org              @relation(fields: [orgId], references: [id])
+  receiver     Receiver?        @relation(fields: [receiverId], references: [id])
+  submissions  QuizSubmission[]
 
   @@index([orgId])
   @@index([receiverId])
@@ -326,39 +279,37 @@ model QuizSession {
 }
 
 model QuizQuestion {
-  id            String   @id @default(cuid())
-  quizId        String
+  id            String      @id @default(cuid())
   type          String
   text          String
-  optionsJson   Json?
   correctOption String?
+  createdAt     DateTime    @default(now())
+  optionsJson   Json?
+  quizId        String
   timeLimitSec  Int?
-  createdAt     DateTime @default(now())
-
-  quiz QuizSession @relation(fields: [quizId], references: [id])
+  quiz          QuizSession @relation(fields: [quizId], references: [id])
 
   @@index([quizId])
 }
 
 model QuizSubmission {
-  id          String   @id @default(cuid())
-  quizId      String
-  profileId   String
-  submittedAt DateTime
-  answersJson Json?
+  id          String      @id @default(cuid())
   score       Float?
   status      String
-  createdAt   DateTime @default(now())
-
-  quiz    QuizSession @relation(fields: [quizId], references: [id])
-  profile UserProfile @relation(fields: [profileId], references: [id])
+  answersJson Json?
+  createdAt   DateTime    @default(now())
+  profileId   String
+  quizId      String
+  submittedAt DateTime
+  profile     UserProfile @relation(fields: [profileId], references: [id])
+  quiz        QuizSession @relation(fields: [quizId], references: [id])
 
   @@index([quizId])
   @@index([profileId])
 }
 
 model Shift {
-  id           String    @id @default(cuid())
+  id           String      @id @default(cuid())
   profileId    String
   orgId        String
   locationId   String?
@@ -368,13 +319,12 @@ model Shift {
   createdBy    String?
   closedBy     String?
   status       String
-  createdAt    DateTime  @default(now())
-  editedBy     String?
+  createdAt    DateTime    @default(now())
   editedAt     DateTime?
-
-  org     Org         @relation(fields: [orgId], references: [id])
-  profile UserProfile @relation(fields: [profileId], references: [id])
-  breaks  Break[]
+  editedBy     String?
+  breaks       Break[]
+  org          Org         @relation(fields: [orgId], references: [id])
+  profile      UserProfile @relation(fields: [profileId], references: [id])
 
   @@index([profileId])
   @@index([orgId])
@@ -388,10 +338,9 @@ model Break {
   totalSeconds Int?
   type         String?
   createdAt    DateTime  @default(now())
-  editedBy     String?
   editedAt     DateTime?
-
-  shift Shift @relation(fields: [shiftId], references: [id])
+  editedBy     String?
+  shift        Shift     @relation(fields: [shiftId], references: [id])
 
   @@index([shiftId])
 }
