@@ -19,6 +19,7 @@ import { prisma } from "./db/prisma";
 import cors from "cors";
 import { maintenanceGuard } from "./middleware/maintenance";
 import { controlPlaneRouter } from "./routes/controlPlane";
+import { requestLogger } from "./middleware/logging";
 
 const config = loadConfig();
 const app = express();
@@ -45,6 +46,7 @@ app.use(
   }),
 );
 
+app.use(requestLogger);
 app.use(maintenanceGuard);
 
 app.get("/health", (_req: Request, res: Response) => {
