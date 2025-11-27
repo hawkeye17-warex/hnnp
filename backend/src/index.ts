@@ -40,7 +40,7 @@ app.use(
       callback(isAllowed ? null : new Error("Not allowed by CORS"), isAllowed);
     },
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Authorization", "Content-Type", "Accept", "x-hnnp-api-key"],
+    allowedHeaders: ["Authorization", "Content-Type", "Accept", "x-hnnp-api-key", "x-org-id"],
     optionsSuccessStatus: 200,
   }),
 );
