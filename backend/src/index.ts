@@ -20,6 +20,7 @@ import cors from "cors";
 import { maintenanceGuard } from "./middleware/maintenance";
 import { controlPlaneRouter } from "./routes/controlPlane";
 import { requestLogger } from "./middleware/logging";
+import { auditRouter } from "./routes/audit";
 
 const config = loadConfig();
 const app = express();
@@ -62,6 +63,7 @@ app.use(presenceReadRouter);
 app.use(adminAuthLogRouter);
 app.use(adminUsersRouter);
 app.use(auditLogsRouter);
+app.use(auditRouter);
 app.use(maintenanceRouter);
 app.use(searchRouter);
 app.use(meRouter);

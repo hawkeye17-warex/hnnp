@@ -43,6 +43,7 @@ model Org {
   adminUsers   AdminUser[]
   auditLogs    AuditLog[]
   orgRoles     OrgRole[]
+  auditEvents  AuditEvent[]
 }
 
 /// Per-user role assignments within an org.
@@ -264,6 +265,24 @@ model AuditLog {
 
   @@index([orgId, createdAt])
   @@index([entityType, entityId])
+}
+
+/// Fine-grained audit trail for org-scoped actions.
+model AuditEvent {
+  id         String   @id @default(cuid())
+  orgId      String
+  userId     String?
+  action     String
+  entityType String?
+  entityId   String?
+  metadata   Json?
+  createdAt  DateTime @default(now())
+
+  org Org @relation(fields: [orgId], references: [id])
+
+  @@index([orgId, createdAt])
+  @@index([orgId, action])
+  @@index([orgId, userId])
 }
 
 model UserProfile {
