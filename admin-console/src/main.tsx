@@ -33,6 +33,15 @@ const LogsPage = React.lazy(() => import('./pages/LogsPage'));
 const HpsSecurityPage = React.lazy(() => import('./pages/HpsSecurityPage'));
 const IntegrationsPage = React.lazy(() => import('./pages/IntegrationsPage'));
 const SettingsPage = React.lazy(() => import('./pages/SettingsPage'));
+const SessionsPage = React.lazy(() => import('./pages/SessionsPage'));
+const QuizzesPage = React.lazy(() => import('./pages/QuizzesPage'));
+const ExamsPage = React.lazy(() => import('./pages/ExamsPage'));
+const ShiftsPage = React.lazy(() => import('./pages/ShiftsPage'));
+const WorkzonesPage = React.lazy(() => import('./pages/WorkzonesPage'));
+const SafetyPage = React.lazy(() => import('./pages/SafetyPage'));
+const AccessPage = React.lazy(() => import('./pages/AccessPage'));
+const AnalyticsPage = React.lazy(() => import('./pages/AnalyticsPage'));
+const DeveloperApiPage = React.lazy(() => import('./pages/DeveloperApiPage'));
 const SupabaseLoginPage = React.lazy(() => import('./pages/SupabaseLoginPage'));
 const ForgotPasswordPage = React.lazy(() => import('./pages/ForgotPasswordPage'));
 const ResetPasswordPage = React.lazy(() => import('./pages/ResetPasswordPage'));
@@ -94,6 +103,15 @@ const router = createBrowserRouter(
         {path: '/hps', element: withLoader(<HpsSecurityPage />)},
         {path: '/integrations', element: withLoader(<IntegrationsPage />)},
         {path: '/settings', element: withLoader(<SettingsPage />)},
+        {path: '/sessions', element: withLoader(<SessionsPage />)},
+        {path: '/quizzes', element: withLoader(<QuizzesPage />)},
+        {path: '/exams', element: withLoader(<ExamsPage />)},
+        {path: '/shifts', element: withLoader(<ShiftsPage />)},
+        {path: '/workzones', element: withLoader(<WorkzonesPage />)},
+        {path: '/safety', element: withLoader(<SafetyPage />)},
+        {path: '/access', element: withLoader(<AccessPage />)},
+        {path: '/analytics', element: withLoader(<AnalyticsPage />)},
+        {path: '/developer-api', element: withLoader(<DeveloperApiPage />)},
       ],
     },
     {path: '*', element: <Navigate to="/overview" replace />},
