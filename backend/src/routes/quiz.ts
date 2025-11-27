@@ -1,14 +1,15 @@
 import { Router, Request, Response } from "express";
 import { Prisma, QuizSession } from "@prisma/client";
 import { prisma } from "../db/prisma";
-import { apiKeyAuth } from "../middleware/apiKeyAuth";
 import { requireRole } from "../middleware/permissions";
 import { logAudit, buildAuditContext } from "../services/audit";
 import { checkQuizPresence } from "../services/quizPresence";
+import { requireAuth } from "../middleware/auth";
+import { requireOrgAccess } from "../middleware/orgScope";
 
 const router = Router();
 
-router.use(apiKeyAuth);
+router.use(requireAuth, requireOrgAccess);
 
 function serializeQuiz(quiz: QuizSession) {
   return {

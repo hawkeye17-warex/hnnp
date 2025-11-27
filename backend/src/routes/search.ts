@@ -1,11 +1,11 @@
 import { Router, Request, Response } from "express";
 import { prisma } from "../db/prisma";
-import { apiKeyAuth } from "../middleware/apiKeyAuth";
 import { requireRole } from "../middleware/permissions";
+import { requireAuth } from "../middleware/auth";
 
 const router = Router();
 
-router.get("/internal/search", apiKeyAuth, requireRole("auditor"), async (req: Request, res: Response) => {
+router.get("/internal/search", requireAuth, requireRole("auditor"), async (req: Request, res: Response) => {
   const q = typeof req.query.q === "string" ? req.query.q.trim() : "";
   if (!q) {
     return res.status(400).json({ error: "q is required" });

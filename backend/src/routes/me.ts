@@ -1,7 +1,8 @@
 import { Router, Request, Response } from "express";
 import { prisma } from "../db/prisma";
-import { apiKeyAuth } from "../middleware/apiKeyAuth";
 import { normalizeRole, requireRole } from "../middleware/permissions";
+import { requireAuth } from "../middleware/auth";
+import { requireOrgAccess } from "../middleware/orgScope";
 import type { Org, UserProfile } from "@prisma/client";
 
 const router = Router();
@@ -37,7 +38,7 @@ function serializeProfile(profile: UserProfile) {
 }
 
 // Mobile "me" endpoint: keyed by API key (org-scoped) for now.
-router.get("/v2/me", apiKeyAuth, requireRole("read-only"), async (req: Request, res: Response) => {
+router.get("/v2/me", requireAuth, requireOrgAccess, requireRole("read-only"), async (req: Request, res: Response) => {
   try {
     const org = req.org;
     if (!org) {

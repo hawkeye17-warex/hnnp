@@ -1,10 +1,11 @@
 import { Router, Request, Response } from "express";
 import { prisma } from "../db/prisma";
-import { apiKeyAuth } from "../middleware/apiKeyAuth";
+import { requireAuth } from "../middleware/auth";
+import { requireOrgAccess } from "../middleware/orgScope";
 
 const router = Router();
 
-router.use(apiKeyAuth);
+router.use(requireAuth, requireOrgAccess);
 
 function parseDate(value: unknown): Date | undefined {
   if (typeof value !== "string" || value.length === 0) return undefined;
@@ -24,7 +25,10 @@ function getPagination(query: Record<string, unknown>): { page: number; limit: n
 }
 
 router.get("/v1/presence/events", async (req: Request, res: Response) => {
-  const orgId = req.query.orgId;
+  const orgIdHeader = req.headers["x-org-id"];
+  const orgIdHeaderValue =
+    typeof orgIdHeader === "string" ? orgIdHeader : Array.isArray(orgIdHeader) ? orgIdHeader[0] : "";
+  const orgId = typeof req.query.orgId === "string" && req.query.orgId.length > 0 ? req.query.orgId : orgIdHeaderValue;
   if (typeof orgId !== "string" || orgId.length === 0) {
     return res.status(400).json({ error: "orgId is required" });
   }
@@ -84,7 +88,10 @@ router.get("/v1/presence/events", async (req: Request, res: Response) => {
 });
 
 router.get("/v1/presence/sessions", async (req: Request, res: Response) => {
-  const orgId = req.query.orgId;
+  const orgIdHeader = req.headers["x-org-id"];
+  const orgIdHeaderValue =
+    typeof orgIdHeader === "string" ? orgIdHeader : Array.isArray(orgIdHeader) ? orgIdHeader[0] : "";
+  const orgId = typeof req.query.orgId === "string" && req.query.orgId.length > 0 ? req.query.orgId : orgIdHeaderValue;
   if (typeof orgId !== "string" || orgId.length === 0) {
     return res.status(400).json({ error: "orgId is required" });
   }
@@ -142,4 +149,3 @@ router.get("/v1/presence/sessions", async (req: Request, res: Response) => {
 });
 
 export { router as presenceReadRouter };
-

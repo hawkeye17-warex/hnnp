@@ -4,12 +4,13 @@ import crypto from "crypto";
 import type { Org, Receiver, UserProfile, PresenceEvent, QuizSession, QuizQuestion } from "@prisma/client";
 import { Prisma } from "@prisma/client";
 import { prisma } from "../db/prisma";
-import { apiKeyAuth } from "../middleware/apiKeyAuth";
 import { computeApiKeyHash } from "../security/apiKeys";
 import { requireRole } from "../middleware/permissions";
 import { requireCapability } from "../middleware/capabilities";
 import { buildAuditContext, logAudit } from "../services/audit";
 import { checkQuizPresence } from "../services/quizPresence";
+import { requireAuth } from "../middleware/auth";
+import { requireOrgAccess } from "../middleware/orgScope";
 
 const router = Router();
 
@@ -105,7 +106,7 @@ router.post("/internal/orgs/create", async (req: Request, res: Response) => {
   }
 });
 
-router.use(apiKeyAuth);
+router.use(requireAuth, requireOrgAccess);
 
 router.get("/internal/test-auth", requireRole("read-only"), async (req: Request, res: Response) => {
   if (!req.org) {

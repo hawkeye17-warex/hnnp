@@ -1,12 +1,12 @@
 import { Router, Request, Response } from "express";
 import { prisma } from "../db/prisma";
-import { apiKeyAuth } from "../middleware/apiKeyAuth";
 import { requireRole } from "../middleware/permissions";
 import { buildAuditContext, logAudit } from "../services/audit";
+import { requireAuth } from "../middleware/auth";
 
 const router = Router();
 
-router.use(apiKeyAuth, requireRole("superadmin"));
+router.use(requireAuth, requireRole("superadmin"));
 
 router.get("/internal/admin-users", async (_req: Request, res: Response) => {
   try {

@@ -1,13 +1,14 @@
 import { Router, Request, Response } from "express";
 import { prisma } from "../db/prisma";
-import { apiKeyAuth } from "../middleware/apiKeyAuth";
 import { normalizeSettings } from "./orgs"; // reuse settings normalizer
 import { requireCapability } from "../middleware/capabilities";
 import { requireRole } from "../middleware/permissions";
+import { requireAuth } from "../middleware/auth";
+import { requireOrgAccess } from "../middleware/orgScope";
 
 const router = Router();
 
-router.use(apiKeyAuth);
+router.use(requireAuth, requireOrgAccess);
 
 const serializeShift = (s: any) => ({
   id: s.id,

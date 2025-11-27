@@ -1,11 +1,12 @@
 import { Router, Request, Response } from "express";
 import { prisma } from "../db/prisma";
-import { apiKeyAuth } from "../middleware/apiKeyAuth";
 import { requireRole } from "../middleware/permissions";
+import { requireAuth } from "../middleware/auth";
+import { requireOrgAccess } from "../middleware/orgScope";
 
 const router = Router();
 
-router.use(apiKeyAuth, requireRole("auditor"));
+router.use(requireAuth, requireOrgAccess, requireRole("auditor"));
 
 router.get("/internal/audit-logs", async (req: Request, res: Response) => {
   const { org_id, action, entity_type, limit } = req.query;
