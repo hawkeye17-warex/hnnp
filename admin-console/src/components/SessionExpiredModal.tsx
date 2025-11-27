@@ -8,7 +8,7 @@ type Props = {
 
 const SessionExpiredModal: React.FC<Props> = ({open, onConfirm}) => {
   return (
-    <Modal isOpen={open} onClose={onConfirm} title="Session expired">
+    <Modal open={open} onClose={onConfirm} title="Session expired">
       <div className="space-y-4">
         <p className="text-sm text-slate-600">
           Your session has expired. Please sign in again to continue.
