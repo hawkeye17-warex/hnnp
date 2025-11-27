@@ -45,6 +45,11 @@ export function useApi() {
       method: "PATCH",
       body: JSON.stringify(body),
     });
+  const createOrg = (body: any) =>
+    request<any>(`/api/control-plane/orgs`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    });
 
-  return { request, listOrgs, getOrg, updateOrg };
+  return { request, listOrgs, getOrg, updateOrg, createOrg };
 }
