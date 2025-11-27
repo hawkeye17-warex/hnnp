@@ -57,16 +57,18 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
 export function requireOrgAccess(req: Request, res: Response, next: NextFunction) {
   const orgHeader = req.headers["x-org-id"];
   const headerOrgId = typeof orgHeader === "string" ? orgHeader.trim() : Array.isArray(orgHeader) ? orgHeader[0] : "";
+  const paramOrgId = (req.params?.orgId as string) || (req.params?.id as string) || "";
+  const effectiveOrgId = headerOrgId || paramOrgId;
 
   if (!req.user) {
     return res.status(401).json({ error: "Unauthorized" });
   }
 
-  if (!headerOrgId) {
-    return res.status(400).json({ error: "X-Org-Id header is required" });
+  if (!effectiveOrgId) {
+    return res.status(400).json({ error: "Org id is required" });
   }
 
-  if (req.user.orgId !== headerOrgId) {
+  if (req.user.orgId !== effectiveOrgId) {
     return res.status(403).json({ error: "Org access denied" });
   }
 
