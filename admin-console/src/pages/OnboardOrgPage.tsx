@@ -109,7 +109,10 @@ const OnboardOrgPage = () => {
           </label>
           <label className="form__field">
             <span>Org type</span>
-            <select value={orgType} onChange={e => setOrgType(e.target.value as OrgType)}>
+            <select
+              value={orgType}
+              onChange={e => setOrgType(e.target.value as OrgType)}
+              style={{zIndex: 10}}>
               {ORG_TYPES.map(t => (
                 <option key={t} value={t}>
                   {t}
@@ -162,7 +165,12 @@ const OnboardOrgPage = () => {
               <button
                 className="primary"
                 type="button"
-                onClick={() => setConfirmed(true)}
+                onClick={() => {
+                  setConfirmed(true);
+                  const params = new URLSearchParams();
+                  if (orgId) params.set('org', orgId);
+                  window.location.href = `/login${params.toString() ? `?${params.toString()}` : ''}`;
+                }}
                 disabled={confirmed}>
                 {confirmed ? 'Saved' : 'I have copied this key'}
               </button>

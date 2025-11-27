@@ -33,6 +33,7 @@ const LoginPage = () => {
         method: 'GET',
         headers: {
           'x-hnnp-api-key': apiKey,
+          Authorization: `Bearer ${apiKey}`,
           'x-org-id': orgId,
         },
       });
@@ -48,7 +49,11 @@ const LoginPage = () => {
       let role: Session['role'] | undefined;
       try {
         const meRes = await fetch(`${baseUrl}/v2/me`, {
-          headers: {'x-hnnp-api-key': apiKey, 'x-org-id': orgId},
+          headers: {
+            'x-hnnp-api-key': apiKey,
+            Authorization: `Bearer ${apiKey}`,
+            'x-org-id': orgId,
+          },
         });
         if (meRes.ok) {
           const me = await meRes.json();
