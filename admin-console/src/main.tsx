@@ -1,4 +1,4 @@
-import React, {Suspense} from 'react';
+﻿import React, {Suspense} from 'react';
 import ReactDOM from 'react-dom/client';
 import {createBrowserRouter, RouterProvider, Navigate} from 'react-router-dom';
 
@@ -81,6 +81,7 @@ const basename = import.meta.env.BASE_URL || '/';
 const router = createBrowserRouter(
   [
     {path: '/login', element: withLoader(<LoginPage />)},
+    {path: '/admin/onboard-org', element: withLoader(<OnboardOrgPage />)},
     {path: '/forgot-password', element: withLoader(<ForgotPasswordPage />)},
     {path: '/reset-password', element: withLoader(<ResetPasswordPage />)},
     {
@@ -132,3 +133,4 @@ ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
     </ThemeProvider>
   </React.StrictMode>,
 );
+
