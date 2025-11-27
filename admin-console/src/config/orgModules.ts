@@ -63,6 +63,7 @@ export function buildSidebarConfig(
     title: "System",
     items: [
       { label: "Org Profile", route: "/org-profile" },
+      { label: "Audit Trail", route: "/audit-trail", requiredRole: ["admin", "owner", "auditor", "security"] },
       { label: "Settings", route: "/settings", requiredRole: ["admin", "owner"] },
     ],
   };
