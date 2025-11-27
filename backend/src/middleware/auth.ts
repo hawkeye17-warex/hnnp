@@ -74,3 +74,28 @@ export function requireOrgAccess(req: Request, res: Response, next: NextFunction
 
   return next();
 }
+
+/**
+ * optionalOrgAccess: if header/path not provided, fall back to user/org and allow.
+ * If provided and mismatched, reject.
+ */
+export function optionalOrgAccess(req: Request, res: Response, next: NextFunction) {
+  const orgHeader = req.headers["x-org-id"];
+  const headerOrgId = typeof orgHeader === "string" ? orgHeader.trim() : Array.isArray(orgHeader) ? orgHeader[0] : "";
+  const paramOrgId = (req.params?.orgId as string) || (req.params?.id as string) || "";
+  const effectiveOrgId = headerOrgId || paramOrgId;
+
+  if (!req.user) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+
+  if (!effectiveOrgId) {
+    return next();
+  }
+
+  if (req.user.orgId !== effectiveOrgId) {
+    return res.status(403).json({ error: "Org access denied" });
+  }
+
+  return next();
+}

@@ -161,20 +161,20 @@ const OnboardOrgPage = () => {
               This key will not be shown again. Store it securely. If you lose it, generate a new
               one later.
             </div>
-            <div style={{marginTop: 12}}>
-              <button
-                className="primary"
-                type="button"
-                onClick={() => {
-                  setConfirmed(true);
-                  const params = new URLSearchParams();
-                  if (orgId) params.set('org', orgId);
-                  window.location.href = `/login${params.toString() ? `?${params.toString()}` : ''}`;
-                }}
-                disabled={confirmed}>
-                {confirmed ? 'Saved' : 'I have copied this key'}
-              </button>
-            </div>
+          <div style={{marginTop: 12}}>
+            <button
+              className="primary"
+              type="button"
+              onClick={() => {
+                setConfirmed(true);
+                const params = new URLSearchParams();
+                if (orgId) params.set('org', orgId);
+                window.location.href = `/login${params.toString() ? `?${params.toString()}` : ''}`;
+              }}
+              disabled={confirmed}>
+              {confirmed ? 'Saved' : 'I have copied this key'}
+            </button>
+          </div>
           </div>
         ) : null}
       </div>

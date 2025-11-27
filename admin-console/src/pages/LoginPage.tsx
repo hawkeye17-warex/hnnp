@@ -20,6 +20,13 @@ const LoginPage = () => {
     return <Navigate to="/overview" replace />;
   }
 
+  // Prefill org from query if present
+  React.useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const orgParam = params.get('org');
+    if (orgParam) setOrgId(orgParam);
+  }, []);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);

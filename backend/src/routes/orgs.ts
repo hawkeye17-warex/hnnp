@@ -9,8 +9,7 @@ import { requireRole } from "../middleware/permissions";
 import { requireCapability } from "../middleware/capabilities";
 import { buildAuditContext, logAudit } from "../services/audit";
 import { checkQuizPresence } from "../services/quizPresence";
-import { requireAuth } from "../middleware/auth";
-import { requireOrgAccess } from "../middleware/orgScope";
+import { requireAuth, optionalOrgAccess, requireOrgAccess } from "../middleware/auth";
 
 const router = Router();
 
@@ -106,7 +105,7 @@ router.post("/internal/orgs/create", async (req: Request, res: Response) => {
   }
 });
 
-router.use(requireAuth, requireOrgAccess);
+router.use(requireAuth);
 
 router.get("/internal/test-auth", requireRole("read-only"), async (req: Request, res: Response) => {
   if (!req.org) {
@@ -346,7 +345,7 @@ export function normalizeSettings(partial: Partial<SystemSettings> | null | unde
   };
 }
 
-router.get("/v2/orgs/:org_id", requireRole("read-only"), async (req: Request, res: Response) => {
+router.get("/v2/orgs/:org_id", optionalOrgAccess, requireRole("read-only"), async (req: Request, res: Response) => {
   const { org_id } = req.params;
 
   try {
