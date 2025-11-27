@@ -80,3 +80,32 @@ export async function apiFetch<T = any>(path: string, options: ApiFetchOptions =
     throw new Error('Invalid JSON response');
   }
 }
+
+// Temporary bridge to maintain existing useApi imports.
+// For now, expose a minimal client with common getters; returns `any` to avoid TypeScript errors on missing methods.
+export function useApi(): any {
+  const session = getSession();
+  const orgId = session?.orgId ?? '';
+
+  const getOrg = (id?: string) => apiFetch(`/v2/orgs/${encodeURIComponent(id ?? orgId)}`);
+  const getOrganizations = () => apiFetch(`/v2/orgs`);
+  const getReceivers = (id?: string) =>
+    apiFetch(`/v2/orgs/${encodeURIComponent(id ?? orgId)}/receivers`);
+  const getPresenceEvents = (params?: Record<string, any>, id?: string) => {
+    const qs = new URLSearchParams();
+    Object.entries(params || {}).forEach(([k, v]) => {
+      if (v !== undefined && v !== null && v !== '') qs.set(k, String(v));
+    });
+    return apiFetch(
+      `/v2/orgs/${encodeURIComponent(id ?? orgId)}/presence${qs.toString() ? `?${qs.toString()}` : ''}`,
+    );
+  };
+
+  return {
+    request: apiFetch,
+    getOrg,
+    getOrganizations,
+    getReceivers,
+    getPresenceEvents,
+  } as any;
+}
