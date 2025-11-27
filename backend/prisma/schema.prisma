@@ -42,6 +42,21 @@ model Org {
   shifts       Shift[]
   adminUsers   AdminUser[]
   auditLogs    AuditLog[]
+  orgRoles     OrgRole[]
+}
+
+/// Per-user role assignments within an org.
+model OrgRole {
+  id        String   @id @default(cuid())
+  orgId     String
+  userId    String
+  role      String   /// Allowed: owner | admin | viewer | hr | security
+  createdAt DateTime @default(now())
+
+  org Org @relation(fields: [orgId], references: [id])
+
+  @@index([orgId])
+  @@index([userId])
 }
 
 model Receiver {
