@@ -1,6 +1,7 @@
 import {useEffect, useState} from 'react';
 import {useSession} from './useSession';
 import type {LocationSummary} from '../types/locations';
+import {apiFetch} from '../api/client';
 
 export function useLocations(refreshKey = 0) {
   const {session} = useSession();
@@ -19,29 +20,7 @@ export function useLocations(refreshKey = 0) {
       setIsLoading(true);
       setError(null);
       try {
-        const baseUrl = import.meta.env.VITE_BACKEND_BASE_URL;
-        if (!baseUrl) throw new Error('Missing backend base URL');
-        // TODO: replace endpoint with real locations API when available
-        const url = `${baseUrl}/v2/orgs/${encodeURIComponent(session.orgId)}/locations`;
-        const res = await fetch(url, {
-          headers: {
-            Accept: 'application/json',
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${session.apiKey}`,
-          },
-        });
-        if (!res.ok) throw new Error(`Failed to fetch locations (${res.status})`);
-        const text = await res.text();
-        const isJson = res.headers.get('content-type')?.includes('application/json');
-        if (!isJson) {
-          throw new Error(text || 'Received non-JSON response');
-        }
-        let json: any = [];
-        try {
-          json = JSON.parse(text);
-        } catch {
-          throw new Error('Received invalid JSON response');
-        }
+        const json: any = await apiFetch(`/v2/orgs/${encodeURIComponent(session.orgId)}/locations`);
         const raw = Array.isArray(json) ? json : json?.locations ?? json?.data ?? [];
         const mapped: LocationSummary[] = raw.map((loc: any) => ({
           id: loc.id ?? '',

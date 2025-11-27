@@ -10,6 +10,7 @@ import {Navigate} from 'react-router-dom';
 
 import type {Session} from '../types/session';
 import {supabase} from '../api/api';
+import {setAuthExpiredHandler} from '../api/client';
 
 export type CurrentUser = {
   id?: string;
@@ -26,7 +27,7 @@ type AuthState = {
   hydrated: boolean;
 };
 
-const STORAGE_KEY = 'nearid_admin_session';
+export const STORAGE_KEY = 'nearid_admin_session';
 
 const readStoredAuth = (): {session: Session | null; currentUser: CurrentUser | null} => {
   if (typeof window === 'undefined') return {session: null, currentUser: null};
@@ -122,6 +123,15 @@ export const AuthProvider = ({children}: {children: React.ReactNode}) => {
       console.warn('Supabase sign-out failed', err);
     });
   }, [persist]);
+
+  useEffect(() => {
+    setAuthExpiredHandler(() => {
+      logout();
+      if (typeof window !== 'undefined') {
+        window.location.href = '/login';
+      }
+    });
+  }, [logout]);
 
   const value = useMemo(
     () => ({

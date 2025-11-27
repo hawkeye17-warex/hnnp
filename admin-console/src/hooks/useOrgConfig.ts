@@ -1,5 +1,6 @@
 ﻿import {useEffect, useState} from 'react';
 import {useSession} from './useSession';
+import {apiFetch} from '../api/client';
 
 export type OrgConfig = {
   id?: string;
@@ -27,24 +28,7 @@ export function useOrgConfig() {
       setIsLoading(true);
       setError(null);
       try {
-        const baseUrl = import.meta.env.VITE_BACKEND_BASE_URL;
-        if (!baseUrl) throw new Error('Missing backend base URL');
-        const res = await fetch(`${baseUrl}/api/org/config`, {
-          headers: {
-            Accept: 'application/json',
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${session.apiKey}`,
-          },
-        });
-        const text = await res.text();
-        if (!res.ok) {
-          throw new Error(
-            `Failed to fetch org config (${res.status} ${res.statusText || ''})${text ? `: ${text}` : ''}`.trim(),
-          );
-        }
-        const isJson = res.headers.get('content-type')?.includes('application/json');
-        if (!isJson) throw new Error(text || 'Received non-JSON response');
-        const json = JSON.parse(text);
+        const json = await apiFetch(`/api/org/config`);
         if (!cancelled)
           setData({
             id: json?.org_id ?? json?.id,
