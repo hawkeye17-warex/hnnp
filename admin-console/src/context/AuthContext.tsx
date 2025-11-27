@@ -11,6 +11,7 @@ import {Navigate} from 'react-router-dom';
 import type {Session} from '../types/session';
 import {supabase} from '../api/api';
 import {setAuthExpiredHandler} from '../api/client';
+import SessionExpiredModal from '../components/SessionExpiredModal';
 
 export type CurrentUser = {
   id?: string;
@@ -27,6 +28,7 @@ type AuthState = {
   login: (session: Session, user?: CurrentUser) => void;
   logout: () => void;
   hydrated: boolean;
+  markSessionExpired: () => void;
 };
 
 export const STORAGE_KEY = 'nearid_admin_session';
@@ -52,6 +54,7 @@ const AuthContext = createContext<AuthState>({
   login: () => {},
   logout: () => {},
   hydrated: false,
+  markSessionExpired: () => {},
 });
 
 export const AuthProvider = ({children}: {children: React.ReactNode}) => {
@@ -59,6 +62,7 @@ export const AuthProvider = ({children}: {children: React.ReactNode}) => {
   const [session, setSession] = useState<Session | null>(initial.session);
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(initial.currentUser);
   const [hydrated, setHydrated] = useState(typeof window !== 'undefined');
+  const [sessionExpired, setSessionExpired] = useState(false);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -126,14 +130,15 @@ export const AuthProvider = ({children}: {children: React.ReactNode}) => {
     });
   }, [persist]);
 
+  const markSessionExpired = useCallback(() => {
+    setSessionExpired(true);
+  }, []);
+
   useEffect(() => {
     setAuthExpiredHandler(() => {
-      logout();
-      if (typeof window !== 'undefined') {
-        window.location.href = '/login';
-      }
+      markSessionExpired();
     });
-  }, [logout]);
+  }, [markSessionExpired]);
 
   const value = useMemo(
     () => ({
@@ -142,11 +147,25 @@ export const AuthProvider = ({children}: {children: React.ReactNode}) => {
       login,
       logout,
       hydrated,
+      markSessionExpired,
     }),
-    [session, currentUser, login, logout, hydrated],
+    [session, currentUser, login, logout, hydrated, markSessionExpired],
   );
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  const handleExpiredConfirm = () => {
+    setSessionExpired(false);
+    logout();
+    if (typeof window !== 'undefined') {
+      window.location.href = '/login';
+    }
+  };
+
+  return (
+    <AuthContext.Provider value={value}>
+      {children}
+      <SessionExpiredModal open={sessionExpired} onConfirm={handleExpiredConfirm} />
+    </AuthContext.Provider>
+  );
 };
 
 export const useAuth = (): AuthState => useContext(AuthContext);
