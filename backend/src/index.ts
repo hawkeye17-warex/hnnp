@@ -21,6 +21,7 @@ import { maintenanceGuard } from "./middleware/maintenance";
 import { controlPlaneRouter } from "./routes/controlPlane";
 import { requestLogger } from "./middleware/logging";
 import { auditRouter } from "./routes/audit";
+import { settingsRouter } from "./routes/settings";
 
 const config = loadConfig();
 const app = express();
@@ -70,6 +71,7 @@ app.use(meRouter);
 app.use(quizRouter);
 app.use(shiftRouter);
 app.use(controlPlaneRouter);
+app.use(settingsRouter);
 
 const server = http.createServer(app);
 
