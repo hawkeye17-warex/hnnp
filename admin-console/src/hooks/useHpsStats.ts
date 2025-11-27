@@ -1,6 +1,7 @@
-import {useEffect, useState} from 'react';
+﻿import {useEffect, useState} from 'react';
 import {useSession} from './useSession';
 import type {HpsStat} from '../types/hps';
+import {apiFetch} from '../api/client';
 
 export function useHpsStats() {
   const {session} = useSession();
@@ -19,31 +20,7 @@ export function useHpsStats() {
       setIsLoading(true);
       setError(null);
       try {
-        const baseUrl = import.meta.env.VITE_BACKEND_BASE_URL;
-        if (!baseUrl) throw new Error('Missing backend base URL');
-        const res = await fetch(`${baseUrl}/v2/orgs/${encodeURIComponent(session.orgId)}/hps/stats`, {
-          headers: {
-            Accept: 'application/json',
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${session.apiKey}`,
-          },
-        });
-        const text = await res.text();
-        if (!res.ok) {
-          throw new Error(
-            `Failed to fetch HPS stats (${res.status} ${res.statusText || ''})${text ? `: ${text}` : ''}`.trim(),
-          );
-        }
-        const isJson = res.headers.get('content-type')?.includes('application/json');
-        if (!isJson) {
-          throw new Error(text || 'Received non-JSON response');
-        }
-        let json: any = [];
-        try {
-          json = JSON.parse(text);
-        } catch {
-          throw new Error('Received invalid JSON response');
-        }
+        const json: any = await apiFetch(`/v2/orgs/${encodeURIComponent(session.orgId)}/hps/stats`);
         const raw = Array.isArray(json) ? json : json?.stats ?? json?.data ?? [];
         if (!cancelled) setData(raw);
       } catch (err: any) {

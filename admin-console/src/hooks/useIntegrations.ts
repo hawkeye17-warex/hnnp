@@ -1,6 +1,7 @@
-import {useEffect, useState} from 'react';
+﻿import {useEffect, useState} from 'react';
 import {useSession} from './useSession';
 import type {IntegrationSummary} from '../types/integrations';
+import {apiFetch} from '../api/client';
 
 export function useIntegrations() {
   const {session} = useSession();
@@ -19,36 +20,7 @@ export function useIntegrations() {
       setIsLoading(true);
       setError(null);
       try {
-        const baseUrl = import.meta.env.VITE_BACKEND_BASE_URL;
-        if (!baseUrl) throw new Error('Missing backend base URL');
-        const res = await fetch(
-          `${baseUrl}/v2/orgs/${encodeURIComponent(session.orgId)}/integrations`,
-          {
-            headers: {
-              Accept: 'application/json',
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${session.apiKey}`,
-            },
-          },
-        );
-        const text = await res.text();
-        if (!res.ok) {
-          throw new Error(
-            `Failed to fetch integrations (${res.status} ${res.statusText || ''})${
-              text ? `: ${text}` : ''
-            }`.trim(),
-          );
-        }
-        const isJson = res.headers.get('content-type')?.includes('application/json');
-        if (!isJson) {
-          throw new Error(text || 'Received non-JSON response');
-        }
-        let json: any = [];
-        try {
-          json = JSON.parse(text);
-        } catch {
-          throw new Error('Received invalid JSON response');
-        }
+        const json: any = await apiFetch(`/v2/orgs/${encodeURIComponent(session.orgId)}/integrations`);
         const raw = Array.isArray(json) ? json : json?.integrations ?? json?.data ?? [];
         if (!cancelled) setData(raw);
       } catch (err: any) {

@@ -1,5 +1,6 @@
-import {useCallback, useEffect, useState} from 'react';
+﻿import {useEffect, useState} from 'react';
 import {useSession} from './useSession';
+import {apiFetch} from '../api/client';
 
 export type NotificationSettings = {
   incidentAlerts?: boolean;
@@ -15,7 +16,7 @@ export function useNotificationSettings() {
   const [error, setError] = useState<string | null>(null);
   const [savingKey, setSavingKey] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
+  const load = async () => {
     if (!session) {
       setError('Not authenticated');
       setData(null);
@@ -24,29 +25,7 @@ export function useNotificationSettings() {
     setIsLoading(true);
     setError(null);
     try {
-      const baseUrl = import.meta.env.VITE_BACKEND_BASE_URL;
-      if (!baseUrl) throw new Error('Missing backend base URL');
-      const res = await fetch(
-        `${baseUrl}/v2/orgs/${encodeURIComponent(session.orgId)}/settings/notifications`,
-        {
-          headers: {
-            Accept: 'application/json',
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${session.apiKey}`,
-          },
-        },
-      );
-      const text = await res.text();
-      if (!res.ok) {
-        throw new Error(
-          `Failed to fetch notification settings (${res.status} ${res.statusText || ''})${
-            text ? `: ${text}` : ''
-          }`.trim(),
-        );
-      }
-      const isJson = res.headers.get('content-type')?.includes('application/json');
-      if (!isJson) throw new Error(text || 'Received non-JSON response');
-      const json = JSON.parse(text);
+      const json: any = await apiFetch(`/v2/orgs/${encodeURIComponent(session.orgId)}/settings/notifications`);
       const cfg = json?.settings ?? json ?? null;
       setData(cfg);
     } catch (err: any) {
@@ -55,57 +34,32 @@ export function useNotificationSettings() {
     } finally {
       setIsLoading(false);
     }
-  }, [session]);
+  };
 
-  const updateSetting = useCallback(
-    async (key: string, value: boolean) => {
-      if (!session) {
-        setError('Not authenticated');
-        return;
-      }
-      setSavingKey(key);
-      try {
-        const baseUrl = import.meta.env.VITE_BACKEND_BASE_URL;
-        if (!baseUrl) throw new Error('Missing backend base URL');
-        const res = await fetch(
-          `${baseUrl}/v2/orgs/${encodeURIComponent(session.orgId)}/settings/notifications`,
-          {
-            method: 'PATCH',
-            headers: {
-              Accept: 'application/json',
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${session.apiKey}`,
-            },
-            body: JSON.stringify({[key]: value}),
-          },
-        );
-        const text = await res.text();
-        if (!res.ok) {
-          throw new Error(
-            `Failed to update notification settings (${res.status} ${res.statusText || ''})${
-              text ? `: ${text}` : ''
-            }`.trim(),
-          );
-        }
-        const isJson = res.headers.get('content-type')?.includes('application/json');
-        if (isJson && text) {
-          const json = JSON.parse(text);
-          setData(json?.settings ?? json ?? {[key]: value});
-        } else {
-          setData(prev => ({...(prev ?? {}), [key]: value}));
-        }
-      } catch (err: any) {
-        setError(err?.message ?? 'Failed to update notification settings');
-      } finally {
-        setSavingKey(null);
-      }
-    },
-    [session],
-  );
+  const updateSetting = async (key: string, value: boolean) => {
+    if (!session) {
+      setError('Not authenticated');
+      return;
+    }
+    setSavingKey(key);
+    try {
+      const json: any = await apiFetch(`/v2/orgs/${encodeURIComponent(session.orgId)}/settings/notifications`, {
+        method: 'PATCH',
+        body: JSON.stringify({[key]: value}),
+      });
+      if (json?.settings) setData(json.settings);
+      else setData(prev => ({...(prev ?? {}), [key]: value}));
+    } catch (err: any) {
+      setError(err?.message ?? 'Failed to update notification settings');
+    } finally {
+      setSavingKey(null);
+    }
+  };
 
   useEffect(() => {
     load();
-  }, [load]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session]);
 
   return {data, isLoading, error, savingKey, updateSetting, reload: load};
 }
