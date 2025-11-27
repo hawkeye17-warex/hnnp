@@ -33,6 +33,7 @@ const LogsPage = React.lazy(() => import('./pages/LogsPage'));
 const HpsSecurityPage = React.lazy(() => import('./pages/HpsSecurityPage'));
 const IntegrationsPage = React.lazy(() => import('./pages/IntegrationsPage'));
 const SettingsPage = React.lazy(() => import('./pages/SettingsPage'));
+const OrgProfilePage = React.lazy(() => import('./pages/OrgProfilePage'));
 const SessionsPage = React.lazy(() => import('./pages/SessionsPage'));
 const QuizzesPage = React.lazy(() => import('./pages/QuizzesPage'));
 const ExamsPage = React.lazy(() => import('./pages/ExamsPage'));
@@ -103,6 +104,7 @@ const router = createBrowserRouter(
         {path: '/hps', element: withLoader(<HpsSecurityPage />)},
         {path: '/integrations', element: withLoader(<IntegrationsPage />)},
         {path: '/settings', element: withLoader(<SettingsPage />)},
+        {path: '/org-profile', element: withLoader(<OrgProfilePage />)},
         {path: '/sessions', element: withLoader(<SessionsPage />)},
         {path: '/quizzes', element: withLoader(<QuizzesPage />)},
         {path: '/exams', element: withLoader(<ExamsPage />)},

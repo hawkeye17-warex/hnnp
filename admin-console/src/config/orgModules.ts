@@ -54,6 +54,11 @@ export function buildSidebarConfig(
     ],
   };
 
+  const systemBase: SidebarSection = {
+    title: "System",
+    items: [{ label: "Org Profile", route: "/org-profile" }, { label: "Settings", route: "/settings" }],
+  };
+
   const sections: SidebarSection[] = [baseMonitor];
 
   const has = (m: ModuleId) => enabledModules.includes(m);
@@ -107,14 +112,17 @@ export function buildSidebarConfig(
     if (has("safety")) ops.push(MODULE_NAV_ITEMS.safety);
     if (ops.length) sections.push({ title: "Operations", items: ops });
 
-    const system: SidebarItem[] = [];
+    const system: SidebarItem[] = [...systemBase.items];
     if (has("access_control")) system.push(MODULE_NAV_ITEMS.access_control);
     if (has("analytics")) system.push(MODULE_NAV_ITEMS.analytics);
     if (has("hps_insights")) system.push(MODULE_NAV_ITEMS.hps_insights);
     if (has("developer_api")) system.push(MODULE_NAV_ITEMS.developer_api);
-    system.push({ label: "Settings", route: "/settings" });
     if (system.length) sections.push({ title: "System", items: system });
   }
+
+  // Always include system base if not already added
+  const hasSystem = sections.find((s) => s.title === "System");
+  if (!hasSystem) sections.push(systemBase);
 
   return sections;
 }
