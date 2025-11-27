@@ -5,7 +5,7 @@ const nav = [
   { label: "Overview", to: "/overview" },
   { label: "Organizations", to: "/orgs" },
   { label: "Policies", to: "/policies" },
-  { label: "LoA Profiles", to: "/loa" },
+  { label: "LoA Profiles", to: "/loa-profiles" },
   { label: "Logs", to: "/logs" },
   { label: "Settings", to: "/settings" },
 ];

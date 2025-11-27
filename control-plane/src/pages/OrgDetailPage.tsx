@@ -210,6 +210,13 @@ const OrgDetailPage: React.FC = () => {
         </div>
       </div>
 
+      <div className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 p-4 space-y-2">
+        <h2 className="text-lg font-semibold text-slate-100">Presence Assurance Level</h2>
+        <p className="text-slate-400 text-sm">
+          Default LoA for this org: LoA2 – Device + HPS. (Placeholder; future policies will allow custom LoA per module.)
+        </p>
+      </div>
+
       <div className="flex items-center gap-3">
         <button
           className="px-4 py-2 rounded-md bg-blue-600 text-white text-sm"
