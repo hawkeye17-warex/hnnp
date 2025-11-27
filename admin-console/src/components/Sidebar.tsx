@@ -1,8 +1,10 @@
 import React from 'react';
 import {NavLink} from 'react-router-dom';
 import type {SidebarSection} from '../config/orgModules';
+import {buildSidebarConfig} from '../config/orgModules';
 
-const Sidebar = ({sections}: {sections: SidebarSection[]}) => {
+const Sidebar = ({sections}: {sections?: SidebarSection[]}) => {
+  const computedSections = sections && sections.length > 0 ? sections : buildSidebarConfig('office', []);
   return (
     <aside className="bg-[#111318] text-slate-200 w-64 shrink-0 min-h-screen flex flex-col">
       <div className="px-5 py-6 flex items-center gap-3 text-lg font-semibold">
@@ -16,7 +18,7 @@ const Sidebar = ({sections}: {sections: SidebarSection[]}) => {
       </div>
 
       <nav className="flex-1 px-3 pb-6 overflow-y-auto">
-        {sections.map(section => (
+        {computedSections.map(section => (
           <div key={section.title} className="mt-6 first:mt-0">
             <div className="px-2 text-xs uppercase tracking-wide text-slate-400 mb-2">
               {section.title}
@@ -24,8 +26,8 @@ const Sidebar = ({sections}: {sections: SidebarSection[]}) => {
             <div className="space-y-1">
               {section.items.map(item => (
                 <NavLink
-                  key={item.to}
-                  to={item.to}
+                  key={item.route}
+                  to={item.route}
                   className={({isActive}) =>
                     [
                       'group relative flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium',
