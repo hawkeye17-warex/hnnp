@@ -17,6 +17,8 @@ export type CurrentUser = {
   email?: string;
   name?: string;
   orgId?: string;
+  role?: 'owner' | 'admin' | 'viewer' | 'hr' | 'security';
+  permissions?: string[];
 };
 
 type AuthState = {
@@ -107,7 +109,7 @@ export const AuthProvider = ({children}: {children: React.ReactNode}) => {
 
   const login = useCallback(
     (nextSession: Session, user?: CurrentUser) => {
-      const resolvedUser = user ?? {orgId: nextSession.orgId};
+      const resolvedUser = user ?? {orgId: nextSession.orgId, permissions: []};
       setSession(nextSession);
       setCurrentUser(resolvedUser);
       persist(nextSession, resolvedUser);

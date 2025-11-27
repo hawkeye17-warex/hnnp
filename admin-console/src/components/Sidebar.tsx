@@ -2,9 +2,19 @@ import React from 'react';
 import {NavLink} from 'react-router-dom';
 import type {SidebarSection} from '../config/orgModules';
 import {buildSidebarConfig} from '../config/orgModules';
+import {useAuth} from '../context/AuthContext';
+import {can, hasRole} from '../utils/permissions';
 
 const Sidebar = ({sections}: {sections?: SidebarSection[]}) => {
+  const {currentUser} = useAuth();
   const computedSections = sections && sections.length > 0 ? sections : buildSidebarConfig('office', []);
+  const filterItems = (items: SidebarSection['items']) =>
+    items.filter(item => {
+      const roleOk = hasRole(currentUser, item.requiredRole as any);
+      const permOk = can(currentUser, item.requiredPermission);
+      return roleOk && permOk;
+    });
+
   return (
     <aside className="bg-[#111318] text-slate-200 w-64 shrink-0 min-h-screen flex flex-col">
       <div className="px-5 py-6 flex items-center gap-3 text-lg font-semibold">
@@ -24,7 +34,7 @@ const Sidebar = ({sections}: {sections?: SidebarSection[]}) => {
               {section.title}
             </div>
             <div className="space-y-1">
-              {section.items.map(item => (
+              {filterItems(section.items).map(item => (
                 <NavLink
                   key={item.route}
                   to={item.route}

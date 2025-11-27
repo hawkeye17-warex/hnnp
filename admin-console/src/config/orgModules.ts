@@ -15,7 +15,7 @@ export type ModuleId =
 
 export const MODULE_NAV_ITEMS: Record<
   ModuleId,
-  { label: string; route: string }
+  { label: string; route: string; requiredRole?: string | string[]; requiredPermission?: string }
 > = {
   attendance: { label: "Attendance", route: "/attendance" },
   sessions: { label: "Sessions", route: "/sessions" },
@@ -23,11 +23,11 @@ export const MODULE_NAV_ITEMS: Record<
   exams: { label: "Exams", route: "/exams" },
   shifts: { label: "Shifts", route: "/shifts" },
   workzones: { label: "Workzones", route: "/workzones" },
-  safety: { label: "Safety", route: "/safety" },
-  access_control: { label: "Access Control", route: "/access" },
+  safety: { label: "Safety", route: "/safety", requiredRole: ["admin", "security", "owner"] },
+  access_control: { label: "Access Control", route: "/access", requiredRole: ["admin", "security", "owner"] },
   analytics: { label: "Analytics", route: "/analytics" },
   hps_insights: { label: "HPS Insights", route: "/hps" },
-  developer_api: { label: "Developer API", route: "/developer-api" },
+  developer_api: { label: "Developer API", route: "/developer-api", requiredRole: ["admin", "owner"] },
 };
 
 export const ROUTE_TO_MODULE: Record<string, ModuleId | undefined> = Object.values(MODULE_NAV_ITEMS).reduce(
@@ -38,7 +38,12 @@ export const ROUTE_TO_MODULE: Record<string, ModuleId | undefined> = Object.valu
   {} as Record<string, ModuleId | undefined>,
 );
 
-export type SidebarItem = { label: string; route: string };
+export type SidebarItem = {
+  label: string;
+  route: string;
+  requiredRole?: string | string[];
+  requiredPermission?: string;
+};
 export type SidebarSection = { title: string; items: SidebarItem[] };
 
 export function buildSidebarConfig(
@@ -56,7 +61,10 @@ export function buildSidebarConfig(
 
   const systemBase: SidebarSection = {
     title: "System",
-    items: [{ label: "Org Profile", route: "/org-profile" }, { label: "Settings", route: "/settings" }],
+    items: [
+      { label: "Org Profile", route: "/org-profile" },
+      { label: "Settings", route: "/settings", requiredRole: ["admin", "owner"] },
+    ],
   };
 
   const sections: SidebarSection[] = [baseMonitor];
