@@ -28,6 +28,7 @@ model Org {
   adminUsers     AdminUser[]
   apiKeys        ApiKey[]
   auditLogs      AuditLog[]
+  auditEvents    AuditEvent[]
   devices        Device[]
   links          Link[]
   orgRoles       OrgRole[]
@@ -343,4 +344,21 @@ model Break {
   shift        Shift     @relation(fields: [shiftId], references: [id])
 
   @@index([shiftId])
+}
+
+model AuditEvent {
+  id         String   @id @default(cuid())
+  orgId      String
+  userId     String?
+  action     String
+  entityType String?
+  entityId   String?
+  metadata   Json?
+  createdAt  DateTime @default(now())
+
+  org Org @relation(fields: [orgId], references: [id])
+
+  @@index([orgId, createdAt])
+  @@index([orgId, action])
+  @@index([orgId, userId])
 }
