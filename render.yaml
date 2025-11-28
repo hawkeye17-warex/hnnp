@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: hnnp-backend
+    env: node
+    rootDirectory: backend
+    buildCommand: npm install && npm run build
+    startCommand: npm run start
+    envVars:
+      # Configure these in Render dashboard with real values
+      - key: DATABASE_URL
+        value: ""
+      - key: API_KEY_SECRET
+        value: ""
+      - key: DEVICE_ID_SALT
+        value: ""
