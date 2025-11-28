@@ -391,3 +391,20 @@ model LoaAssignment {
 
   @@index([orgId, useCase])
 }
+
+/// HPS (Presence Assurance) policy per org.
+model HpsPolicy {
+  id                       String   @id @default(cuid())
+  orgId                    String
+  minScore                 Float    @default(0.7)
+  allowFallbackGesture     Boolean  @default(true)
+  requireHpsForAttendance  Boolean  @default(false)
+  requireHpsForAccess      Boolean  @default(false)
+  updatedBy                String?
+  updatedAt                DateTime @default(now())
+
+  org Org @relation(fields: [orgId], references: [id])
+
+  @@unique([orgId])
+  @@index([orgId])
+}

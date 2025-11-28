@@ -23,6 +23,7 @@ import { requestLogger } from "./middleware/logging";
 import { auditRouter } from "./routes/audit";
 import { settingsRouter } from "./routes/settings";
 import { loaRouter } from "./routes/loa";
+import { hpsConfigRouter } from "./routes/hpsConfig";
 
 const config = loadConfig();
 const app = express();
@@ -74,6 +75,7 @@ app.use(shiftRouter);
 app.use(controlPlaneRouter);
 app.use(settingsRouter);
 app.use(loaRouter);
+app.use(hpsConfigRouter);
 
 const server = http.createServer(app);
 
