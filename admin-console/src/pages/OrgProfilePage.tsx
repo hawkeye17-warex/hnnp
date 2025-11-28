@@ -1,5 +1,6 @@
 import React from 'react';
 import {useOrgConfigContext} from '../context/OrgConfigContext';
+import {apiFetch} from '../api/client';
 
 const MODULE_DESCRIPTIONS: Record<string, string> = {
   attendance: 'Track presence / attendance.',
@@ -13,10 +14,43 @@ const MODULE_DESCRIPTIONS: Record<string, string> = {
   analytics: 'Analytics and reporting.',
   hps_insights: 'HPS verification insights.',
   developer_api: 'Developer API access.',
+  logs: 'System logs.',
+  audit_trail: 'Org audit trail.',
+};
+
+type LoaProfile = {
+  attendance?: string;
+  access_control?: string;
+  exams?: string;
 };
 
 const OrgProfilePage: React.FC = () => {
   const {config, orgType, enabledModules, isLoading, error} = useOrgConfigContext();
+  const [loa, setLoa] = React.useState<LoaProfile | null>(null);
+  const [loaError, setLoaError] = React.useState<string | null>(null);
+  const [loaLoading, setLoaLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    let mounted = true;
+    const loadLoa = async () => {
+      try {
+        const res = await apiFetch<LoaProfile>('/api/org/loa-profile');
+        if (mounted) {
+          setLoa(res);
+          setLoaLoading(false);
+        }
+      } catch (err: any) {
+        if (mounted) {
+          setLoaError(err?.message ?? 'Failed to load LoA profile');
+          setLoaLoading(false);
+        }
+      }
+    };
+    loadLoa();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   if (isLoading) return <div className="text-sm text-slate-500">Loading org profile...</div>;
   if (error) return <div className="text-sm text-red-600">{error}</div>;
@@ -47,6 +81,20 @@ const OrgProfilePage: React.FC = () => {
             ))
           )}
         </div>
+      </div>
+
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 space-y-3">
+        <h2 className="text-lg font-semibold text-slate-900">Presence Passport LoA</h2>
+        {loaLoading && <div className="text-sm text-slate-500">Loading LoA profile...</div>}
+        {loaError && <div className="text-sm text-red-600">{loaError}</div>}
+        {!loaLoading && !loaError && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm text-slate-800">
+            <Field label="Attendance LoA" value={loa?.attendance ?? '—'} />
+            <Field label="Access Control LoA" value={loa?.access_control ?? '—'} />
+            {orgType === 'school' ? <Field label="Exams LoA" value={loa?.exams ?? '—'} /> : null}
+          </div>
+        )}
+        {/* TODO: Add editing of LoA profiles when backend supports updates */}
       </div>
     </div>
   );
