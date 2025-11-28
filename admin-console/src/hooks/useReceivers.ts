@@ -3,11 +3,12 @@ import {useSession} from './useSession';
 import type {ReceiverSummary} from '../types/receivers';
 import {apiFetch} from '../api/client';
 
-export function useReceivers(refreshKey = 0) {
+export function useReceivers(refreshKey = 0, opts?: {limit?: number}) {
   const {session} = useSession();
   const [data, setData] = useState<ReceiverSummary[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -20,8 +21,9 @@ export function useReceivers(refreshKey = 0) {
       setIsLoading(true);
       setError(null);
       try {
-        const json: any = await apiFetch(`/v2/orgs/${encodeURIComponent(session.orgId)}/receivers`);
-        const raw = Array.isArray(json) ? json : json?.receivers ?? json?.data ?? [];
+        const limit = opts?.limit ?? 50;
+        const json: any = await apiFetch(`/v2/orgs/${encodeURIComponent(session.orgId)}/receivers?limit=${limit}`);
+        const raw = Array.isArray(json) ? json : json?.items ?? json?.receivers ?? json?.data ?? [];
         const mapped: ReceiverSummary[] = raw.map((r: any) => ({
           id: r.id ?? '',
           name: r.name ?? r.displayName ?? r.id ?? 'Receiver',
@@ -30,7 +32,10 @@ export function useReceivers(refreshKey = 0) {
           lastHeartbeatAt: r.last_seen_at ?? r.lastSeenAt,
           firmwareVersion: r.firmwareVersion,
         }));
-        if (!cancelled) setData(mapped);
+        if (!cancelled) {
+          setData(mapped);
+          setNextCursor(json?.nextCursor ?? null);
+        }
       } catch (err: any) {
         if (!cancelled) setError(err?.message ?? 'Failed to load receivers');
         if (!cancelled) setData([]);
@@ -44,5 +49,24 @@ export function useReceivers(refreshKey = 0) {
     };
   }, [session, refreshKey]);
 
-  return {data, isLoading, error};
+  const loadMore = async () => {
+    if (!session || !nextCursor) return;
+    const limit = opts?.limit ?? 50;
+    const json: any = await apiFetch(
+      `/v2/orgs/${encodeURIComponent(session.orgId)}/receivers?limit=${limit}&cursor=${encodeURIComponent(nextCursor)}`,
+    );
+    const raw = Array.isArray(json) ? json : json?.items ?? json?.receivers ?? json?.data ?? [];
+    const mapped: ReceiverSummary[] = raw.map((r: any) => ({
+      id: r.id ?? '',
+      name: r.name ?? r.displayName ?? r.id ?? 'Receiver',
+      locationName: r.location ?? r.locationName,
+      status: r.status === 'online' ? 'online' : r.status === 'offline' ? 'offline' : 'flaky',
+      lastHeartbeatAt: r.last_seen_at ?? r.lastSeenAt,
+      firmwareVersion: r.firmwareVersion,
+    }));
+    setData(prev => [...prev, ...mapped]);
+    setNextCursor(json?.nextCursor ?? null);
+  };
+
+  return {data, isLoading, error, nextCursor, loadMore};
 }

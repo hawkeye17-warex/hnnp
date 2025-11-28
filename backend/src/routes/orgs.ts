@@ -407,6 +407,13 @@ router.get("/v2/orgs", requireRole("read-only"), async (req: Request, res: Respo
 
 router.get("/v2/orgs/:org_id/receivers", requireRole("read-only"), async (req: Request, res: Response) => {
   const { org_id } = req.params;
+  const limitParam = req.query.limit;
+  const cursorParam = req.query.cursor;
+  let take = 50;
+  if (typeof limitParam === "string") {
+    const parsed = Number.parseInt(limitParam, 10);
+    if (Number.isFinite(parsed) && parsed > 0) take = Math.min(parsed, 200);
+  }
 
   try {
     const org = await prisma.org.findUnique({ where: { id: org_id } });
@@ -414,12 +421,24 @@ router.get("/v2/orgs/:org_id/receivers", requireRole("read-only"), async (req: R
       return res.status(404).json({ error: "Org not found" });
     }
 
-    const receivers = await prisma.receiver.findMany({
+    const query: any = {
       where: { orgId: org_id },
       orderBy: { id: "asc" },
-    });
+      take: take + 1,
+    };
+    if (typeof cursorParam === "string" && cursorParam.length > 0) {
+      query.cursor = { id: cursorParam };
+      query.skip = 1;
+    }
 
-    return res.status(200).json(receivers.map(serializeReceiver));
+    const receivers = await prisma.receiver.findMany(query);
+    let nextCursor: string | null = null;
+    if (receivers.length > take) {
+      const next = receivers.pop();
+      nextCursor = next?.id ?? null;
+    }
+
+    return res.status(200).json({ items: receivers.map(serializeReceiver), nextCursor });
   } catch (err) {
     // eslint-disable-next-line no-console
     console.error("Error listing receivers", err);
@@ -2494,8 +2513,15 @@ router.get("/v2/orgs/:org_id/users", requireRole("read-only"), async (_req: Requ
 });
 
 // Attendance placeholder
-router.get("/v2/orgs/:org_id/attendance", requireRole("read-only"), async (_req: Request, res: Response) => {
-  return res.json([]);
+router.get("/v2/orgs/:org_id/attendance", requireRole("read-only"), async (req: Request, res: Response) => {
+  const limitParam = req.query.limit;
+  const cursorParam = req.query.cursor;
+  let take = 50;
+  if (typeof limitParam === "string") {
+    const parsed = Number.parseInt(limitParam, 10);
+    if (Number.isFinite(parsed) && parsed > 0) take = Math.min(parsed, 200);
+  }
+  return res.json({ items: [], nextCursor: null, limit: take, cursor: cursorParam ?? null });
 });
 
 // Groups placeholder
@@ -2506,16 +2532,31 @@ router.get("/v2/orgs/:org_id/groups", requireRole("read-only"), async (_req: Req
 // Incidents placeholder
 router.get("/v2/orgs/:org_id/incidents", requireRole("read-only"), async (req: Request, res: Response) => {
   const { org_id } = req.params;
+  const limitParam = req.query.limit;
+  const cursorParam = req.query.cursor;
+  let take = 50;
+  if (typeof limitParam === "string") {
+    const parsed = Number.parseInt(limitParam, 10);
+    if (Number.isFinite(parsed) && parsed > 0) take = Math.min(parsed, 200);
+  }
   try {
-    // Derive incidents from recent presence events that were not accepted.
     const [events, receivers] = await Promise.all([
       prisma.presenceEvent.findMany({
         where: { orgId: org_id, authResult: { not: "accepted" } },
-        orderBy: { serverTimestamp: "desc" },
-        take: 200,
+        orderBy: [{ serverTimestamp: "desc" }, { id: "desc" }],
+        take: take + 1,
+        ...(typeof cursorParam === "string" && cursorParam.length > 0
+          ? { cursor: { id: cursorParam }, skip: 1 }
+          : {}),
       }),
       prisma.receiver.findMany({ where: { orgId: org_id }, select: { id: true, locationLabel: true, displayName: true } }),
     ]);
+
+    let nextCursor: string | null = null;
+    if (events.length > take) {
+      const next = events.pop();
+      nextCursor = next?.id ?? null;
+    }
 
     const receiverMap = receivers.reduce<Record<string, { location?: string; name?: string }>>((acc, r) => {
       acc[r.id] = { location: r.locationLabel ?? undefined, name: r.displayName ?? undefined };
@@ -2545,7 +2586,7 @@ router.get("/v2/orgs/:org_id/incidents", requireRole("read-only"), async (req: R
       };
     });
 
-    return res.json(incidents);
+    return res.json({ items: incidents, nextCursor });
   } catch (err) {
     // eslint-disable-next-line no-console
     console.error("Error deriving incidents", err);
@@ -2554,8 +2595,15 @@ router.get("/v2/orgs/:org_id/incidents", requireRole("read-only"), async (req: R
 });
 
 // Logs placeholder
-router.get("/v2/orgs/:org_id/logs", requireRole("read-only"), async (_req: Request, res: Response) => {
-  return res.json([]);
+router.get("/v2/orgs/:org_id/logs", requireRole("read-only"), async (req: Request, res: Response) => {
+  const limitParam = req.query.limit;
+  const cursorParam = req.query.cursor;
+  let take = 50;
+  if (typeof limitParam === "string") {
+    const parsed = Number.parseInt(limitParam, 10);
+    if (Number.isFinite(parsed) && parsed > 0) take = Math.min(parsed, 200);
+  }
+  return res.json({ items: [], nextCursor: null, limit: take, cursor: cursorParam ?? null });
 });
 
 // HPS stats/config placeholder
