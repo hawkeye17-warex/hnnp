@@ -57,6 +57,7 @@ const GlobalSearchPage = React.lazy(() => import('./pages/GlobalSearchPage'));
 const QuizBuilderPage = React.lazy(() => import('./pages/QuizBuilderPage'));
 const QuizDetailPage = React.lazy(() => import('./pages/QuizDetailPage'));
 const ShiftDetailPage = React.lazy(() => import('./pages/ShiftDetailPage'));
+const LoAProfilesPage = React.lazy(() => import('./pages/LoAProfilesPage'));
 
 const ProtectedLayout = ProtectedRoute(AppLayout);
 
@@ -119,6 +120,7 @@ const router = createBrowserRouter(
         {path: '/developer-api', element: withLoader(<DeveloperApiPage />)},
         {path: '/settings/security', element: withLoader(<SecuritySettingsPage />)},
         {path: '/audit-trail', element: withLoader(<AuditTrailPage />)},
+        {path: '/loa-profiles', element: withLoader(<LoAProfilesPage />)},
       ],
     },
     {path: '*', element: <Navigate to="/overview" replace />},
