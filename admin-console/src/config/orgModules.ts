@@ -11,7 +11,9 @@ export type ModuleId =
   | "access_control"
   | "analytics"
   | "hps_insights"
-  | "developer_api";
+  | "developer_api"
+  | "logs"
+  | "audit_trail";
 
 export const MODULE_NAV_ITEMS: Record<
   ModuleId,
@@ -28,6 +30,8 @@ export const MODULE_NAV_ITEMS: Record<
   analytics: { label: "Analytics", route: "/analytics" },
   hps_insights: { label: "HPS Insights", route: "/hps" },
   developer_api: { label: "Developer API", route: "/developer-api", requiredRole: ["admin", "owner"] },
+  logs: { label: "Logs", route: "/logs", requiredRole: ["admin", "owner", "auditor"] },
+  audit_trail: { label: "Audit Trail", route: "/audit-trail", requiredRole: ["admin", "owner", "auditor", "security"] },
 };
 
 export const ROUTE_TO_MODULE: Record<string, ModuleId | undefined> = Object.values(MODULE_NAV_ITEMS).reduce(
@@ -103,6 +107,8 @@ export function buildSidebarConfig(
     if (spaces.length) sections.push({ title: "Spaces", items: spaces });
 
     const system: SidebarItem[] = [];
+    if (has("logs")) system.push(MODULE_NAV_ITEMS.logs);
+    if (has("audit_trail")) system.push(MODULE_NAV_ITEMS.audit_trail);
     if (has("access_control")) system.push(MODULE_NAV_ITEMS.access_control);
     if (has("analytics")) system.push(MODULE_NAV_ITEMS.analytics);
     if (has("hps_insights")) system.push(MODULE_NAV_ITEMS.hps_insights);
@@ -122,6 +128,8 @@ export function buildSidebarConfig(
     if (ops.length) sections.push({ title: "Operations", items: ops });
 
     const system: SidebarItem[] = [...systemBase.items];
+    if (has("logs")) system.push(MODULE_NAV_ITEMS.logs);
+    if (has("audit_trail")) system.push(MODULE_NAV_ITEMS.audit_trail);
     if (has("access_control")) system.push(MODULE_NAV_ITEMS.access_control);
     if (has("analytics")) system.push(MODULE_NAV_ITEMS.analytics);
     if (has("hps_insights")) system.push(MODULE_NAV_ITEMS.hps_insights);

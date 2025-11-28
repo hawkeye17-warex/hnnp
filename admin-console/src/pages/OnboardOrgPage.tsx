@@ -16,6 +16,8 @@ const MODULES: ModuleId[] = [
   'analytics',
   'hps_insights',
   'developer_api',
+  'logs',
+  'audit_trail',
 ];
 
 const PRESETS: Record<OrgType, ModuleId[]> = {
