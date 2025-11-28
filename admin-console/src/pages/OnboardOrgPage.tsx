@@ -112,7 +112,7 @@ const OnboardOrgPage = () => {
             <select
               value={orgType}
               onChange={e => setOrgType(e.target.value as OrgType)}
-              style={{zIndex: 10}}>
+              style={{zIndex: 10, background: '#111827', color: '#e5e7eb'}}>
               {ORG_TYPES.map(t => (
                 <option key={t} value={t}>
                   {t}
