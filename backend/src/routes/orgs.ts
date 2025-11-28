@@ -31,7 +31,26 @@ const MODULES = [
   "analytics",
   "hps_insights",
   "developer_api",
+  "logs",
+  "audit_trail",
 ];
+
+function getDefaultModulesForOrgType(orgType: string): string[] {
+  switch (orgType) {
+    case "school":
+      return ["attendance", "sessions", "quizzes", "exams", "analytics", "hps_insights", "logs", "audit_trail"];
+    case "factory":
+      return ["attendance", "shifts", "workzones", "safety", "access_control", "analytics", "hps_insights", "logs", "audit_trail"];
+    case "hospital":
+      return ["attendance", "safety", "access_control", "analytics", "hps_insights", "logs", "audit_trail"];
+    case "gov":
+      return ["attendance", "access_control", "analytics", "hps_insights", "logs", "audit_trail"];
+    case "office":
+    case "other":
+    default:
+      return ["attendance", "analytics", "hps_insights", "logs", "audit_trail"];
+  }
+}
 
 router.post("/internal/orgs/create", async (req: Request, res: Response) => {
   const { name, slug, org_type, enabled_modules } = (req.body ?? {}) as {
@@ -51,7 +70,7 @@ router.post("/internal/orgs/create", async (req: Request, res: Response) => {
   const enabledModules =
     Array.isArray(enabled_modules) && enabled_modules.every((m) => typeof m === "string" && MODULES.includes(m))
       ? (enabled_modules as string[])
-      : [];
+      : getDefaultModulesForOrgType(orgType);
 
   try {
     const existing = await prisma.org.findUnique({ where: { slug } });
@@ -104,6 +123,9 @@ router.post("/internal/orgs/create", async (req: Request, res: Response) => {
     return res.status(500).json({ error: "Internal server error" });
   }
 });
+
+// Superadmin create: reuse internal create logic.
+router.post("/api/superadmin/orgs", router.stack.find((l) => l.route?.path === "/internal/orgs/create")?.handle ?? (() => {}));
 
 router.use(requireAuth);
 
