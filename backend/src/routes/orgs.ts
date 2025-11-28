@@ -2504,8 +2504,53 @@ router.get("/v2/orgs/:org_id/groups", requireRole("read-only"), async (_req: Req
 });
 
 // Incidents placeholder
-router.get("/v2/orgs/:org_id/incidents", requireRole("read-only"), async (_req: Request, res: Response) => {
-  return res.json([]);
+router.get("/v2/orgs/:org_id/incidents", requireRole("read-only"), async (req: Request, res: Response) => {
+  const { org_id } = req.params;
+  try {
+    // Derive incidents from recent presence events that were not accepted.
+    const [events, receivers] = await Promise.all([
+      prisma.presenceEvent.findMany({
+        where: { orgId: org_id, authResult: { not: "accepted" } },
+        orderBy: { serverTimestamp: "desc" },
+        take: 200,
+      }),
+      prisma.receiver.findMany({ where: { orgId: org_id }, select: { id: true, locationLabel: true, displayName: true } }),
+    ]);
+
+    const receiverMap = receivers.reduce<Record<string, { location?: string; name?: string }>>((acc, r) => {
+      acc[r.id] = { location: r.locationLabel ?? undefined, name: r.displayName ?? undefined };
+      return acc;
+    }, {});
+
+    const incidents = events.map((evt) => {
+      const receiverInfo = receiverMap[evt.receiverId] ?? {};
+      const meta = (evt.meta as any) ?? {};
+      const use_case = meta.use_case ?? "attendance";
+      const loa_level = meta.loa_level ?? meta.loa ?? null;
+      const severity: "info" | "warning" | "critical" =
+        evt.authResult.startsWith("rejected") || evt.authResult.startsWith("ignored")
+          ? "warning"
+          : "critical";
+
+      return {
+        id: evt.id,
+        timestamp: evt.serverTimestamp.toISOString(),
+        severity,
+        title: evt.reason ?? evt.authResult,
+        description: meta.error ?? undefined,
+        relatedLocationName: receiverInfo.location,
+        relatedReceiverName: receiverInfo.name ?? evt.receiverId,
+        loa_level,
+        use_case,
+      };
+    });
+
+    return res.json(incidents);
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error("Error deriving incidents", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
 });
 
 // Logs placeholder

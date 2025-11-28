@@ -31,6 +31,8 @@ const IncidentsPage: React.FC = () => {
         title: inc.title,
         location: inc.relatedLocationName ?? inc.relatedReceiverName ?? '—',
         description: inc.description,
+        loa: inc.loa_level ?? '—',
+        useCase: inc.use_case ?? '—',
       })),
     [incidents],
   );
@@ -96,20 +98,22 @@ const IncidentsPage: React.FC = () => {
           <div className="text-sm text-slate-500">No incidents found.</div>
         ) : (
           <div className="space-y-3">
-            <div className="grid grid-cols-1 md:grid-cols-5 text-xs font-semibold text-slate-500">
+            <div className="grid grid-cols-1 md:grid-cols-6 text-xs font-semibold text-slate-500">
               <span>Time</span>
               <span>Severity</span>
               <span className="md:col-span-2">Title</span>
               <span>Location</span>
+              <span>LoA / Use case</span>
             </div>
             <div className="divide-y divide-slate-200">
               {rows.map(row => (
                 <details key={row.id} className="py-2">
-                  <summary className="grid grid-cols-1 md:grid-cols-5 items-center gap-2 cursor-pointer">
+                  <summary className="grid grid-cols-1 md:grid-cols-6 items-center gap-2 cursor-pointer">
                     <span className="text-xs text-slate-500">{row.time}</span>
                     <span className="text-xs font-semibold capitalize">{row.severity}</span>
                     <span className="md:col-span-2 text-sm text-slate-900">{row.title}</span>
                     <span className="text-sm text-slate-700">{row.location}</span>
+                    <span className="text-sm text-slate-700">{row.loa} / {row.useCase}</span>
                   </summary>
                   {row.description && (
                     <div className="mt-2 text-sm text-slate-700">{row.description}</div>

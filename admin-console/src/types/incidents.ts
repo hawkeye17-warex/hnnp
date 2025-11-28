@@ -6,4 +6,6 @@ export type Incident = {
   description?: string;
   relatedLocationName?: string;
   relatedReceiverName?: string;
+  loa_level?: string | null;
+  use_case?: string | null;
 };
