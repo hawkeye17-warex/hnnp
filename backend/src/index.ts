@@ -22,6 +22,7 @@ import { controlPlaneRouter } from "./routes/controlPlane";
 import { requestLogger } from "./middleware/logging";
 import { auditRouter } from "./routes/audit";
 import { settingsRouter } from "./routes/settings";
+import { loaRouter } from "./routes/loa";
 
 const config = loadConfig();
 const app = express();
@@ -72,6 +73,7 @@ app.use(quizRouter);
 app.use(shiftRouter);
 app.use(controlPlaneRouter);
 app.use(settingsRouter);
+app.use(loaRouter);
 
 const server = http.createServer(app);
 

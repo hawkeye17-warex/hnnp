@@ -38,6 +38,8 @@ model Org {
   receivers      Receiver[]
   shifts         Shift[]
   userProfiles   UserProfile[]
+  loaProfiles    LoaProfile[]
+  loaAssignments LoaAssignment[]
 }
 
 /// Per-user role assignments within an org.
@@ -361,4 +363,31 @@ model AuditEvent {
   @@index([orgId, createdAt])
   @@index([orgId, action])
   @@index([orgId, userId])
+}
+
+/// Level of Assurance profiles for Presence Passport.
+model LoaProfile {
+  id          String   @id @default(cuid())
+  orgId       String
+  name        String
+  requirements Json?
+  createdAt   DateTime @default(now())
+
+  org        Org             @relation(fields: [orgId], references: [id])
+  assignments LoaAssignment[]
+
+  @@index([orgId])
+}
+
+model LoaAssignment {
+  id           String   @id @default(cuid())
+  orgId        String
+  useCase      String
+  loaProfileId String
+  createdAt    DateTime @default(now())
+
+  org        Org        @relation(fields: [orgId], references: [id])
+  loaProfile LoaProfile @relation(fields: [loaProfileId], references: [id])
+
+  @@index([orgId, useCase])
 }
