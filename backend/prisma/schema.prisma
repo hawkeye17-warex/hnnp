@@ -32,6 +32,7 @@ model Org {
   devices        Device[]
   links          Link[]
   orgRoles       OrgRole[]
+  hpsPolicy      HpsPolicy?
   events         PresenceEvent[]
   sessions       PresenceSession[]
   quizSessions   QuizSession[]
