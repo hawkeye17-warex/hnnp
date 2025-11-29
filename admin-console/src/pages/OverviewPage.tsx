@@ -5,6 +5,7 @@ import IncidentList from '../components/ui/IncidentList';
 import SectionCard from '../components/ui/SectionCard';
 import StatCard from '../components/ui/StatCard';
 import StatusPill from '../components/ui/StatusPill';
+import {usePerfMark} from '../hooks/usePerfMark';
 
 type Receiver = {
   id: string;
@@ -26,6 +27,7 @@ type PresenceEvent = {
 type Props = {orgId?: string};
 
 const OverviewPage: React.FC<Props> = ({orgId}) => {
+  usePerfMark('OverviewPage');
   const api = useApi();
   const [receivers, setReceivers] = useState<Receiver[]>([]);
   const [events, setEvents] = useState<PresenceEvent[]>([]);
