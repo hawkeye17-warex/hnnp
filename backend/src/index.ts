@@ -25,6 +25,7 @@ import { settingsRouter } from "./routes/settings";
 import { loaRouter } from "./routes/loa";
 import { hpsConfigRouter } from "./routes/hpsConfig";
 import { rateLimit } from "./middleware/rateLimit";
+import { healthRouter } from "./routes/health";
 
 const config = loadConfig();
 const app = express();
@@ -55,9 +56,7 @@ app.use(requestLogger);
 app.use(rateLimit);
 app.use(maintenanceGuard);
 
-app.get("/health", (_req: Request, res: Response) => {
-  res.status(200).json({ status: "ok" });
-});
+app.use(healthRouter);
 
 app.use(presenceRouter);
 app.use(linkRouter);
