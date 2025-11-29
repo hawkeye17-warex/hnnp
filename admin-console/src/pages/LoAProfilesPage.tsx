@@ -2,6 +2,7 @@ import React, {useMemo, useState} from 'react';
 import SectionCard from '../components/ui/SectionCard';
 import LoadingState from '../components/LoadingState';
 import ErrorState from '../components/ErrorState';
+import InfoTooltip from '../components/InfoTooltip';
 import {useLoAProfiles} from '../hooks/useLoAProfiles';
 
 const USE_CASES = ['attendance', 'access_control', 'exam_proctoring', 'restricted_zone'];
@@ -38,7 +39,9 @@ const LoAProfilesPage: React.FC = () => {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-semibold text-slate-900">LoA Profiles</h1>
+      <h1 className="text-2xl font-semibold text-slate-900 flex items-center gap-2">
+        LoA Profiles <InfoTooltip label="Level of Assurance profiles define how strongly we verify identity for each use case." />
+      </h1>
 
       <SectionCard title="Profiles">
         {profiles.length === 0 ? (

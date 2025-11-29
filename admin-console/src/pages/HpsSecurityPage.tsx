@@ -1,6 +1,7 @@
 import React, {useState} from 'react';
 import SectionCard from '../components/ui/SectionCard';
 import StatCard from '../components/ui/StatCard';
+import InfoTooltip from '../components/InfoTooltip';
 import {useHpsStats} from '../hooks/useHpsStats';
 import {useHpsPolicy} from '../hooks/useHpsPolicy';
 
@@ -17,7 +18,12 @@ const HpsSecurityPage: React.FC = () => {
     <div className="bg-slate-100 min-h-screen p-6 space-y-6">
       <h1 className="text-2xl font-semibold text-slate-900">HPS & Security</h1>
 
-      <SectionCard title="HPS Overview">
+      <SectionCard
+        title={
+          <span className="flex items-center gap-2">
+            HPS Overview <InfoTooltip label="HPS (Handshake Presence Score) indicates the confidence of presence verification." />
+          </span>
+        }>
         {statsLoading ? (
           <div className="text-sm text-slate-500">Loading HPS metrics...</div>
         ) : statsError ? (
@@ -31,7 +37,13 @@ const HpsSecurityPage: React.FC = () => {
         )}
       </SectionCard>
 
-      <SectionCard title="Presence Assurance Policy">
+      <SectionCard
+        title={
+          <span className="flex items-center gap-2">
+            Presence Assurance Policy{' '}
+            <InfoTooltip label="These settings control when HPS is required. Higher scores mean stronger assurance." />
+          </span>
+        }>
         {policyLoading ? (
           <div className="text-sm text-slate-500">Loading HPS policy...</div>
         ) : policyError ? (

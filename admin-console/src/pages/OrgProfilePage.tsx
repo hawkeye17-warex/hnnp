@@ -1,6 +1,7 @@
 import React from 'react';
 import {useOrgConfigContext} from '../context/OrgConfigContext';
 import {apiFetch} from '../api/client';
+import InfoTooltip from '../components/InfoTooltip';
 
 const MODULE_DESCRIPTIONS: Record<string, string> = {
   attendance: 'Track presence / attendance.',
@@ -84,7 +85,9 @@ const OrgProfilePage: React.FC = () => {
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 space-y-3">
-        <h2 className="text-lg font-semibold text-slate-900">Presence Passport LoA</h2>
+        <h2 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
+          Presence Passport LoA <InfoTooltip label="LoA (Level of Assurance) defines how strongly we verify identity for each use case." />
+        </h2>
         {loaLoading && <div className="text-sm text-slate-500">Loading LoA profile...</div>}
         {loaError && <div className="text-sm text-red-600">{loaError}</div>}
         {!loaLoading && !loaError && (
