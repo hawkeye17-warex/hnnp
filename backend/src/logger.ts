@@ -37,11 +37,15 @@ export function generateRequestId() {
 }
 
 export function log(entry: LogEntry) {
+  const meta = entry.meta ?? {};
   const payload = {
     ts: new Date().toISOString(),
     level: entry.level,
     message: entry.message,
-    ...(entry.meta ? { meta: entry.meta } : {}),
+    ...("org_id" in meta ? { org_id: (meta as any).org_id } : {}),
+    ...("user_id" in meta ? { user_id: (meta as any).user_id } : {}),
+    ...("request_id" in meta ? { request_id: (meta as any).request_id } : {}),
+    meta,
   };
   // eslint-disable-next-line no-console
   console.log(JSON.stringify(payload));

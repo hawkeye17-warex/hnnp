@@ -24,6 +24,7 @@ import { auditRouter } from "./routes/audit";
 import { settingsRouter } from "./routes/settings";
 import { loaRouter } from "./routes/loa";
 import { hpsConfigRouter } from "./routes/hpsConfig";
+import { rateLimit } from "./middleware/rateLimit";
 
 const config = loadConfig();
 const app = express();
@@ -51,6 +52,7 @@ app.use(
 );
 
 app.use(requestLogger);
+app.use(rateLimit);
 app.use(maintenanceGuard);
 
 app.get("/health", (_req: Request, res: Response) => {

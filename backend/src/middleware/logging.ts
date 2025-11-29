@@ -37,7 +37,15 @@ export function logRequestBody(req: Request, res: Response, next: NextFunction) 
   log({
     level: "info",
     message: "incoming_request",
-    meta: { request_id: req.requestId, method: req.method, path: req.originalUrl || req.url, headers, body },
+    meta: {
+      request_id: req.requestId,
+      method: req.method,
+      path: req.originalUrl || req.url,
+      headers,
+      body,
+      org_id: req.org?.id ?? req.headers["x-org-id"],
+      user_id: req.user?.id,
+    },
   });
   return next();
 }
