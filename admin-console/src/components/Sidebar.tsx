@@ -41,7 +41,7 @@ const Sidebar = ({sections}: {sections?: SidebarSection[]}) => {
                   className={({isActive}) =>
                     [
                       'group relative flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium',
-                      'text-slate-200 hover:bg-[#1b1e26] transition-colors',
+                      'text-slate-200 hover:bg-[#1b1e26] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500 focus-visible:ring-offset-[#111318]',
                       isActive ? 'bg-[#1b1e26] font-semibold text-white shadow-[inset_4px_0_0_0_#3b82f6]' : '',
                     ].join(' ')
                   }>

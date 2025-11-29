@@ -18,7 +18,7 @@ const TopBar: React.FC<Props> = ({onToggleSidebar}) => {
       <div className="flex items-center gap-3">
         <button
           type="button"
-          className="lg:hidden h-9 w-9 rounded-md bg-slate-800 text-white flex items-center justify-center focus:outline-none"
+          className="lg:hidden h-9 w-9 rounded-md bg-slate-800 text-white flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500 focus-visible:ring-offset-[#161921]"
           onClick={onToggleSidebar}
           aria-label="Toggle sidebar">
           <span className="h-0.5 w-4 bg-white block mb-1" />
