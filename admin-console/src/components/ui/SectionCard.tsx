@@ -2,7 +2,7 @@ import React, {ReactNode} from 'react';
 import clsx from 'clsx';
 
 type SectionCardProps = {
-  title: string;
+  title: ReactNode;
   className?: string;
   children: ReactNode;
 };
