@@ -26,6 +26,7 @@ import { loaRouter } from "./routes/loa";
 import { hpsConfigRouter } from "./routes/hpsConfig";
 import { rateLimit } from "./middleware/rateLimit";
 import { healthRouter } from "./routes/health";
+import { clientLogsRouter } from "./routes/clientLogs";
 
 const config = loadConfig();
 const app = express();
@@ -57,6 +58,7 @@ app.use(rateLimit);
 app.use(maintenanceGuard);
 
 app.use(healthRouter);
+app.use(clientLogsRouter);
 
 app.use(presenceRouter);
 app.use(linkRouter);

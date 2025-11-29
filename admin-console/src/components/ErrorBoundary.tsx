@@ -16,11 +16,14 @@ export class ErrorBoundary extends React.Component<React.PropsWithChildren<unkno
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     // eslint-disable-next-line no-console
     console.error('Error boundary caught:', error, errorInfo);
-    void fetch('/api/logs/client', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({message: error.message, stack: error.stack, info: errorInfo.componentStack}),
-    }).catch(() => {});
+    import('../utils/clientLogger').then(({logClientError}) =>
+      logClientError({
+        level: 'error',
+        message: error.message,
+        stack: error.stack,
+        component: errorInfo.componentStack,
+      }),
+    );
   }
 
   render() {
