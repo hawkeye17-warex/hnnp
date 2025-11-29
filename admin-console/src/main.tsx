@@ -9,6 +9,7 @@ import AppLayout from './layout/AppLayout';
 import {ThemeProvider} from './theme/ThemeProvider';
 import {AuthProvider, ProtectedRoute} from './context/AuthContext';
 import {ToastProvider} from './context/ToastContext';
+import {ErrorBoundary} from './components/ErrorBoundary';
 
 const OverviewPage = React.lazy(() => import('./pages/OverviewPage'));
 const ReceiversPage = React.lazy(() => import('./pages/ReceiversPage'));
@@ -133,7 +134,9 @@ ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
     <ThemeProvider>
       <ToastProvider>
         <AuthProvider>
-          <RouterProvider router={router} />
+          <ErrorBoundary>
+            <RouterProvider router={router} />
+          </ErrorBoundary>
         </AuthProvider>
       </ToastProvider>
     </ThemeProvider>
