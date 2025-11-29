@@ -73,7 +73,9 @@ const UsersPage: React.FC = () => {
         ) : error ? (
           <div className="text-sm text-red-600">{error}</div>
         ) : filtered.length === 0 ? (
-          <div className="text-sm text-slate-500">No users found.</div>
+          <div className="text-sm text-slate-500">
+            No users found. Invite users or clear your filters to see more.
+          </div>
         ) : (
           <div className="divide-y divide-slate-200">
             <div className="grid grid-cols-1 md:grid-cols-5 text-xs uppercase text-slate-500 pb-2">

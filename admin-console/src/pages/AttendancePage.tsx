@@ -98,7 +98,9 @@ const AttendancePage: React.FC = () => {
           ) : error ? (
             <div className="text-sm text-red-600">{error}</div>
           ) : records.length === 0 ? (
-            <div className="text-sm text-slate-500">No attendance records.</div>
+            <div className="text-sm text-slate-500">
+              No attendance records for this range. Check receivers and filters.
+            </div>
           ) : (
             <div className="w-full overflow-x-auto">
               <table className="min-w-full text-sm text-slate-700">

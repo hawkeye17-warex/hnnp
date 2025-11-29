@@ -96,7 +96,9 @@ const IncidentsPage: React.FC = () => {
         ) : error ? (
           <div className="text-sm text-red-600">{error}</div>
         ) : rows.length === 0 ? (
-          <div className="text-sm text-slate-500">No incidents found.</div>
+          <div className="text-sm text-slate-500">
+            No incidents found. Verify receiver status or widen the time range.
+          </div>
         ) : (
           <div className="space-y-3">
             <div className="grid grid-cols-1 md:grid-cols-6 text-xs font-semibold text-slate-500 px-1">

@@ -95,7 +95,9 @@ const LogsPage: React.FC = () => {
         ) : error ? (
           <div className="text-sm text-red-600">{error}</div>
         ) : logs.length === 0 ? (
-          <div className="text-sm text-slate-500">No logs available for selected filters.</div>
+          <div className="text-sm text-slate-500">
+            No logs available for selected filters. Try another range or check receiver connectivity.
+          </div>
         ) : (
           <div className="divide-y divide-slate-200">
             <div className="hidden md:grid md:grid-cols-4 text-xs font-semibold text-slate-500 pb-2">

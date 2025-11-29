@@ -34,7 +34,9 @@ const ReceiversPage: React.FC = () => {
         ) : error ? (
           <div className="text-sm text-red-600">{error}</div>
         ) : receivers.length === 0 ? (
-          <div className="text-sm text-slate-500">No receivers to display.</div>
+          <div className="text-sm text-slate-500">
+            No receivers to display. Add a receiver or check filters in Settings.
+          </div>
         ) : (
           <div className="divide-y divide-slate-200">
             <div className="hidden md:grid md:grid-cols-5 text-xs font-semibold text-slate-500 pb-2">
