@@ -3,6 +3,7 @@ import SectionCard from '../components/ui/SectionCard';
 import IncidentList from '../components/ui/IncidentList';
 import {useIncidents} from '../hooks/useIncidents';
 import {useLocations} from '../hooks/useLocations';
+import {VirtualList} from '../components/VirtualList';
 
 type Severity = 'all' | 'info' | 'warning' | 'critical';
 
@@ -12,7 +13,7 @@ const IncidentsPage: React.FC = () => {
   const [locationId, setLocationId] = useState<string>('');
 
   const {data: locations, isLoading: loadingLocations} = useLocations();
-  const {data: incidents, isLoading, error} = useIncidents({
+  const {data: incidents, isLoading, error, nextCursor, loadMore} = useIncidents({
     severity: severity === 'all' ? undefined : severity,
     from: range === 'today' ? startOfDayIso() : undefined,
     locationId: locationId || undefined,
@@ -98,16 +99,19 @@ const IncidentsPage: React.FC = () => {
           <div className="text-sm text-slate-500">No incidents found.</div>
         ) : (
           <div className="space-y-3">
-            <div className="grid grid-cols-1 md:grid-cols-6 text-xs font-semibold text-slate-500">
+            <div className="grid grid-cols-1 md:grid-cols-6 text-xs font-semibold text-slate-500 px-1">
               <span>Time</span>
               <span>Severity</span>
               <span className="md:col-span-2">Title</span>
               <span>Location</span>
               <span>LoA / Use case</span>
             </div>
-            <div className="divide-y divide-slate-200">
-              {rows.map(row => (
-                <details key={row.id} className="py-2">
+            <VirtualList
+              items={rows}
+              height={480}
+              itemHeight={88}
+              renderRow={row => (
+                <details key={row.id} className="py-2 border-b border-slate-200 last:border-b-0 px-1">
                   <summary className="grid grid-cols-1 md:grid-cols-6 items-center gap-2 cursor-pointer">
                     <span className="text-xs text-slate-500">{row.time}</span>
                     <span className="text-xs font-semibold capitalize">{row.severity}</span>
@@ -119,8 +123,16 @@ const IncidentsPage: React.FC = () => {
                     <div className="mt-2 text-sm text-slate-700">{row.description}</div>
                   )}
                 </details>
-              ))}
-            </div>
+              )}
+            />
+            {nextCursor && (
+              <button
+                type="button"
+                className="inline-flex px-4 py-2 rounded-md bg-slate-200 text-slate-800 hover:bg-slate-300 text-sm"
+                onClick={loadMore}>
+                Load more
+              </button>
+            )}
           </div>
         )}
       </SectionCard>

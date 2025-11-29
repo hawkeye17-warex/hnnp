@@ -16,10 +16,14 @@ export function usePresenceStream(params?: PresenceParams) {
   const [data, setData] = useState<PresenceEvent[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [paused, setPaused] = useState(false);
+
+  const MAX_EVENTS = 200;
 
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
+      if (paused) return;
       if (!session) {
         setError('Not authenticated');
         setData([]);
@@ -36,7 +40,13 @@ export function usePresenceStream(params?: PresenceParams) {
           `/v2/orgs/${encodeURIComponent(session.orgId)}/presence${qs.toString() ? `?${qs.toString()}` : ''}`,
         );
         const raw = Array.isArray(json) ? json : json?.events ?? json?.data ?? [];
-        if (!cancelled) setData(raw);
+        if (!cancelled) {
+          setData(prev => {
+            const next = raw;
+            if (next.length > MAX_EVENTS) return next.slice(-MAX_EVENTS);
+            return next;
+          });
+        }
       } catch (err: any) {
         if (!cancelled) setError(err?.message ?? 'Failed to load presence');
         if (!cancelled) setData([]);
@@ -48,7 +58,10 @@ export function usePresenceStream(params?: PresenceParams) {
     return () => {
       cancelled = true;
     };
-  }, [session, JSON.stringify(params)]);
+  }, [session, JSON.stringify(params), paused]);
 
-  return {data, isLoading, error};
+  const pause = () => setPaused(true);
+  const resume = () => setPaused(false);
+
+  return {data, isLoading, error, paused, pause, resume};
 }
