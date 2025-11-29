@@ -27,6 +27,7 @@ import { hpsConfigRouter } from "./routes/hpsConfig";
 import { rateLimit } from "./middleware/rateLimit";
 import { healthRouter } from "./routes/health";
 import { clientLogsRouter } from "./routes/clientLogs";
+import { apiKeysRouter } from "./routes/apiKeys";
 
 const config = loadConfig();
 const app = express();
@@ -64,6 +65,7 @@ app.use(presenceRouter);
 app.use(linkRouter);
 app.use(debugRouter);
 app.use(orgsRouter);
+app.use(apiKeysRouter);
 app.use(linksRouter);
 app.use(presenceReadRouter);
 app.use(adminAuthLogRouter);
