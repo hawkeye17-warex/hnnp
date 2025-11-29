@@ -2,6 +2,7 @@ import React from 'react';
 import SectionCard from '../components/ui/SectionCard';
 import {useOrgConfig} from '../hooks/useOrgConfig';
 import {useNotificationSettings} from '../hooks/useNotificationSettings';
+import {useToast} from '../hooks/useToast';
 
 const SettingsPage: React.FC = () => {
   const {data: orgConfig, isLoading: orgLoading, error: orgError} = useOrgConfig();
@@ -12,6 +13,7 @@ const SettingsPage: React.FC = () => {
     savingKey,
     updateSetting,
   } = useNotificationSettings();
+  const toast = useToast();
 
   return (
     <div className="bg-slate-100 min-h-screen p-6 space-y-6">
@@ -54,7 +56,10 @@ const SettingsPage: React.FC = () => {
                     className="h-4 w-4"
                     checked={Boolean(notificationSettings[key])}
                     disabled={savingKey === key}
-                    onChange={e => updateSetting(key, e.target.checked)}
+                    onChange={async e => {
+                      await updateSetting(key, e.target.checked);
+                      toast.success('Notification settings updated');
+                    }}
                   />
                   <span className="text-xs text-slate-600">
                     {savingKey === key ? 'Saving...' : Boolean(notificationSettings[key]) ? 'On' : 'Off'}
@@ -87,6 +92,15 @@ const SettingsPage: React.FC = () => {
           </div>
         </div>
       </SectionCard>
+
+      <div className="flex">
+        <button
+          type="button"
+          className="px-4 py-2 rounded-md bg-slate-200 text-slate-700 hover:bg-slate-300 text-sm"
+          onClick={() => toast.info('Toast system active')}>
+          Test toast
+        </button>
+      </div>
     </div>
   );
 };
